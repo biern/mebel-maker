@@ -125,7 +125,8 @@ const undoStack: SavedProject[] = [];
 const redoStack: SavedProject[] = [];
 
 interface SavedProject {
-  version: 1;
+  schemaVersion?: 1;
+  version: 1 | string;
   appVersion?: string;
   boards: Board[];
   anchors?: BoardAnchor[];
@@ -474,7 +475,8 @@ function redo(): void {
 
 function serializeProject(): SavedProject {
   return cloneProject({
-    version: 1,
+    schemaVersion: 1,
+    version: appVersion,
     appVersion,
     boards: state.boards,
     anchors: state.anchors,
@@ -525,6 +527,10 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   refresh();
 }
 
+function isSupportedProject(project: SavedProject): boolean {
+  return (project.schemaVersion ?? (project.version === 1 ? 1 : undefined)) === 1 && Array.isArray(project.boards);
+}
+
 function autosaveProject(): void {
   try {
     localStorage.setItem(storageKey, JSON.stringify(serializeProject()));
@@ -538,7 +544,7 @@ function loadAutosavedProject(): boolean {
     const raw = localStorage.getItem(storageKey);
     if (!raw) return false;
     const project = JSON.parse(raw) as SavedProject;
-    if (project.version !== 1 || !Array.isArray(project.boards)) throw new Error("Unsupported project file");
+    if (!isSupportedProject(project)) throw new Error("Unsupported project file");
     applyProject(project, false);
     state.lastSnap = "Restored autosave";
     updateInspector();
@@ -575,7 +581,7 @@ function importProjectFile(file: File): void {
   reader.addEventListener("load", () => {
     try {
       const project = JSON.parse(String(reader.result ?? "")) as SavedProject;
-      if (project.version !== 1 || !Array.isArray(project.boards)) throw new Error("Unsupported project file");
+      if (!isSupportedProject(project)) throw new Error("Unsupported project file");
       applyProject(project);
       state.lastSnap = "Project imported";
       updateInspector();
