@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mebel Maker</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar left-panel" aria-label="Drawing tools">
+        <div class="brand">
+          <div class="mark">MB</div>
+          <div>
+            <h1>Mebel Maker</h1>
+            <p>2D furniture sketching</p>
+          </div>
+        </div>
+
+        <section class="tool-section">
+          <h2>Build</h2>
+          <div class="button-grid">
+            <button class="tool-button" id="starterBtn" title="Create a connected cabinet starter">
+              <span class="icon">▣</span>
+              Cabinet
+            </button>
+            <button class="tool-button" id="measureModeBtn" title="Add anchored measurement">
+              <span class="icon">↔</span>
+              Measure
+            </button>
+          </div>
+        </section>
+
+        <section class="tool-section">
+          <h2>Pieces</h2>
+          <div class="preset-list" id="presetList">
+            <button class="preset-card" draggable="true" data-preset="side" title="Side panel">
+              <span class="piece-preview vertical"></span>
+              <span>Side</span>
+              <strong>18 × 560</strong>
+            </button>
+            <button class="preset-card" draggable="true" data-preset="shelf" title="Shelf board">
+              <span class="piece-preview horizontal"></span>
+              <span>Shelf</span>
+              <strong>784 × 18</strong>
+            </button>
+            <button class="preset-card" draggable="true" data-preset="divider" title="Vertical divider">
+              <span class="piece-preview vertical slim"></span>
+              <span>Divider</span>
+              <strong>18 × 524</strong>
+            </button>
+            <button class="preset-card" draggable="true" data-preset="back" title="Back panel">
+              <span class="piece-preview panel"></span>
+              <span>Back</span>
+              <strong>820 × 560</strong>
+            </button>
+          </div>
+        </section>
+
+        <section class="tool-section">
+          <h2>Settings</h2>
+          <label class="field">
+            <span>Wood thickness</span>
+            <div class="input-row">
+              <input id="thicknessInput" type="number" min="3" max="80" step="1">
+              <span>mm</span>
+            </div>
+          </label>
+          <label class="field">
+            <span>Snap step</span>
+            <div class="input-row">
+              <input id="gridInput" type="number" min="5" max="100" step="5">
+              <span>mm</span>
+            </div>
+          </label>
+          <label class="toggle-row">
+            <input id="snapToggle" type="checkbox" checked>
+            <span>Snap to grid, edges, and alignment</span>
+          </label>
+          <label class="toggle-row">
+            <input id="dimToggle" type="checkbox" checked>
+            <span>Show dimension hints</span>
+          </label>
+        </section>
+
+        <section class="tool-section">
+          <h2>Actions</h2>
+          <div class="button-grid compact">
+            <button id="duplicateBtn" class="tool-button" title="Duplicate selected board (Cmd/Ctrl+D)">⧉ Duplicate</button>
+            <button id="undoBtn" class="tool-button" title="Undo last change">↶ Undo</button>
+            <button id="redoBtn" class="tool-button" title="Redo last change">↷ Redo</button>
+            <button id="measureWidthBtn" class="tool-button" title="Measure selected width">↔ Width measure</button>
+            <button id="measureHeightBtn" class="tool-button" title="Measure selected height">↕ Height measure</button>
+            <button id="saveBtn" class="tool-button" title="Save drawing in this browser">▤ Save</button>
+            <button id="loadBtn" class="tool-button" title="Load saved drawing">↺ Load</button>
+            <button id="deleteBtn" class="tool-button danger" title="Delete selected board">⌫ Delete</button>
+            <button id="fitBtn" class="tool-button" title="Fit drawing to view">⌖ Fit</button>
+            <button id="exportBtn" class="tool-button" title="Copy order summary">⇲ Copy list</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="workspace" aria-label="Sketch workspace">
+        <div class="topbar">
+          <div class="status-pill" id="selectionStatus">No board selected</div>
+          <div class="status-pill" id="snapStatus">Ready</div>
+        </div>
+        <canvas id="sketchCanvas"></canvas>
+      </section>
+
+      <aside class="sidebar right-panel" aria-label="Measurements and properties">
+        <section class="tool-section">
+          <h2>Selection</h2>
+          <div id="emptySelection" class="empty-state">Select a board to edit dimensions.</div>
+          <form id="inspector" class="inspector" hidden>
+            <label class="field">
+              <span>Name</span>
+              <input id="nameInput" type="text">
+            </label>
+            <label class="field">
+              <span>Material</span>
+              <select id="materialInput"></select>
+            </label>
+            <div class="two-col">
+              <label class="field">
+                <span>X</span>
+                <input id="xInput" type="number" step="1">
+              </label>
+              <label class="field">
+                <span>Y</span>
+                <input id="yInput" type="number" step="1">
+              </label>
+              <label class="field">
+                <span>Width</span>
+                <input id="wInput" type="number" min="1" step="1">
+              </label>
+              <label class="field">
+                <span>Height</span>
+                <input id="hInput" type="number" min="1" step="1">
+              </label>
+            </div>
+            <fieldset class="edge-fieldset">
+              <legend>Laminate edges</legend>
+              <label class="check-chip">
+                <input id="laminateLeftInput" type="checkbox">
+                <span>Left</span>
+              </label>
+              <label class="check-chip">
+                <input id="laminateRightInput" type="checkbox">
+                <span>Right</span>
+              </label>
+              <label class="check-chip">
+                <input id="laminateFrontInput" type="checkbox">
+                <span>Front</span>
+              </label>
+              <label class="check-chip">
+                <input id="laminateBackInput" type="checkbox">
+                <span>Back</span>
+              </label>
+            </fieldset>
+            <label class="check-chip full-row">
+              <input id="ignoreOrderInput" type="checkbox">
+              <span>Ignore in wood order</span>
+            </label>
+          </form>
+        </section>
+
+        <section class="tool-section">
+          <h2>Dimensions</h2>
+          <div class="measure-list" id="measureList"></div>
+        </section>
+
+        <section class="tool-section">
+          <h2>Anchored Measures</h2>
+          <div class="measure-list" id="customMeasureList"></div>
+        </section>
+
+        <section class="tool-section">
+          <h2>Warnings</h2>
+          <div class="measure-list" id="warningList"></div>
+        </section>
+
+        <section class="tool-section">
+          <h2>Wood Order</h2>
+          <div class="cut-list" id="cutList"></div>
+        </section>
+
+        <section class="tool-section">
+          <h2>Materials</h2>
+          <div class="material-list" id="materialList"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

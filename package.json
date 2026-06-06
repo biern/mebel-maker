@@ -1,0 +1,20 @@
+{
+  "name": "mebel-maker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "test:geometry": "esbuild scripts/geometry-check.ts --bundle --platform=node --format=esm --outfile=/tmp/meble-geometry-check.mjs && node /tmp/meble-geometry-check.mjs",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}
