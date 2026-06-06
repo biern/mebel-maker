@@ -481,27 +481,48 @@ input:disabled {
 }
 
 .anchor-chip {
+  align-items: center;
   background: #ffffff;
   border: 1px solid rgba(65, 82, 163, 0.58);
   border-radius: 999px;
   box-shadow: 0 5px 14px rgba(35, 43, 38, 0.14);
   color: #4152a3;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+  display: grid;
+  height: 30px;
+  justify-items: center;
   line-height: 1;
-  min-height: 26px;
-  padding: 6px 9px;
+  padding: 0;
   pointer-events: auto;
   position: absolute;
   transform: translate(-50%, -100%);
-  white-space: nowrap;
+  width: 30px;
 }
 
 .anchor-chip:hover,
 .anchor-chip:focus-visible {
   background: #f3f5ff;
   outline: 0;
+}
+
+.anchor-chip-icon {
+  fill: none;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 18px;
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .axis-glyph {
