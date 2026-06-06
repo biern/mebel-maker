@@ -208,26 +208,30 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
 }
 
 export function hitResizeHandle(state: SketchState, board: Board, point: Point): ResizeHandle | null {
-  const threshold = 14 / state.scale;
-  const edges = rectEdges(board);
-  const nearLeft = Math.abs(point.x - edges.left) <= threshold;
-  const nearRight = Math.abs(point.x - edges.right) <= threshold;
-  const nearTop = Math.abs(point.y - edges.top) <= threshold;
-  const nearBottom = Math.abs(point.y - edges.bottom) <= threshold;
-  const insideX = point.x >= edges.left - threshold && point.x <= edges.right + threshold;
-  const insideY = point.y >= edges.top - threshold && point.y <= edges.bottom + threshold;
+  const threshold = 18;
+  const screenPoint = worldToScreen(state, point.x, point.y);
+  const boardPoint = worldToScreen(state, board.x, board.y);
+  const w = board.w * state.scale;
+  const h = board.h * state.scale;
+  const handlePoints: Record<ResizeHandle, Point> = {
+    nw: { x: boardPoint.x, y: boardPoint.y },
+    n: { x: boardPoint.x + w / 2, y: boardPoint.y },
+    ne: { x: boardPoint.x + w, y: boardPoint.y },
+    w: { x: boardPoint.x, y: boardPoint.y + h / 2 },
+    e: { x: boardPoint.x + w, y: boardPoint.y + h / 2 },
+    sw: { x: boardPoint.x, y: boardPoint.y + h },
+    s: { x: boardPoint.x + w / 2, y: boardPoint.y + h },
+    se: { x: boardPoint.x + w, y: boardPoint.y + h }
+  };
 
-  const handle =
-    nearLeft && nearTop ? "nw" :
-      nearRight && nearTop ? "ne" :
-        nearLeft && nearBottom ? "sw" :
-          nearRight && nearBottom ? "se" :
-            nearTop && insideX ? "n" :
-              nearBottom && insideX ? "s" :
-                nearLeft && insideY ? "w" :
-                  nearRight && insideY ? "e" :
-                    null;
-  return handle && resizeHandlesForBoard(board).includes(handle) ? handle : null;
+  return resizeHandlesForBoard(board).reduce<{ handle: ResizeHandle | null; distance: number }>((best, handle) => {
+    const handlePoint = handlePoints[handle];
+    const dx = Math.abs(screenPoint.x - handlePoint.x);
+    const dy = Math.abs(screenPoint.y - handlePoint.y);
+    if (dx > threshold || dy > threshold) return best;
+    const distance = dx * dx + dy * dy;
+    return distance < best.distance ? { handle, distance } : best;
+  }, { handle: null, distance: Number.POSITIVE_INFINITY }).handle;
 }
 
 export function resizeBoard(state: SketchState, board: Board, handle: ResizeHandle, startRect: Rect, startPoint: Point, point: Point): RectSnapResult {

@@ -247,9 +247,11 @@ export class SketchRenderer {
     this.ctx.fillStyle = "#ffffff";
     this.ctx.strokeStyle = "#1f6659";
     this.ctx.lineWidth = 1.5;
+    const handleSize = 10;
+    const handleOffset = handleSize / 2;
     handles.forEach(([x, y]) => {
-      this.ctx.fillRect(x - 4, y - 4, 8, 8);
-      this.ctx.strokeRect(x - 4, y - 4, 8, 8);
+      this.ctx.fillRect(x - handleOffset, y - handleOffset, handleSize, handleSize);
+      this.ctx.strokeRect(x - handleOffset, y - handleOffset, handleSize, handleSize);
     });
     this.ctx.restore();
   }

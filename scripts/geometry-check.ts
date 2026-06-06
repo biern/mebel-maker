@@ -2,6 +2,7 @@ import {
   computeGroups,
   computeOverlaps,
   groupBoards,
+  hitResizeHandle,
   hitTest,
   innerDimensions,
   measurementAxis,
@@ -78,6 +79,11 @@ assert(upright, "left side exists");
 const uprightResize = resizeBoard(state, upright, "s", rectFromBoard(upright), { x: upright.x + upright.w / 2, y: upright.y + upright.h }, { x: upright.x + 80, y: upright.y + upright.h + 90 });
 assert(uprightResize.rect.w === state.thickness, "upright resize should keep thickness locked");
 assert(uprightResize.rect.h > upright.h, "upright end-handle resize should change height");
+
+state.scale = 0.09;
+const handleOffsetPx = 16 / state.scale;
+assert(hitResizeHandle(state, upright, { x: upright.x + upright.w / 2 + handleOffsetPx, y: upright.y + upright.h }) === "s", "resize handle hit area should stay screen-sized while zoomed out");
+state.scale = 0.5;
 
 const heightA: MeasurementAnchor = { kind: "board-edge", boardId: upright.id, edge: "top", offset: upright.w + 22 };
 const heightB: MeasurementAnchor = { kind: "board-edge", boardId: upright.id, edge: "bottom", offset: upright.w + 22 };
