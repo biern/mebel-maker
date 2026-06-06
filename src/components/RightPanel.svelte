@@ -8,7 +8,10 @@
         <input id="nameInput" type="text">
       </label>
       <label class="field">
-        <span>Material</span>
+        <span class="field-label-with-swatch">
+          Material
+          <span id="materialLabelSwatch" class="material-label-swatch"></span>
+        </span>
         <select id="materialInput"></select>
       </label>
       <div class="two-col">

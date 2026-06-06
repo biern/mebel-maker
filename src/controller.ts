@@ -63,6 +63,7 @@ const ui = {
   wInput: query<HTMLInputElement>("#wInput"),
   hInput: query<HTMLInputElement>("#hInput"),
   materialInput: query<HTMLSelectElement>("#materialInput"),
+  materialLabelSwatch: query<HTMLElement>("#materialLabelSwatch"),
   materialForm: query<HTMLFormElement>("#materialForm"),
   materialNameInput: query<HTMLInputElement>("#materialNameInput"),
   materialColorInput: query<HTMLInputElement>("#materialColorInput"),
@@ -233,6 +234,10 @@ function escapeHtml(value: string): string {
 
 function materialName(materialId: string): string {
   return state.materials.find((material) => material.id === materialId)?.name ?? "Unknown material";
+}
+
+function materialColor(materialId: string): string {
+  return state.materials.find((material) => material.id === materialId)?.color ?? state.materials[0].color;
 }
 
 function materialIdFromName(name: string): string {
@@ -522,6 +527,7 @@ function updateInspector(): void {
   if (state.tool === "measure") canvas.style.cursor = "";
   ui.wInput.disabled = false;
   ui.hInput.disabled = false;
+  ui.materialLabelSwatch.style.background = board ? materialColor(board.materialId) : "transparent";
   if (!board) return;
   ui.nameInput.value = board.name;
   ui.xInput.value = String(Math.round(board.x));

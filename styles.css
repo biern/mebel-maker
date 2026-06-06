@@ -234,6 +234,20 @@ h1 {
   font-size: 13px;
 }
 
+.field-label-with-swatch {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.material-label-swatch {
+  border: 1px solid rgba(32, 37, 34, 0.24);
+  border-radius: 4px;
+  display: inline-block;
+  height: 14px;
+  width: 14px;
+}
+
 .input-row {
   align-items: center;
   display: grid;
