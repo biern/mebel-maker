@@ -7,8 +7,8 @@
     </div>
   </div>
 
-  <section class="tool-section">
-    <h2>Templates</h2>
+  <details class="tool-section collapsible-section" open>
+    <summary>Templates</summary>
     <div class="button-grid compact" id="templateList">
       <button class="tool-button" data-template="cabinet" title="Create a connected cabinet starter">
         <span class="icon">▣</span>
@@ -31,7 +31,7 @@
         Simple box
       </button>
     </div>
-  </section>
+  </details>
 
   <section class="tool-section">
     <h2>Pieces</h2>
@@ -60,24 +60,6 @@
   </section>
 
   <section class="tool-section">
-    <h2>Materials</h2>
-    <form class="material-form" id="materialForm">
-      <label class="field">
-        <span>Name</span>
-        <input id="materialNameInput" type="text" autocomplete="off" placeholder="Custom material">
-      </label>
-      <div class="material-input-row">
-        <label class="field">
-          <span>Color</span>
-          <input id="materialColorInput" type="color" value="#c99756">
-        </label>
-        <button id="addMaterialBtn" class="tool-button" type="submit" title="Add custom material">＋ Add</button>
-      </div>
-    </form>
-    <div class="material-list" id="materialList"></div>
-  </section>
-
-  <section class="tool-section">
     <h2>Settings</h2>
     <label class="field">
       <span>Wood thickness</span>
@@ -102,4 +84,22 @@
       <span>Show dimension hints</span>
     </label>
   </section>
+
+  <details class="tool-section collapsible-section" open>
+    <summary>Materials</summary>
+    <form class="material-form" id="materialForm">
+      <label class="field">
+        <span>Name</span>
+        <input id="materialNameInput" type="text" autocomplete="off" placeholder="Custom material">
+      </label>
+      <div class="material-input-row">
+        <label class="field">
+          <span>Color</span>
+          <input id="materialColorInput" type="color" value="#c99756">
+        </label>
+        <button id="addMaterialBtn" class="tool-button" type="submit" title="Add custom material">＋ Add</button>
+      </div>
+    </form>
+    <div class="material-list" id="materialList"></div>
+  </details>
 </aside>

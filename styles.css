@@ -108,6 +108,46 @@ h1 {
   text-transform: uppercase;
 }
 
+.collapsible-section summary {
+  align-items: center;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: space-between;
+  letter-spacing: 0;
+  list-style: none;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.collapsible-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-section summary::after {
+  color: var(--muted);
+  content: "▾";
+  font-size: 13px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.collapsible-section:not([open]) summary {
+  margin-bottom: 0;
+}
+
+.collapsible-section:not([open]) summary::after {
+  transform: rotate(-90deg);
+}
+
+.collapsible-section summary:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgba(40, 127, 111, 0.16);
+  outline-offset: 3px;
+}
+
 .button-grid {
   display: grid;
   gap: 8px;
