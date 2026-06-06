@@ -460,6 +460,36 @@ input:disabled {
   width: 174px;
 }
 
+.anchor-overlay {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.anchor-chip {
+  background: #ffffff;
+  border: 1px solid rgba(65, 82, 163, 0.58);
+  border-radius: 999px;
+  box-shadow: 0 5px 14px rgba(35, 43, 38, 0.14);
+  color: #4152a3;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  min-height: 26px;
+  padding: 6px 9px;
+  pointer-events: auto;
+  position: absolute;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+}
+
+.anchor-chip:hover,
+.anchor-chip:focus-visible {
+  background: #f3f5ff;
+  outline: 0;
+}
+
 .axis-glyph {
   height: 58px;
   position: relative;

@@ -31,10 +31,12 @@ function starterState(): SketchState {
   ];
   return {
     boards,
+    anchors: [],
     measurements: [],
     materials: [{ id: materialId, name: "Birch plywood", color: "#d9b77e" }],
     selectedId: 1,
     nextId: 6,
+    nextAnchorId: 1,
     nextMeasurementId: 1,
     thickness,
     grid: 25,

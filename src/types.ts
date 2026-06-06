@@ -49,10 +49,12 @@ export interface InnerDimensions {
 
 export interface SketchState {
   boards: Board[];
+  anchors: BoardAnchor[];
   measurements: Measurement[];
   materials: Material[];
   selectedId: number | null;
   nextId: number;
+  nextAnchorId: number;
   nextMeasurementId: number;
   thickness: number;
   grid: number;
@@ -73,6 +75,14 @@ export interface SketchState {
 }
 
 export type SketchTool = "select" | "measure";
+
+export interface BoardAnchor {
+  id: number;
+  boardId: number;
+  edge: BoardEdge;
+  targetBoardId: number;
+  targetEdge: BoardEdge;
+}
 
 export interface DragState {
   id: number;

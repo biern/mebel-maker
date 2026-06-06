@@ -24,6 +24,7 @@
   </div>
   <div class="canvas-wrap">
     <canvas id="sketchCanvas"></canvas>
+    <div class="anchor-overlay" id="anchorOverlay" aria-label="Board anchors"></div>
     <div class="viewport-overlay" id="viewportOverlay" aria-hidden="true">
       <div class="axis-glyph">
         <span class="axis-line axis-x"></span>

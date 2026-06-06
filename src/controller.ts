@@ -17,9 +17,10 @@ import {
   screenToWorld,
   selectedBoard,
   snapBoard,
-  snapValueToGrid
+  snapValueToGrid,
+  worldToScreen
 } from "./geometry";
-import type { AutoThicknessAxis, Board, BoardKind, LaminateEdges, Material, MeasurementAnchor, MeasurementAxis, Point, ResizeHandle, SketchState } from "./types";
+import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, LaminateEdges, Material, MeasurementAnchor, MeasurementAxis, Point, Rect, ResizeHandle, SketchState } from "./types";
 
 declare global {
   interface Window {
@@ -78,6 +79,7 @@ const ui = {
   warningList: query<HTMLElement>("#warningList"),
   cutList: query<HTMLElement>("#cutList"),
   materialList: query<HTMLElement>("#materialList"),
+  anchorOverlay: query<HTMLElement>("#anchorOverlay"),
   overlayScaleBar: query<HTMLElement>("#overlayScaleBar"),
   overlayScaleLabel: query<HTMLElement>("#overlayScaleLabel"),
   overlayZoomLabel: query<HTMLElement>("#overlayZoomLabel")
@@ -85,10 +87,12 @@ const ui = {
 
 const state: SketchState = {
   boards: [],
+  anchors: [],
   measurements: [],
   materials: defaultMaterials(),
   selectedId: null,
   nextId: 1,
+  nextAnchorId: 1,
   nextMeasurementId: 1,
   thickness: 18,
   grid: 25,
@@ -121,10 +125,12 @@ const redoStack: SavedProject[] = [];
 interface SavedProject {
   version: 1;
   boards: Board[];
+  anchors?: BoardAnchor[];
   measurements: SketchState["measurements"];
   materials?: Material[];
   selectedId: number | null;
   nextId: number;
+  nextAnchorId?: number;
   nextMeasurementId: number;
   thickness: number;
   grid: number;
@@ -190,6 +196,24 @@ function normalizedMaterials(materials?: Material[]): Material[] {
   return valid.some((material) => material.id === defaultMaterialId) ? valid : [...defaults, ...valid];
 }
 
+function normalizedAnchors(anchors?: BoardAnchor[]): BoardAnchor[] {
+  if (!anchors?.length) return [];
+  const boardIds = new Set(state.boards.map((board) => board.id));
+  const validEdges: BoardEdge[] = ["left", "right", "top", "bottom"];
+  const seen = new Set<string>();
+  return anchors.filter((anchor) => {
+    const key = `${anchor.boardId}:${anchor.edge}:${anchor.targetBoardId}:${anchor.targetEdge}`;
+    const ok = boardIds.has(anchor.boardId) &&
+      boardIds.has(anchor.targetBoardId) &&
+      anchor.boardId !== anchor.targetBoardId &&
+      validEdges.includes(anchor.edge) &&
+      validEdges.includes(anchor.targetEdge) &&
+      !seen.has(key);
+    if (ok) seen.add(key);
+    return ok;
+  });
+}
+
 function defaultLaminate(): LaminateEdges {
   return { left: false, right: false, front: false, back: false };
 }
@@ -212,6 +236,10 @@ function nextBoardId(boards: Board[] = state.boards): number {
 
 function nextMeasureId(measurements = state.measurements): number {
   return Math.max(0, ...measurements.map((measurement) => measurement.id)) + 1;
+}
+
+function nextAnchorId(anchors = state.anchors): number {
+  return Math.max(0, ...anchors.map((anchor) => anchor.id)) + 1;
 }
 
 function laminateKey(laminate: LaminateEdges): string {
@@ -281,6 +309,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
   state.nextId += 1;
   state.boards.push(board);
   state.selectedId = board.id;
+  anchorTouchedBoard(board.id);
   refresh();
 }
 
@@ -291,8 +320,10 @@ function addTemplateBoard(partial: Partial<Board> & { kind: BoardKind; autoThick
 function beginTemplate(recordHistory: boolean, x: number, y: number): void {
   if (recordHistory) remember();
   state.boards = [];
+  state.anchors = [];
   state.measurements = [];
   state.nextId = 1;
+  state.nextAnchorId = 1;
   state.nextMeasurementId = 1;
   state.gridOriginX = x;
   state.gridOriginY = y;
@@ -392,6 +423,7 @@ function createStarter(recordHistory = true): void {
 function refresh(): void {
   computeGroups(state.boards);
   renderer.draw();
+  renderAnchorOverlay();
   renderMaterials();
   updateInspector();
   renderMeasurements();
@@ -440,10 +472,12 @@ function serializeProject(): SavedProject {
   return cloneProject({
     version: 1,
     boards: state.boards,
+    anchors: state.anchors,
     measurements: state.measurements,
     materials: state.materials,
     selectedId: state.selectedId,
     nextId: state.nextId,
+    nextAnchorId: state.nextAnchorId,
     nextMeasurementId: state.nextMeasurementId,
     thickness: state.thickness,
     grid: state.grid,
@@ -461,9 +495,11 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   if (recordHistory) remember();
   state.materials = normalizedMaterials(project.materials);
   state.boards = (project.boards ?? []).map(withDefaults);
+  state.anchors = normalizedAnchors(project.anchors);
   state.measurements = project.measurements ?? [];
   state.selectedId = state.boards.some((board) => board.id === project.selectedId) ? project.selectedId : null;
   state.nextId = project.nextId ?? nextBoardId(state.boards);
+  state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
   state.thickness = project.thickness ?? state.thickness;
   state.grid = project.grid ?? state.grid;
@@ -684,6 +720,151 @@ function anchorLabel(anchor: MeasurementAnchor): string {
   return `${board?.name ?? `Board ${anchor.boardId}`} ${anchor.edge}`;
 }
 
+function renderAnchorOverlay(): void {
+  const board = selectedBoard(state);
+  if (!board) {
+    ui.anchorOverlay.innerHTML = "";
+    return;
+  }
+
+  ui.anchorOverlay.innerHTML = state.anchors
+    .filter((anchor) => anchor.boardId === board.id)
+    .map((anchor) => {
+      const position = anchorChipPosition(anchor);
+      if (!position) return "";
+      const point = worldToScreen(state, position.x, position.y);
+      return `
+        <button class="anchor-chip" data-remove-anchor="${anchor.id}" type="button" style="left: ${point.x}px; top: ${point.y - 8}px" title="Remove anchor to ${escapeHtml(anchorTargetLabel(anchor))}">
+          Unanchor
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function anchorTargetLabel(anchor: BoardAnchor): string {
+  const target = state.boards.find((board) => board.id === anchor.targetBoardId);
+  return `${target?.name ?? `Board ${anchor.targetBoardId}`} ${anchor.targetEdge}`;
+}
+
+function anchorChipPosition(anchor: BoardAnchor): Point | null {
+  const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
+  const target = state.boards.find((candidate) => candidate.id === anchor.targetBoardId);
+  if (!board || !target) return null;
+  const edgePosition = boardEdgeValue(board, anchor.edge);
+
+  if (anchor.edge === "left" || anchor.edge === "right") {
+    const top = Math.max(board.y, target.y);
+    const bottom = Math.min(board.y + board.h, target.y + target.h);
+    return { x: edgePosition, y: top <= bottom ? (top + bottom) / 2 : board.y + board.h / 2 };
+  }
+
+  const left = Math.max(board.x, target.x);
+  const right = Math.min(board.x + board.w, target.x + target.w);
+  return { x: left <= right ? (left + right) / 2 : board.x + board.w / 2, y: edgePosition };
+}
+
+function anchorTouchedBoard(boardId: number): void {
+  const board = state.boards.find((candidate) => candidate.id === boardId);
+  if (!board || board.kind === "back") return;
+  state.anchors = state.anchors.filter((anchor) => anchor.boardId !== boardId);
+  state.boards.forEach((other) => {
+    if (other.id === board.id || other.kind === "back") return;
+    touchingEdges(board, other).forEach(([edge, targetEdge]) => addBoardAnchor(board.id, edge, other.id, targetEdge));
+  });
+}
+
+function addBoardAnchor(boardId: number, edge: BoardEdge, targetBoardId: number, targetEdge: BoardEdge): void {
+  const board = state.boards.find((candidate) => candidate.id === boardId);
+  if (!board || !canAnchorEdge(board, edge)) return;
+  const duplicate = state.anchors.some((anchor) =>
+    anchor.boardId === boardId &&
+    anchor.edge === edge &&
+    anchor.targetBoardId === targetBoardId &&
+    anchor.targetEdge === targetEdge
+  );
+  if (duplicate) return;
+  state.anchors.push({ id: state.nextAnchorId, boardId, edge, targetBoardId, targetEdge });
+  state.nextAnchorId += 1;
+}
+
+function canAnchorEdge(board: Board, edge: BoardEdge): boolean {
+  if (board.autoThickness === "width") return edge === "top" || edge === "bottom";
+  if (board.autoThickness === "height") return edge === "left" || edge === "right";
+  return true;
+}
+
+function touchingEdges(board: Board, target: Board): Array<[BoardEdge, BoardEdge]> {
+  const tolerance = 0.5;
+  const edges: Array<[BoardEdge, BoardEdge]> = [];
+  if (Math.abs(board.x - (target.x + target.w)) <= tolerance && rangesOverlap(board.y, board.y + board.h, target.y, target.y + target.h)) {
+    edges.push(["left", "right"]);
+  }
+  if (Math.abs(board.x + board.w - target.x) <= tolerance && rangesOverlap(board.y, board.y + board.h, target.y, target.y + target.h)) {
+    edges.push(["right", "left"]);
+  }
+  if (Math.abs(board.y - (target.y + target.h)) <= tolerance && rangesOverlap(board.x, board.x + board.w, target.x, target.x + target.w)) {
+    edges.push(["top", "bottom"]);
+  }
+  if (Math.abs(board.y + board.h - target.y) <= tolerance && rangesOverlap(board.x, board.x + board.w, target.x, target.x + target.w)) {
+    edges.push(["bottom", "top"]);
+  }
+  return edges;
+}
+
+function rangesOverlap(a1: number, a2: number, b1: number, b2: number): boolean {
+  return Math.max(a1, b1) <= Math.min(a2, b2) + 0.5;
+}
+
+function propagateAnchorsFrom(boardId: number, visited = new Set<number>()): void {
+  if (visited.has(boardId)) return;
+  visited.add(boardId);
+  const childIds = [...new Set(state.anchors
+    .filter((anchor) => anchor.targetBoardId === boardId)
+    .map((anchor) => anchor.boardId))];
+
+  childIds.forEach((childId) => {
+    applyAnchorsToBoard(childId);
+    propagateAnchorsFrom(childId, visited);
+  });
+}
+
+function applyAnchorsToBoard(boardId: number): void {
+  const board = state.boards.find((candidate) => candidate.id === boardId);
+  if (!board) return;
+  const rect = rectFromBoard(board);
+  state.anchors
+    .filter((anchor) => anchor.boardId === boardId)
+    .forEach((anchor) => {
+      const target = state.boards.find((candidate) => candidate.id === anchor.targetBoardId);
+      if (!target) return;
+      setRectEdge(rect, anchor.edge, boardEdgeValue(target, anchor.targetEdge));
+    });
+  applyBoardRect(board, rect);
+}
+
+function boardEdgeValue(board: Board, edge: BoardEdge): number {
+  if (edge === "left") return board.x;
+  if (edge === "right") return board.x + board.w;
+  if (edge === "top") return board.y;
+  return board.y + board.h;
+}
+
+function setRectEdge(rect: Rect, edge: BoardEdge, value: number): void {
+  if (edge === "left") {
+    const right = rect.x + rect.w;
+    rect.x = value;
+    rect.w = Math.max(1, right - value);
+  }
+  if (edge === "right") rect.w = Math.max(1, value - rect.x);
+  if (edge === "top") {
+    const bottom = rect.y + rect.h;
+    rect.y = value;
+    rect.h = Math.max(1, bottom - value);
+  }
+  if (edge === "bottom") rect.h = Math.max(1, value - rect.y);
+}
+
 function fitToView(): void {
   const bounds = boundsFor(state.boards);
   const rect = canvas.getBoundingClientRect();
@@ -714,6 +895,7 @@ function applyThicknessChange(newThickness: number): void {
       board.h = newThickness;
     }
   });
+  state.boards.forEach((board) => applyAnchorsToBoard(board.id));
   refresh();
 }
 
@@ -745,6 +927,7 @@ function updateBoardFromInspector(event?: Event): void {
   board.y = Number(ui.yInput.value) || 0;
   board.w = Math.max(1, Number(ui.wInput.value) || 1);
   board.h = Math.max(1, Number(ui.hInput.value) || 1);
+  propagateAnchorsFrom(board.id);
   refresh();
 }
 
@@ -885,6 +1068,7 @@ function deleteSelectedBoard(): void {
   remember();
   const deletedId = state.selectedId;
   state.boards = state.boards.filter((board) => board.id !== deletedId);
+  state.anchors = state.anchors.filter((anchor) => anchor.boardId !== deletedId && anchor.targetBoardId !== deletedId);
   state.measurements = state.measurements.filter((measurement) =>
     ![measurement.a, measurement.b].some((anchor) => anchor.kind === "board-edge" && anchor.boardId === deletedId)
   );
@@ -927,6 +1111,7 @@ function rotateSelectedBoard(): void {
   board.h = Math.round(nextH);
   board.autoThickness = rotateAutoThickness(board.autoThickness);
   board.kind = rotateBoardKind(board.kind);
+  state.anchors = state.anchors.filter((anchor) => anchor.boardId !== board.id && anchor.targetBoardId !== board.id);
   state.lastSnap = "Rotated 90 deg";
   refresh();
 }
@@ -1019,6 +1204,7 @@ canvas.addEventListener("pointermove", (event) => {
     if (!board) return;
     const snapped = resizeBoard(state, board, state.resizing.handle, state.resizing.startRect, state.resizing.startPoint, point);
     applyBoardRect(board, snapped.rect);
+    propagateAnchorsFrom(board.id);
     state.snapGuides = snapped.guides;
     state.lastSnap = snapped.label;
     canvas.style.cursor = cursorForResizeHandle(state.resizing.handle);
@@ -1045,6 +1231,7 @@ canvas.addEventListener("pointermove", (event) => {
   const snapped = snapBoard(state, board, point.x - state.dragging.offsetX, point.y - state.dragging.offsetY);
   board.x = snapped.x;
   board.y = snapped.y;
+  propagateAnchorsFrom(board.id);
   state.snapGuides = snapped.guides;
   state.lastSnap = snapped.label;
   canvas.style.cursor = "grabbing";
@@ -1054,10 +1241,12 @@ canvas.addEventListener("pointermove", (event) => {
 canvas.addEventListener("pointerup", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
+  const finishedBoardId = state.dragging?.id ?? state.resizing?.id ?? null;
   state.dragging = null;
   state.resizing = null;
   state.panning = null;
   state.snapGuides = [];
+  if (finishedBoardId) anchorTouchedBoard(finishedBoardId);
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   updateCanvasCursor(point);
   refresh();
@@ -1078,6 +1267,16 @@ canvas.addEventListener("wheel", (event) => {
   state.panY += (after.y - before.y) * state.scale;
   refresh();
 }, { passive: false });
+
+ui.anchorOverlay.addEventListener("click", (event) => {
+  const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-anchor]");
+  if (!target) return;
+  const id = Number(target.dataset.removeAnchor);
+  remember();
+  state.anchors = state.anchors.filter((anchor) => anchor.id !== id);
+  state.lastSnap = "Anchor removed";
+  refresh();
+});
 
 ui.templateList.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-template]");
