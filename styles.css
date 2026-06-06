@@ -619,6 +619,21 @@ input:disabled {
   line-height: 1.35;
 }
 
+.measure-name-field {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.measure-name-field span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.measure-name-field input {
+  min-height: 34px;
+}
+
 .cut-card .count {
   color: var(--accent);
   font-weight: 800;

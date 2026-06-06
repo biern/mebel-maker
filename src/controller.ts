@@ -617,7 +617,10 @@ function renderCustomMeasurements(): void {
     const value = a && b ? measurementValue(measurement.axis, a, b) : "missing anchor";
     return `
       <div class="metric-card">
-        <strong>${measurement.name}</strong>
+        <label class="measure-name-field">
+          <span>Name</span>
+          <input data-measure-name="${measurement.id}" type="text" value="${escapeHtml(measurement.name)}" placeholder="Optional measure name">
+        </label>
         <span>${value}</span>
         <span>${anchorLabel(measurement.a)} → ${anchorLabel(measurement.b)}</span>
         <button class="inline-action" data-delete-measure="${measurement.id}" type="button">Delete measure</button>
@@ -824,11 +827,11 @@ function applyBoardRect(board: Board, rect: { x: number; y: number; w: number; h
   board.h = Math.round(rect.h);
 }
 
-function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: MeasurementAxis, name = "Measure"): void {
+function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: MeasurementAxis): void {
   remember();
   state.measurements.push({
     id: state.nextMeasurementId,
-    name: `${name} ${state.nextMeasurementId}`,
+    name: "",
     a,
     b,
     axis
@@ -847,16 +850,14 @@ function addSelectedMeasurement(axis: MeasurementAxis): void {
     addMeasurement(
       { kind: "board-edge", boardId: board.id, edge: "left", offset: board.h + 22 },
       { kind: "board-edge", boardId: board.id, edge: "right", offset: board.h + 22 },
-      "horizontal",
-      `${board.name} width`
+      "horizontal"
     );
     return;
   }
   addMeasurement(
     { kind: "board-edge", boardId: board.id, edge: "top", offset: board.w + 22 },
     { kind: "board-edge", boardId: board.id, edge: "bottom", offset: board.w + 22 },
-    "vertical",
-    `${board.name} height`
+    "vertical"
   );
 }
 
@@ -1156,6 +1157,19 @@ ui.customMeasureList.addEventListener("click", (event) => {
   remember();
   state.measurements = state.measurements.filter((measurement) => measurement.id !== id);
   state.lastSnap = "Measurement deleted";
+  refresh();
+});
+ui.customMeasureList.addEventListener("change", (event) => {
+  const target = (event.target as HTMLElement).closest<HTMLInputElement>("[data-measure-name]");
+  if (!target) return;
+  const id = Number(target.dataset.measureName);
+  const measurement = state.measurements.find((item) => item.id === id);
+  if (!measurement) return;
+  const name = target.value.trim();
+  if (measurement.name === name) return;
+  remember();
+  measurement.name = name;
+  state.lastSnap = name ? "Measurement named" : "Measurement name cleared";
   refresh();
 });
 document.addEventListener("keydown", (event) => {

@@ -179,12 +179,12 @@ export class SketchRenderer {
       const offset = 46 + index * 14;
       if (measurement.axis === "horizontal") {
         const y = Math.min(a.y, b.y) - offset;
-        this.drawDimensionLine(a.x, y, b.x, y, `${measurement.name} ${mm(Math.abs(b.x - a.x))}`, 0, "#4152a3");
+        this.drawDimensionLine(a.x, y, b.x, y, this.measurementLabel(measurement.name, mm(Math.abs(b.x - a.x))), 0, "#4152a3");
         this.drawExtension(a.x, a.y, a.x, y, "#4152a3");
         this.drawExtension(b.x, b.y, b.x, y, "#4152a3");
       } else {
         const x = Math.max(a.x, b.x) + offset;
-        this.drawDimensionLine(x, a.y, x, b.y, `${measurement.name} ${mm(Math.abs(b.y - a.y))}`, 0, "#4152a3");
+        this.drawDimensionLine(x, a.y, x, b.y, this.measurementLabel(measurement.name, mm(Math.abs(b.y - a.y))), 0, "#4152a3");
         this.drawExtension(a.x, a.y, x, a.y, "#4152a3");
         this.drawExtension(b.x, b.y, x, b.y, "#4152a3");
       }
@@ -196,6 +196,11 @@ export class SketchRenderer {
       const anchor = resolveMeasurementAnchor(this.state, this.state.pendingMeasurementAnchor);
       if (anchor) this.drawAnchorDot(anchor.x, anchor.y, "#4152a3");
     }
+  }
+
+  private measurementLabel(name: string, value: string): string {
+    const trimmed = name.trim();
+    return trimmed ? `${trimmed} ${value}` : value;
   }
 
   private drawDimensions(): void {
