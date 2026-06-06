@@ -37,7 +37,7 @@ export class SketchRenderer {
     this.drawGrid(rect.width, rect.height);
     this.state.boards
       .slice()
-      .sort((a, b) => Number(a.kind !== "back") - Number(b.kind !== "back"))
+      .sort((a, b) => this.layerOrder(a) - this.layerOrder(b))
       .forEach((board) => this.drawBoard(board));
     this.drawOverlaps();
     this.drawSnapGuides(rect.width, rect.height);
@@ -84,8 +84,10 @@ export class SketchRenderer {
     const selected = board.id === this.state.selectedId;
     const groupColor = colors[(board.group - 1) % colors.length] ?? colors[0];
     const material = this.materialFor(board);
+    const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.3 : 1;
 
     this.ctx.save();
+    this.ctx.globalAlpha = opacity;
     this.ctx.fillStyle = board.kind === "back" ? this.withAlpha(material.color, 0.36) : material.color;
     this.ctx.strokeStyle = selected ? "#1f6659" : groupColor;
     this.ctx.lineWidth = board.kind === "back" ? 1.5 : selected ? 3 : 2;
@@ -107,6 +109,12 @@ export class SketchRenderer {
     this.ctx.textBaseline = "top";
     this.ctx.fillText(board.name, point.x + 7, point.y + 6);
     this.ctx.restore();
+  }
+
+  private layerOrder(board: Board): number {
+    if (board.kind === "back") return 0;
+    if (board.kind === "front") return 2;
+    return 1;
   }
 
   private materialFor(board: Board): Material {

@@ -60,14 +60,14 @@ export function edgesForRect(rect: Rect): RectEdges {
 export function hitTest(boards: Board[], point: Point): Board | null {
   for (let i = boards.length - 1; i >= 0; i -= 1) {
     const board = boards[i];
-    if (board.kind === "back") continue;
+    if (isOverlayPanel(board)) continue;
     if (pointInBoard(board, point)) {
       return board;
     }
   }
   for (let i = boards.length - 1; i >= 0; i -= 1) {
     const board = boards[i];
-    if (board.kind !== "back") continue;
+    if (!isOverlayPanel(board)) continue;
     if (pointInBoard(board, point)) {
       return board;
     }
@@ -102,7 +102,7 @@ export function snapValueToGrid(state: SketchState, value: number, axis: "x" | "
 }
 
 export function alignGridOriginToBounds(state: SketchState): void {
-  const bounds = boundsFor(state.boards.filter((board) => board.kind !== "back")) ?? boundsFor(state.boards);
+  const bounds = boundsFor(state.boards.filter((board) => !isOverlayPanel(board))) ?? boundsFor(state.boards);
   if (!bounds) return;
   state.gridOriginX = bounds.left;
   state.gridOriginY = bounds.top;
@@ -139,7 +139,7 @@ export function computeGroups(boards: Board[]): void {
 export function innerDimensions(boards: Board[], thickness: number): InnerDimensions | null {
   const bounds = boundsFor(boards);
   if (!bounds) return null;
-  const frameBoards = boards.filter((board) => board.kind !== "back");
+  const frameBoards = boards.filter((board) => !isOverlayPanel(board));
 
   const leftPanel = frameBoards.find((board) => Math.abs(board.x - bounds.left) <= 0.5 && board.h > thickness * 2);
   const rightPanel = frameBoards.find((board) => Math.abs(board.x + board.w - bounds.right) <= 0.5 && board.h > thickness * 2);
@@ -329,7 +329,7 @@ export function computeOverlaps(boards: Board[]): OverlapRegion[] {
     for (let j = i + 1; j < boards.length; j += 1) {
       const a = boards[i];
       const b = boards[j];
-      if (a.kind === "back" || b.kind === "back") continue;
+      if (isOverlayPanel(a) || isOverlayPanel(b)) continue;
       const x = Math.max(a.x, b.x);
       const y = Math.max(a.y, b.y);
       const right = Math.min(a.x + a.w, b.x + b.w);
@@ -456,7 +456,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function connected(a: Board, b: Board): boolean {
-  if (a.kind === "back" || b.kind === "back") return false;
+  if (isOverlayPanel(a) || isOverlayPanel(b)) return false;
   if (intersects(a, b)) return true;
   const ae = rectEdges(a);
   const be = rectEdges(b);
@@ -464,6 +464,10 @@ function connected(a: Board, b: Board): boolean {
   const horizontalTouch = Math.abs(ae.bottom - be.top) <= 0.5 || Math.abs(be.bottom - ae.top) <= 0.5;
   return (verticalTouch && overlaps(ae.top, ae.bottom, be.top, be.bottom)) ||
     (horizontalTouch && overlaps(ae.left, ae.right, be.left, be.right));
+}
+
+function isOverlayPanel(board: Board): boolean {
+  return board.kind === "back" || board.kind === "front";
 }
 
 function overlaps(a1: number, a2: number, b1: number, b2: number): boolean {

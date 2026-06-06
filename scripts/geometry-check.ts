@@ -46,6 +46,7 @@ function starterState(): SketchState {
     gridOriginY: 120,
     snap: true,
     showDimensions: true,
+    showFrontPanels: true,
     scale: 0.5,
     panX: 0,
     panY: 0,
@@ -104,7 +105,12 @@ computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "back panel should not create structural overlap warnings");
 assert(hitTest(state.boards, { x: 500, y: 404 })?.name === "Middle shelf", "back panel should not block selecting foreground shelf");
 
-state.boards.push({ id: 7, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+state.boards.push({ id: 7, name: "Front", x: 160, y: 120, w: 820, h: 560, kind: "front", autoThickness: "none", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+computeGroups(state.boards);
+assert(computeOverlaps(state.boards).length === 0, "front panel should not create structural overlap warnings");
+assert(hitTest(state.boards, { x: 500, y: 404 })?.name === "Middle shelf", "front panel should not block selecting foreground shelf");
+
+state.boards.push({ id: 8, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
 assert(computeOverlaps(state.boards).length > 0, "real overlapping shelves should create overlap feedback");
 
 console.log("geometry smoke checks passed");

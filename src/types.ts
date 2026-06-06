@@ -1,4 +1,4 @@
-export type BoardKind = "upright" | "shelf" | "panel" | "back";
+export type BoardKind = "upright" | "shelf" | "panel" | "back" | "front";
 export type AutoThicknessAxis = "width" | "height" | "none";
 export type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 export type BoardEdge = "left" | "right" | "top" | "bottom";
@@ -64,6 +64,7 @@ export interface SketchState {
   gridOriginY: number;
   snap: boolean;
   showDimensions: boolean;
+  showFrontPanels: boolean;
   scale: number;
   panX: number;
   panY: number;

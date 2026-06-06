@@ -56,6 +56,11 @@
         <span>Back</span>
         <strong>820 × 560</strong>
       </button>
+      <button class="preset-card" draggable="true" data-preset="front" title="Front panel">
+        <span class="piece-preview panel front"></span>
+        <span>Front</span>
+        <strong>820 × 560</strong>
+      </button>
     </div>
   </section>
 
@@ -89,6 +94,14 @@
     <label class="toggle-row">
       <input id="dimToggle" type="checkbox" checked>
       <span>Show dimension hints</span>
+    </label>
+  </section>
+
+  <section class="tool-section">
+    <h2>Layers</h2>
+    <label class="toggle-row">
+      <input id="frontLayerToggle" type="checkbox" checked>
+      <span>Show front panels</span>
     </label>
   </section>
 

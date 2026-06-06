@@ -262,6 +262,11 @@ h1 {
   width: 28px;
 }
 
+.piece-preview.panel.front {
+  background: #d8ece8;
+  border-style: double;
+}
+
 .field {
   display: grid;
   gap: 6px;

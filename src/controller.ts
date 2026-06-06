@@ -44,6 +44,7 @@ const ui = {
   gridInput: query<HTMLInputElement>("#gridInput"),
   snapToggle: query<HTMLInputElement>("#snapToggle"),
   dimToggle: query<HTMLInputElement>("#dimToggle"),
+  frontLayerToggle: query<HTMLInputElement>("#frontLayerToggle"),
   duplicateBtn: query<HTMLButtonElement>("#duplicateBtn"),
   rotateBtn: query<HTMLButtonElement>("#rotateBtn"),
   undoBtn: query<HTMLButtonElement>("#undoBtn"),
@@ -104,6 +105,7 @@ const state: SketchState = {
   gridOriginY: 120,
   snap: true,
   showDimensions: true,
+  showFrontPanels: true,
   scale: 0.62,
   panX: 160,
   panY: 110,
@@ -145,6 +147,7 @@ interface SavedProject {
   gridOriginY: number;
   snap: boolean;
   showDimensions: boolean;
+  showFrontPanels?: boolean;
   scale: number;
   panX: number;
   panY: number;
@@ -165,7 +168,8 @@ const presets: Record<string, PiecePreset> = {
   side: { name: "Side", kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 },
   shelf: { name: "Shelf", kind: "shelf", autoThickness: "height", w: () => 820 - state.thickness * 2, h: () => state.thickness },
   divider: { name: "Divider", kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 - state.thickness * 2 },
-  back: { name: "Back", kind: "back", autoThickness: "none", w: () => 820, h: () => 560 }
+  back: { name: "Back", kind: "back", autoThickness: "none", w: () => 820, h: () => 560 },
+  front: { name: "Front", kind: "front", autoThickness: "none", w: () => 820, h: () => 560 }
 };
 
 const defaultMaterialId = "birch-plywood";
@@ -513,6 +517,7 @@ function serializeProject(): SavedProject {
     gridOriginY: state.gridOriginY,
     snap: state.snap,
     showDimensions: state.showDimensions,
+    showFrontPanels: state.showFrontPanels,
     scale: state.scale,
     panX: state.panX,
     panY: state.panY
@@ -536,6 +541,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.gridOriginY = project.gridOriginY ?? (boundsFor(state.boards)?.top ?? state.gridOriginY);
   state.snap = project.snap ?? state.snap;
   state.showDimensions = project.showDimensions ?? state.showDimensions;
+  state.showFrontPanels = project.showFrontPanels ?? state.showFrontPanels;
   state.scale = project.scale ?? state.scale;
   state.panX = project.panX ?? state.panX;
   state.panY = project.panY ?? state.panY;
@@ -629,6 +635,7 @@ function syncSettingsInputs(): void {
   ui.gridInput.value = String(state.grid);
   ui.snapToggle.checked = state.snap;
   ui.dimToggle.checked = state.showDimensions;
+  ui.frontLayerToggle.checked = state.showFrontPanels;
 }
 
 function updateInspector(): void {
@@ -852,10 +859,10 @@ function anchorChipPosition(anchor: BoardAnchor): Point | null {
 
 function anchorTouchedBoard(boardId: number): void {
   const board = state.boards.find((candidate) => candidate.id === boardId);
-  if (!board || board.kind === "back") return;
+  if (!board || board.kind === "back" || board.kind === "front") return;
   state.anchors = state.anchors.filter((anchor) => anchor.boardId !== boardId);
   state.boards.forEach((other) => {
-    if (other.id === board.id || other.kind === "back") return;
+    if (other.id === board.id || other.kind === "back" || other.kind === "front") return;
     touchingEdges(board, other).forEach(([edge, targetEdge]) => addBoardAnchor(board.id, edge, other.id, targetEdge));
   });
 }
@@ -875,6 +882,7 @@ function addBoardAnchor(boardId: number, edge: BoardEdge, targetBoardId: number,
 }
 
 function canAnchorEdge(board: Board, edge: BoardEdge): boolean {
+  if (board.kind === "front") return false;
   if (board.autoThickness === "width") return edge === "top" || edge === "bottom";
   if (board.autoThickness === "height") return edge === "left" || edge === "right";
   return true;
@@ -1469,6 +1477,12 @@ ui.snapToggle.addEventListener("change", () => {
 ui.dimToggle.addEventListener("change", () => {
   remember();
   state.showDimensions = ui.dimToggle.checked;
+  refresh();
+});
+ui.frontLayerToggle.addEventListener("change", () => {
+  remember();
+  state.showFrontPanels = ui.frontLayerToggle.checked;
+  state.lastSnap = state.showFrontPanels ? "Front panels shown" : "Front panels ghosted";
   refresh();
 });
 [ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput].forEach((input) => input.addEventListener("input", updateBoardFromInspector));
