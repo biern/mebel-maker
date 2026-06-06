@@ -435,6 +435,10 @@ input:disabled {
   width: 1px;
 }
 
+.hidden-file-input {
+  display: none;
+}
+
 #sketchCanvas {
   background: var(--canvas);
   display: block;

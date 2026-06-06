@@ -51,6 +51,7 @@ const ui = {
   measureHeightBtn: query<HTMLButtonElement>("#measureHeightBtn"),
   saveBtn: query<HTMLButtonElement>("#saveBtn"),
   loadBtn: query<HTMLButtonElement>("#loadBtn"),
+  projectFileInput: query<HTMLInputElement>("#projectFileInput"),
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
   exportBtn: query<HTMLButtonElement>("#exportBtn"),
@@ -430,6 +431,7 @@ function refresh(): void {
   renderCustomMeasurements();
   renderWarnings();
   renderCutList();
+  autosaveProject();
 }
 
 function cloneProject(project: SavedProject): SavedProject {
@@ -520,30 +522,70 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   refresh();
 }
 
-function saveProject(): void {
-  localStorage.setItem(storageKey, JSON.stringify(serializeProject()));
-  state.lastSnap = "Project saved";
+function autosaveProject(): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(serializeProject()));
+  } catch {
+    // Autosave should never interrupt drawing.
+  }
+}
+
+function loadAutosavedProject(): boolean {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return false;
+    const project = JSON.parse(raw) as SavedProject;
+    if (project.version !== 1 || !Array.isArray(project.boards)) throw new Error("Unsupported project file");
+    applyProject(project, false);
+    state.lastSnap = "Restored autosave";
+    updateInspector();
+    return true;
+  } catch {
+    state.lastSnap = "Could not restore autosave";
+    updateInspector();
+    return false;
+  }
+}
+
+function exportProjectFile(): void {
+  const json = JSON.stringify(serializeProject(), null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `mebel-maker-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  state.lastSnap = "Project exported";
   updateInspector();
 }
 
-function loadProject(): void {
-  const raw = localStorage.getItem(storageKey);
-  if (!raw) {
-    state.lastSnap = "No saved project";
-    updateInspector();
-    return;
-  }
+function openProjectFilePicker(): void {
+  ui.projectFileInput.value = "";
+  ui.projectFileInput.click();
+}
 
-  try {
-    const project = JSON.parse(raw) as SavedProject;
-    if (project.version !== 1 || !Array.isArray(project.boards)) throw new Error("Unsupported project file");
-    applyProject(project);
-    state.lastSnap = "Project loaded";
+function importProjectFile(file: File): void {
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      const project = JSON.parse(String(reader.result ?? "")) as SavedProject;
+      if (project.version !== 1 || !Array.isArray(project.boards)) throw new Error("Unsupported project file");
+      applyProject(project);
+      state.lastSnap = "Project imported";
+      updateInspector();
+    } catch {
+      state.lastSnap = "Could not import project";
+      updateInspector();
+    }
+  });
+  reader.addEventListener("error", () => {
+    state.lastSnap = "Could not read file";
     updateInspector();
-  } catch {
-    state.lastSnap = "Could not load project";
-    updateInspector();
-  }
+  });
+  reader.readAsText(file);
 }
 
 function syncSettingsInputs(): void {
@@ -1322,8 +1364,12 @@ ui.undoBtn.addEventListener("click", undo);
 ui.redoBtn.addEventListener("click", redo);
 ui.measureWidthBtn.addEventListener("click", () => addSelectedMeasurement("horizontal"));
 ui.measureHeightBtn.addEventListener("click", () => addSelectedMeasurement("vertical"));
-ui.saveBtn.addEventListener("click", saveProject);
-ui.loadBtn.addEventListener("click", loadProject);
+ui.saveBtn.addEventListener("click", exportProjectFile);
+ui.loadBtn.addEventListener("click", openProjectFilePicker);
+ui.projectFileInput.addEventListener("change", () => {
+  const file = ui.projectFileInput.files?.[0];
+  if (file) importProjectFile(file);
+});
 ui.deleteBtn.addEventListener("click", deleteSelectedBoard);
 ui.fitBtn.addEventListener("click", fitToView);
 ui.exportBtn.addEventListener("click", copyCutList);
@@ -1421,5 +1467,5 @@ if (import.meta.env.DEV) {
 }
 
 syncSettingsInputs();
-createStarter(false);
+if (!loadAutosavedProject()) createStarter(false);
 renderer.resize();
