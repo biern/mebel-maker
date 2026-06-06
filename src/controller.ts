@@ -111,6 +111,10 @@ const state: SketchState = {
 const renderer = new SketchRenderer(canvas, state);
 const storageKey = "mebel-maker-project";
 const historyLimit = 80;
+const minFitScale = 0.125;
+const minWheelScale = 0.09;
+const maxFitScale = 1.3;
+const maxWheelScale = 2;
 const undoStack: SavedProject[] = [];
 const redoStack: SavedProject[] = [];
 
@@ -686,7 +690,7 @@ function fitToView(): void {
   if (!bounds || rect.width < 1 || rect.height < 1) return;
   const padding = 70;
   state.scale = Math.min((rect.width - padding * 2) / bounds.w, (rect.height - padding * 2) / bounds.h);
-  state.scale = Math.max(0.25, Math.min(1.3, state.scale));
+  state.scale = Math.max(minFitScale, Math.min(maxFitScale, state.scale));
   state.panX = (rect.width - bounds.w * state.scale) / 2 - bounds.left * state.scale;
   state.panY = (rect.height - bounds.h * state.scale) / 2 - bounds.top * state.scale;
   refresh();
@@ -1068,7 +1072,7 @@ canvas.addEventListener("wheel", (event) => {
   const rect = canvas.getBoundingClientRect();
   const mouse = { x: event.clientX - rect.left, y: event.clientY - rect.top };
   const before = screenToWorld(state, mouse.x, mouse.y);
-  state.scale = Math.max(0.18, Math.min(2, state.scale * (event.deltaY > 0 ? 0.92 : 1.08)));
+  state.scale = Math.max(minWheelScale, Math.min(maxWheelScale, state.scale * (event.deltaY > 0 ? 0.92 : 1.08)));
   const after = screenToWorld(state, mouse.x, mouse.y);
   state.panX += (after.x - before.x) * state.scale;
   state.panY += (after.y - before.y) * state.scale;
