@@ -580,17 +580,21 @@ function loadAutosavedProject(): boolean {
 
 function exportProjectFile(): void {
   const json = JSON.stringify(serializeProject(), null, 2);
-  const blob = new Blob([json], { type: "application/json" });
+  downloadTextFile(json, "application/json", `mebel-maker-${new Date().toISOString().slice(0, 10)}.json`);
+  state.lastSnap = "Project exported";
+  updateInspector();
+}
+
+function downloadTextFile(content: string, type: string, filename: string): void {
+  const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `mebel-maker-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = filename;
   document.body.append(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  state.lastSnap = "Project exported";
-  updateInspector();
 }
 
 function openProjectFilePicker(): void {
@@ -983,21 +987,41 @@ function applyDepthChange(newDepth: number): void {
   refresh();
 }
 
-function copyCutList(): void {
-  const rows = [`Wood order, thickness ${state.thickness} mm, default depth ${state.depth} mm`];
-  const grouped = new Map<string, number>();
+function exportCutListCsv(): void {
+  const rows = [
+    ["quantity", "width_mm", "height_mm", "depth_mm", "thickness_mm", "material", "laminate_edges", "pieces"]
+  ];
+  const grouped = new Map<string, Board[]>();
   state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const key = `${Math.round(board.w)} x ${Math.round(board.h)} x ${effectiveDepth(board)} mm, material: ${materialName(board.materialId)}, laminate: ${laminateLabel(board.laminate)}`;
-    grouped.set(key, (grouped.get(key) ?? 0) + 1);
+    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
-  grouped.forEach((count, key) => rows.push(`${count}x ${key}`));
-  void navigator.clipboard?.writeText(rows.join("\n")).then(() => {
-    state.lastSnap = "Cut list copied";
-    updateInspector();
-  }).catch(() => {
-    state.lastSnap = "Clipboard unavailable";
-    updateInspector();
+
+  grouped.forEach((boards, key) => {
+    const [w, h, d, t, materialId] = key.split("×");
+    rows.push([
+      String(boards.length),
+      w,
+      h,
+      d,
+      t,
+      materialName(materialId),
+      laminateLabel(boards[0].laminate),
+      boards.map((board) => board.name).join("; ")
+    ]);
   });
+
+  downloadTextFile(
+    rows.map((row) => row.map(csvCell).join(",")).join("\n"),
+    "text/csv;charset=utf-8",
+    `mebel-maker-pieces-${new Date().toISOString().slice(0, 10)}.csv`
+  );
+  state.lastSnap = "Piece list CSV exported";
+  updateInspector();
+}
+
+function csvCell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, "\"\"")}"` : value;
 }
 
 function updateBoardFromInspector(event?: Event): void {
@@ -1422,7 +1446,7 @@ ui.projectFileInput.addEventListener("change", () => {
 });
 ui.deleteBtn.addEventListener("click", deleteSelectedBoard);
 ui.fitBtn.addEventListener("click", fitToView);
-ui.exportBtn.addEventListener("click", copyCutList);
+ui.exportBtn.addEventListener("click", exportCutListCsv);
 ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
 ui.depthInput.addEventListener("input", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)));
 ui.gridInput.addEventListener("input", () => {

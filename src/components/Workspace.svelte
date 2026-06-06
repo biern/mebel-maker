@@ -19,7 +19,7 @@
       <button id="fitBtn" class="icon-button" title="Fit drawing to view" aria-label="Fit drawing to view">⌖</button>
       <button id="saveBtn" class="icon-button" title="Export drawing as JSON" aria-label="Export drawing as JSON">⇩</button>
       <button id="loadBtn" class="icon-button" title="Load drawing from JSON file" aria-label="Load drawing from JSON file">⇧</button>
-      <button id="exportBtn" class="icon-button" title="Copy order summary" aria-label="Copy order summary">⇲</button>
+      <button id="exportBtn" class="icon-button" title="Export piece list as CSV" aria-label="Export piece list as CSV">CSV</button>
       <input id="projectFileInput" class="hidden-file-input" type="file" accept="application/json,.json">
     </div>
   </div>
