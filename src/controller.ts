@@ -115,6 +115,7 @@ const state: SketchState = {
 
 const renderer = new SketchRenderer(canvas, state);
 const storageKey = "mebel-maker-project";
+const appVersion = import.meta.env.VITE_APP_VERSION;
 const historyLimit = 80;
 const minFitScale = 0.125;
 const minWheelScale = 0.09;
@@ -125,6 +126,7 @@ const redoStack: SavedProject[] = [];
 
 interface SavedProject {
   version: 1;
+  appVersion?: string;
   boards: Board[];
   anchors?: BoardAnchor[];
   measurements: SketchState["measurements"];
@@ -473,6 +475,7 @@ function redo(): void {
 function serializeProject(): SavedProject {
   return cloneProject({
     version: 1,
+    appVersion,
     boards: state.boards,
     anchors: state.anchors,
     measurements: state.measurements,
