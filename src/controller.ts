@@ -996,9 +996,24 @@ function applyThicknessChange(newThickness: number): void {
 function applyDepthChange(newDepth: number): void {
   if (newDepth === state.depth) return;
   remember();
+  const oldDepth = state.depth;
+  const updateExisting = state.boards.length > 0
+    ? window.confirm(`Update all existing pieces to ${mm(newDepth)} depth? Choose Cancel to keep their current depths.`)
+    : false;
   state.depth = newDepth;
-  state.lastSnap = `Default depth ${mm(state.depth)}`;
+  if (state.boards.length > 0) {
+    state.boards.forEach((board) => {
+      board.depthOverride = updateExisting ? null : effectiveDepthWithDefault(board, oldDepth);
+    });
+  }
+  state.lastSnap = updateExisting
+    ? `All pieces depth ${mm(state.depth)}`
+    : `Default depth ${mm(state.depth)}`;
   refresh();
+}
+
+function effectiveDepthWithDefault(board: Board, defaultDepth: number): number {
+  return board.depthOverride ?? defaultDepth;
 }
 
 function exportCutListCsv(): void {
@@ -1462,7 +1477,7 @@ ui.deleteBtn.addEventListener("click", deleteSelectedBoard);
 ui.fitBtn.addEventListener("click", fitToView);
 ui.exportBtn.addEventListener("click", exportCutListCsv);
 ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
-ui.depthInput.addEventListener("input", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)));
+ui.depthInput.addEventListener("change", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)));
 ui.gridInput.addEventListener("input", () => {
   remember();
   state.grid = Math.max(1, Number(ui.gridInput.value) || 25);
