@@ -47,8 +47,7 @@ export class SketchRenderer {
   }
 
   private drawGrid(width: number, height: number): void {
-    const gridPx = this.state.grid * this.state.scale;
-    if (gridPx < 8) return;
+    const gridPx = this.scaledGridPx();
     this.ctx.save();
     this.ctx.strokeStyle = "#e1e8e2";
     this.ctx.lineWidth = 1;
@@ -58,6 +57,24 @@ export class SketchRenderer {
     for (let x = startX; x < width; x += gridPx) this.line(x, 0, x, height);
     for (let y = startY; y < height; y += gridPx) this.line(0, y, width, y);
     this.ctx.restore();
+  }
+
+  private scaledGridPx(): number {
+    const baseGridPx = this.state.grid * this.state.scale;
+    const minimumGridPx = 12;
+    if (baseGridPx >= minimumGridPx) return baseGridPx;
+
+    const multiplier = this.niceGridMultiplier(minimumGridPx / Math.max(0.1, baseGridPx));
+    return baseGridPx * multiplier;
+  }
+
+  private niceGridMultiplier(target: number): number {
+    const exponent = Math.floor(Math.log10(target));
+    const base = 10 ** exponent;
+    const fraction = target / base;
+    if (fraction <= 2) return 2 * base;
+    if (fraction <= 5) return 5 * base;
+    return 10 * base;
   }
 
   private drawBoard(board: Board): void {
