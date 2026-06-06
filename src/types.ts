@@ -14,6 +14,7 @@ export interface Board {
   kind: BoardKind;
   autoThickness: AutoThicknessAxis;
   materialId: string;
+  depthOverride: number | null;
   laminate: LaminateEdges;
   ignoreInOrder: boolean;
   group: number;
@@ -57,6 +58,7 @@ export interface SketchState {
   nextAnchorId: number;
   nextMeasurementId: number;
   thickness: number;
+  depth: number;
   grid: number;
   gridOriginX: number;
   gridOriginY: number;

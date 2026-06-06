@@ -20,14 +20,15 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function starterState(): SketchState {
   const thickness = 18;
+  const depth = 560;
   const laminate = () => ({ left: false, right: false, front: false, back: false });
   const materialId = "birch-plywood";
   const boards: Board[] = [
-    { id: 1, name: "Left side", x: 160, y: 120, w: thickness, h: 560, kind: "upright", autoThickness: "width", materialId, laminate: laminate(), ignoreInOrder: false, group: 0 },
-    { id: 2, name: "Right side", x: 962, y: 120, w: thickness, h: 560, kind: "upright", autoThickness: "width", materialId, laminate: laminate(), ignoreInOrder: false, group: 0 },
-    { id: 3, name: "Top", x: 178, y: 120, w: 784, h: thickness, kind: "shelf", autoThickness: "height", materialId, laminate: laminate(), ignoreInOrder: false, group: 0 },
-    { id: 4, name: "Bottom", x: 178, y: 662, w: 784, h: thickness, kind: "shelf", autoThickness: "height", materialId, laminate: laminate(), ignoreInOrder: false, group: 0 },
-    { id: 5, name: "Middle shelf", x: 178, y: 395, w: 784, h: thickness, kind: "shelf", autoThickness: "height", materialId, laminate: laminate(), ignoreInOrder: false, group: 0 }
+    { id: 1, name: "Left side", x: 160, y: 120, w: thickness, h: 560, kind: "upright", autoThickness: "width", materialId, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 },
+    { id: 2, name: "Right side", x: 962, y: 120, w: thickness, h: 560, kind: "upright", autoThickness: "width", materialId, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 },
+    { id: 3, name: "Top", x: 178, y: 120, w: 784, h: thickness, kind: "shelf", autoThickness: "height", materialId, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 },
+    { id: 4, name: "Bottom", x: 178, y: 662, w: 784, h: thickness, kind: "shelf", autoThickness: "height", materialId, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 },
+    { id: 5, name: "Middle shelf", x: 178, y: 395, w: 784, h: thickness, kind: "shelf", autoThickness: "height", materialId, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 }
   ];
   return {
     boards,
@@ -39,6 +40,7 @@ function starterState(): SketchState {
     nextAnchorId: 1,
     nextMeasurementId: 1,
     thickness,
+    depth,
     grid: 25,
     gridOriginX: 160,
     gridOriginY: 120,
@@ -97,12 +99,12 @@ const afterA = resolveMeasurementAnchor(state, heightA);
 const afterB = resolveMeasurementAnchor(state, heightB);
 assert(afterA && afterB && Math.abs(afterB.y - afterA.y) === 610, "edge-anchored measurement should update after resize");
 
-state.boards.push({ id: 6, name: "Back", x: 160, y: 120, w: 820, h: 560, kind: "back", autoThickness: "none", materialId: "birch-plywood", laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+state.boards.push({ id: 6, name: "Back", x: 160, y: 120, w: 820, h: 560, kind: "back", autoThickness: "none", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "back panel should not create structural overlap warnings");
 assert(hitTest(state.boards, { x: 500, y: 404 })?.name === "Middle shelf", "back panel should not block selecting foreground shelf");
 
-state.boards.push({ id: 7, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+state.boards.push({ id: 7, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
 assert(computeOverlaps(state.boards).length > 0, "real overlapping shelves should create overlap feedback");
 
 console.log("geometry smoke checks passed");

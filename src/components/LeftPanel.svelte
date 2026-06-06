@@ -69,6 +69,13 @@
       </div>
     </label>
     <label class="field">
+      <span>Default depth</span>
+      <div class="input-row">
+        <input id="depthInput" type="number" min="1" max="2000" step="1">
+        <span>mm</span>
+      </div>
+    </label>
+    <label class="field">
       <span>Snap step</span>
       <div class="input-row">
         <input id="gridInput" type="number" min="1" max="100" step="1">

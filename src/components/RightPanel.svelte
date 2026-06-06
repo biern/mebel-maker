@@ -31,6 +31,10 @@
           <span>Height</span>
           <input id="hInput" type="number" min="1" step="1">
         </label>
+        <label class="field">
+          <span>Depth</span>
+          <input id="depthOverrideInput" type="number" min="1" step="1" placeholder="Global">
+        </label>
       </div>
       <fieldset class="edge-fieldset">
         <legend>Laminate edges</legend>

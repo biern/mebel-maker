@@ -40,6 +40,7 @@ const ui = {
   measureModeBtn: query<HTMLButtonElement>("#measureModeBtn"),
   presetList: query<HTMLElement>("#presetList"),
   thicknessInput: query<HTMLInputElement>("#thicknessInput"),
+  depthInput: query<HTMLInputElement>("#depthInput"),
   gridInput: query<HTMLInputElement>("#gridInput"),
   snapToggle: query<HTMLInputElement>("#snapToggle"),
   dimToggle: query<HTMLInputElement>("#dimToggle"),
@@ -64,6 +65,7 @@ const ui = {
   yInput: query<HTMLInputElement>("#yInput"),
   wInput: query<HTMLInputElement>("#wInput"),
   hInput: query<HTMLInputElement>("#hInput"),
+  depthOverrideInput: query<HTMLInputElement>("#depthOverrideInput"),
   materialInput: query<HTMLSelectElement>("#materialInput"),
   materialLabelSwatch: query<HTMLElement>("#materialLabelSwatch"),
   materialForm: query<HTMLFormElement>("#materialForm"),
@@ -96,6 +98,7 @@ const state: SketchState = {
   nextAnchorId: 1,
   nextMeasurementId: 1,
   thickness: 18,
+  depth: 560,
   grid: 25,
   gridOriginX: 160,
   gridOriginY: 120,
@@ -145,6 +148,7 @@ interface SavedProject {
   scale: number;
   panX: number;
   panY: number;
+  depth?: number;
 }
 
 interface PiecePreset {
@@ -229,6 +233,7 @@ function withDefaults(board: Board): Board {
   return {
     ...board,
     materialId,
+    depthOverride: normalizeOptionalPositiveNumber(board.depthOverride),
     laminate: board.laminate ?? defaultLaminate(),
     ignoreInOrder: board.ignoreInOrder ?? false
   };
@@ -294,6 +299,20 @@ function normalizedColor(value: string): string {
   return /^#[0-9a-f]{6}$/i.test(value) ? value : "#c99756";
 }
 
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : fallback;
+}
+
+function normalizeOptionalPositiveNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+}
+
+function effectiveDepth(board: Board): number {
+  return board.depthOverride ?? state.depth;
+}
+
 function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: AutoThicknessAxis }, recordHistory = true): void {
   if (recordHistory) remember();
   const board: Board = {
@@ -306,6 +325,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
     kind: partial.kind,
     autoThickness: partial.autoThickness,
     materialId: partial.materialId ?? defaultMaterialId,
+    depthOverride: normalizeOptionalPositiveNumber(partial.depthOverride),
     laminate: partial.laminate ?? defaultLaminate(),
     ignoreInOrder: partial.ignoreInOrder ?? false,
     group: 0
@@ -487,6 +507,7 @@ function serializeProject(): SavedProject {
     nextAnchorId: state.nextAnchorId,
     nextMeasurementId: state.nextMeasurementId,
     thickness: state.thickness,
+    depth: state.depth,
     grid: state.grid,
     gridOriginX: state.gridOriginX,
     gridOriginY: state.gridOriginY,
@@ -508,7 +529,8 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.nextId = project.nextId ?? nextBoardId(state.boards);
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
-  state.thickness = project.thickness ?? state.thickness;
+  state.thickness = normalizePositiveNumber(project.thickness, state.thickness);
+  state.depth = normalizePositiveNumber(project.depth, state.depth);
   state.grid = project.grid ?? state.grid;
   state.gridOriginX = project.gridOriginX ?? (boundsFor(state.boards)?.left ?? state.gridOriginX);
   state.gridOriginY = project.gridOriginY ?? (boundsFor(state.boards)?.top ?? state.gridOriginY);
@@ -599,6 +621,7 @@ function importProjectFile(file: File): void {
 
 function syncSettingsInputs(): void {
   ui.thicknessInput.value = String(state.thickness);
+  ui.depthInput.value = String(state.depth);
   ui.gridInput.value = String(state.grid);
   ui.snapToggle.checked = state.snap;
   ui.dimToggle.checked = state.showDimensions;
@@ -625,6 +648,7 @@ function updateInspector(): void {
   ui.yInput.value = String(Math.round(board.y));
   ui.wInput.value = String(Math.round(board.w));
   ui.hInput.value = String(Math.round(board.h));
+  ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
   ui.materialInput.value = board.materialId;
   ui.laminateLeftInput.checked = board.laminate.left;
   ui.laminateRightInput.checked = board.laminate.right;
@@ -676,7 +700,7 @@ function renderMeasurements(): void {
     cards.push(`
       <div class="metric-card">
         <strong>${selected.name}</strong>
-        <span>Board: ${mm(selected.w)} × ${mm(selected.h)}</span>
+        <span>Board: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected))}</span>
         <span>Position: X ${mm(selected.x)}, Y ${mm(selected.y)}</span>
       </div>
     `);
@@ -689,6 +713,7 @@ function renderMeasurements(): void {
         <span>Outer: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
         <span>Inner: ${inner?.hasFrame ? `${mm(inner.innerW)} × ${mm(inner.innerH)}` : "needs opposing frame boards"}</span>
         <span>Thickness model: ${mm(state.thickness)}</span>
+        <span>Default depth: ${mm(state.depth)}</span>
       </div>
     `);
   }
@@ -742,16 +767,16 @@ function renderWarnings(): void {
 function renderCutList(): void {
   const grouped = new Map<string, Board[]>();
   state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
+    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
 
   ui.cutList.innerHTML = [...grouped.entries()].map(([key, boards]) => {
-    const [w, h, t, materialId] = key.split("×");
+    const [w, h, d, t, materialId] = key.split("×");
     const laminate = laminateLabel(boards[0].laminate);
     return `
       <div class="cut-card">
-        <strong><span class="count">${boards.length}×</span> ${w} × ${h} mm</strong>
+        <strong><span class="count">${boards.length}×</span> ${w} × ${h} × ${d} mm</strong>
         <span>Material thickness: ${t} mm</span>
         <span>Material: ${escapeHtml(materialName(materialId))}</span>
         <span>Laminate: ${laminate}</span>
@@ -950,11 +975,19 @@ function applyThicknessChange(newThickness: number): void {
   refresh();
 }
 
+function applyDepthChange(newDepth: number): void {
+  if (newDepth === state.depth) return;
+  remember();
+  state.depth = newDepth;
+  state.lastSnap = `Default depth ${mm(state.depth)}`;
+  refresh();
+}
+
 function copyCutList(): void {
-  const rows = [`Wood order, thickness ${state.thickness} mm`];
+  const rows = [`Wood order, thickness ${state.thickness} mm, default depth ${state.depth} mm`];
   const grouped = new Map<string, number>();
   state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const key = `${Math.round(board.w)} x ${Math.round(board.h)} mm, material: ${materialName(board.materialId)}, laminate: ${laminateLabel(board.laminate)}`;
+    const key = `${Math.round(board.w)} x ${Math.round(board.h)} x ${effectiveDepth(board)} mm, material: ${materialName(board.materialId)}, laminate: ${laminateLabel(board.laminate)}`;
     grouped.set(key, (grouped.get(key) ?? 0) + 1);
   });
   grouped.forEach((count, key) => rows.push(`${count}x ${key}`));
@@ -971,6 +1004,13 @@ function updateBoardFromInspector(event?: Event): void {
   const board = selectedBoard(state);
   if (!board) return;
   const target = event?.target;
+  if (target === ui.depthOverrideInput && ui.depthOverrideInput.value === "") {
+    remember();
+    board.depthOverride = null;
+    state.lastSnap = `Depth uses global ${mm(state.depth)}`;
+    refresh();
+    return;
+  }
   if (target instanceof HTMLInputElement && target.type === "number" && target.value === "") return;
   remember();
   board.name = ui.nameInput.value.trim() || board.name;
@@ -978,6 +1018,7 @@ function updateBoardFromInspector(event?: Event): void {
   board.y = Number(ui.yInput.value) || 0;
   board.w = Math.max(1, Number(ui.wInput.value) || 1);
   board.h = Math.max(1, Number(ui.hInput.value) || 1);
+  board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board));
   propagateAnchorsFrom(board.id);
   refresh();
 }
@@ -1383,6 +1424,7 @@ ui.deleteBtn.addEventListener("click", deleteSelectedBoard);
 ui.fitBtn.addEventListener("click", fitToView);
 ui.exportBtn.addEventListener("click", copyCutList);
 ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
+ui.depthInput.addEventListener("input", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)));
 ui.gridInput.addEventListener("input", () => {
   remember();
   state.grid = Math.max(1, Number(ui.gridInput.value) || 25);
@@ -1399,7 +1441,7 @@ ui.dimToggle.addEventListener("change", () => {
   state.showDimensions = ui.dimToggle.checked;
   refresh();
 });
-[ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput].forEach((input) => input.addEventListener("input", updateBoardFromInspector));
+[ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput].forEach((input) => input.addEventListener("input", updateBoardFromInspector));
 ui.materialInput.addEventListener("change", updateMaterialFromInspector);
 ui.materialForm.addEventListener("submit", (event) => {
   event.preventDefault();
