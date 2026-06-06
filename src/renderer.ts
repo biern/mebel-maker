@@ -161,11 +161,11 @@ export class SketchRenderer {
       if (guide.orientation === "vertical") {
         const point = worldToScreen(this.state, guide.position, 0);
         this.line(point.x, 0, point.x, height);
-        this.ctx.fillText(guide.label, point.x + 8, 18);
+        this.drawGuideLabel(guide.label, point.x + 8, height - 18, width, height);
       } else {
         const point = worldToScreen(this.state, 0, guide.position);
         this.line(0, point.y, width, point.y);
-        this.ctx.fillText(guide.label, 12, point.y - 8);
+        this.drawGuideLabel(guide.label, width - 12, point.y - 8, width, height, "right");
       }
     });
     this.ctx.restore();
@@ -246,6 +246,29 @@ export class SketchRenderer {
       this.ctx.fillRect(x - 4, y - 4, 8, 8);
       this.ctx.strokeRect(x - 4, y - 4, 8, 8);
     });
+    this.ctx.restore();
+  }
+
+  private drawGuideLabel(
+    label: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    align: CanvasTextAlign = "left"
+  ): void {
+    const metrics = this.ctx.measureText(label);
+    const labelWidth = metrics.width;
+    const padding = 10;
+    const textX = align === "right"
+      ? Math.max(padding + labelWidth, Math.min(width - padding, x))
+      : Math.max(padding, Math.min(width - padding - labelWidth, x));
+    const textY = Math.max(18, Math.min(height - 10, y));
+    this.ctx.save();
+    this.ctx.setLineDash([]);
+    this.ctx.textAlign = align;
+    this.ctx.textBaseline = "alphabetic";
+    this.ctx.fillText(label, textX, textY);
     this.ctx.restore();
   }
 

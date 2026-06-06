@@ -172,8 +172,8 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
       [me.left, oe.left, "left aligned"],
       [me.right, oe.right, "right aligned"],
       [me.centerX, oe.centerX, "center aligned"],
-      [me.left, oe.right, "flush right edge"],
-      [me.right, oe.left, "flush left edge"]
+      [me.left, oe.right, "touching right edge"],
+      [me.right, oe.left, "touching left edge"]
     ];
     const yPairs: Array<[number, number, string]> = [
       [me.top, oe.top, "top aligned"],
@@ -208,7 +208,7 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
 }
 
 export function hitResizeHandle(state: SketchState, board: Board, point: Point): ResizeHandle | null {
-  const threshold = 7 / state.scale;
+  const threshold = 14 / state.scale;
   const edges = rectEdges(board);
   const nearLeft = Math.abs(point.x - edges.left) <= threshold;
   const nearRight = Math.abs(point.x - edges.right) <= threshold;

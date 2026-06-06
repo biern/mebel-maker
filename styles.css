@@ -252,6 +252,16 @@ select {
   width: 100%;
 }
 
+input[type="color"] {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  height: 38px;
+  padding: 4px;
+  width: 100%;
+}
+
 input:focus {
   border-color: var(--accent);
   outline: 2px solid rgba(40, 127, 111, 0.16);
@@ -277,13 +287,26 @@ input:disabled {
   min-width: 0;
 }
 
+.canvas-wrap {
+  min-height: 0;
+  position: relative;
+}
+
 .topbar {
   align-items: center;
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: 10px;
+  justify-content: space-between;
   min-height: 54px;
   padding: 10px 14px;
+}
+
+.status-cluster {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
 }
 
 .status-pill {
@@ -292,7 +315,70 @@ input:disabled {
   border-radius: 999px;
   color: var(--muted);
   font-size: 13px;
+  overflow: hidden;
   padding: 7px 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.icon-button {
+  align-items: center;
+  background: #f8faf6;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  font-size: 16px;
+  height: 32px;
+  justify-items: center;
+  line-height: 1;
+  padding: 0;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+  width: 32px;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  background: var(--panel-2);
+  border-color: #b8c9bf;
+  outline: 0;
+}
+
+.icon-button:active {
+  transform: translateY(1px);
+}
+
+.icon-button:disabled {
+  color: #a8b0aa;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.icon-button.danger {
+  color: var(--danger);
+}
+
+.icon-button.active {
+  background: #e7f3f0;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.toolbar-separator {
+  background: var(--line);
+  display: block;
+  height: 24px;
+  margin: 0 2px;
+  width: 1px;
 }
 
 #sketchCanvas {
@@ -301,6 +387,132 @@ input:disabled {
   height: 100%;
   touch-action: none;
   width: 100%;
+}
+
+.viewport-overlay {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(31, 102, 89, 0.72);
+  bottom: 26px;
+  box-shadow: 0 8px 20px rgba(35, 43, 38, 0.12);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 48px 1fr;
+  left: 16px;
+  min-height: 92px;
+  padding: 18px 14px 14px;
+  pointer-events: none;
+  position: absolute;
+  width: 174px;
+}
+
+.axis-glyph {
+  height: 58px;
+  position: relative;
+  width: 48px;
+}
+
+.axis-line {
+  background: var(--accent);
+  display: block;
+  position: absolute;
+}
+
+.axis-line::after {
+  border-style: solid;
+  content: "";
+  display: block;
+  position: absolute;
+}
+
+.axis-x {
+  bottom: 9px;
+  height: 2px;
+  left: 5px;
+  width: 42px;
+}
+
+.axis-x::after {
+  border-color: transparent transparent transparent var(--accent);
+  border-width: 5px 0 5px 8px;
+  right: -1px;
+  top: -4px;
+}
+
+.axis-y {
+  bottom: 9px;
+  height: 34px;
+  left: 5px;
+  width: 2px;
+}
+
+.axis-y::after {
+  border-color: transparent transparent var(--accent) transparent;
+  border-width: 0 5px 8px;
+  left: -4px;
+  top: -1px;
+}
+
+.axis-label {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  position: absolute;
+}
+
+.axis-label-x {
+  bottom: 2px;
+  right: 0;
+}
+
+.axis-label-y {
+  left: 0;
+  top: 0;
+}
+
+.scale-glyph {
+  align-content: center;
+  color: var(--ink);
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.scale-line {
+  border-bottom: 2px solid var(--ink);
+  display: block;
+  height: 11px;
+  max-width: 90px;
+  min-width: 28px;
+  position: relative;
+  width: var(--scale-width, 64px);
+}
+
+.scale-line::before,
+.scale-line::after {
+  background: var(--ink);
+  bottom: -5px;
+  content: "";
+  height: 10px;
+  position: absolute;
+  width: 2px;
+}
+
+.scale-line::before {
+  left: 0;
+}
+
+.scale-line::after {
+  right: 0;
+}
+
+.scale-label,
+.zoom-label {
+  line-height: 1.1;
+}
+
+.zoom-label {
+  color: var(--muted);
 }
 
 #sketchCanvas.measure-mode {
@@ -414,6 +626,28 @@ input:disabled {
   grid-template-columns: 22px 1fr;
 }
 
+.material-form {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.material-input-row {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+}
+
+.material-input-row .field {
+  margin-bottom: 0;
+}
+
+.material-input-row .tool-button {
+  min-height: 38px;
+  min-width: 74px;
+}
+
 .material-swatch {
   border: 1px solid rgba(32, 37, 34, 0.2);
   border-radius: 4px;
@@ -446,6 +680,15 @@ input:disabled {
     border-top: 1px solid var(--line);
     grid-column: 1 / -1;
     max-height: 320px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .top-actions {
+    justify-content: flex-start;
   }
 }
 
