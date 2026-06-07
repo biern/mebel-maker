@@ -8,6 +8,7 @@ import {
   computeOverlaps,
   defaultMeasurementDisplayOffset,
   effectiveDepth,
+  effectiveThickness,
   groupBoards,
   hitTest,
   hitResizeHandle,
@@ -365,6 +366,7 @@ function withDefaults(board: Board): Board {
     ...board,
     name: normalizedPieceName(board.name, board.id),
     materialId,
+    thicknessOverride: normalizeOptionalPositiveNumber(board.thicknessOverride),
     depthOverride: normalizeOptionalPositiveNumber(board.depthOverride),
     laminate: board.laminate ?? defaultLaminate(),
     ignoreInOrder: board.ignoreInOrder ?? false
@@ -470,6 +472,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
     kind: partial.kind,
     autoThickness: partial.autoThickness,
     materialId: partial.materialId ?? defaultMaterialId,
+    thicknessOverride: normalizeOptionalPositiveNumber(partial.thicknessOverride),
     depthOverride: normalizeOptionalPositiveNumber(partial.depthOverride),
     laminate: partial.laminate ?? defaultLaminate(),
     ignoreInOrder: partial.ignoreInOrder ?? false,
@@ -1046,6 +1049,10 @@ function updateInspector(): void {
     ui.yInput.value = String(Math.round(displayY(board.y)));
     ui.wInput.value = String(Math.round(board.w));
     ui.hInput.value = String(Math.round(board.h));
+    ui.wInput.placeholder = board.autoThickness === "width" && board.thicknessOverride === null ? "Global" : "";
+    ui.hInput.placeholder = board.autoThickness === "height" && board.thicknessOverride === null ? "Global" : "";
+    if (board.autoThickness === "width" && board.thicknessOverride === null) ui.wInput.value = "";
+    if (board.autoThickness === "height" && board.thicknessOverride === null) ui.hInput.value = "";
     ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
     ui.materialInput.value = board.materialId;
     ui.layoutAnchorAxisInput.value = axis;
@@ -1055,8 +1062,8 @@ function updateInspector(): void {
     ui.layoutAnchorSummary.textContent = anchors.length
       ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
       : "No layout anchors";
-    ui.wInput.disabled = board.autoThickness === "width";
-    ui.hInput.disabled = board.autoThickness === "height";
+    ui.wInput.disabled = false;
+    ui.hInput.disabled = false;
   }
 
   const materialId = commonValue(boards, (item) => item.materialId);
@@ -1379,24 +1386,33 @@ function applyThicknessChange(newThickness: number): void {
   if (newThickness === state.thickness) return;
   remember();
   const oldThickness = state.thickness;
-  const delta = newThickness - oldThickness;
+  const updateExisting = state.boards.some((board) => board.autoThickness !== "none")
+    ? window.confirm(`Update all existing auto-thickness pieces to ${mm(newThickness)} thickness? Choose Cancel to keep their current thicknesses.`)
+    : false;
   state.thickness = newThickness;
   if (normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, oldThickness) === oldThickness) {
     ui.layoutAnchorThicknessInput.value = String(newThickness);
   }
   state.boards.forEach((board) => {
+    const oldBoardThickness = effectiveThicknessWithDefault(board, oldThickness);
+    const nextBoardThickness = updateExisting ? newThickness : oldBoardThickness;
+    const delta = nextBoardThickness - oldBoardThickness;
+    if (board.autoThickness !== "none") board.thicknessOverride = updateExisting ? null : oldBoardThickness;
     if (board.autoThickness === "width") {
-      if (board.x > 160) board.x += oldThickness - newThickness;
-      board.w = newThickness;
+      if (board.x > 160) board.x -= delta;
+      board.w = nextBoardThickness;
     }
     if (board.autoThickness === "height") {
       board.x += delta;
-      board.w = Math.max(newThickness, board.w - delta * 2);
-      if (board.y > 120) board.y += oldThickness - newThickness;
-      board.h = newThickness;
+      board.w = Math.max(nextBoardThickness, board.w - delta * 2);
+      if (board.y > 120) board.y -= delta;
+      board.h = nextBoardThickness;
     }
   });
   state.boards.forEach((board) => applyAnchorsToBoard(board.id));
+  state.lastSnap = updateExisting
+    ? `All auto-thickness pieces ${mm(state.thickness)}`
+    : `Default thickness ${mm(state.thickness)}`;
   refresh();
 }
 
@@ -1421,6 +1437,10 @@ function applyDepthChange(newDepth: number): void {
 
 function effectiveDepthWithDefault(board: Board, defaultDepth: number): number {
   return board.depthOverride ?? defaultDepth;
+}
+
+function effectiveThicknessWithDefault(board: Board, defaultThickness: number): number {
+  return board.thicknessOverride ?? defaultThickness;
 }
 
 function exportCutListCsv(): void {
@@ -1516,6 +1536,24 @@ function updateBoardFromInspector(event?: Event): void {
   const boards = selectedBoards(state);
   if (!board || !boards.length) return;
   const target = event?.target;
+  if (target === ui.wInput && board.autoThickness === "width" && ui.wInput.value === "") {
+    remember();
+    board.thicknessOverride = null;
+    board.w = state.thickness;
+    state.lastSnap = `Width uses global ${mm(state.thickness)}`;
+    propagateAnchorsFrom(board.id);
+    refresh();
+    return;
+  }
+  if (target === ui.hInput && board.autoThickness === "height" && ui.hInput.value === "") {
+    remember();
+    board.thicknessOverride = null;
+    board.h = state.thickness;
+    state.lastSnap = `Height uses global ${mm(state.thickness)}`;
+    propagateAnchorsFrom(board.id);
+    refresh();
+    return;
+  }
   if (target === ui.depthOverrideInput && ui.depthOverrideInput.value === "") {
     remember();
     boards.forEach((item) => {
@@ -1545,8 +1583,14 @@ function updateBoardFromInspector(event?: Event): void {
     board.name = ui.nameInput.value.trim() || board.name;
     board.x = Number(ui.xInput.value) || 0;
     board.y = modelY(Number(ui.yInput.value) || 0);
-    board.w = Math.max(1, Number(ui.wInput.value) || 1);
-    board.h = Math.max(1, Number(ui.hInput.value) || 1);
+    board.w = board.autoThickness === "width" && ui.wInput.value === "" ? state.thickness : Math.max(1, Number(ui.wInput.value) || 1);
+    board.h = board.autoThickness === "height" && ui.hInput.value === "" ? state.thickness : Math.max(1, Number(ui.hInput.value) || 1);
+    if (board.autoThickness === "width") {
+      board.thicknessOverride = ui.wInput.value === "" ? null : normalizePositiveNumber(ui.wInput.value, effectiveThickness(board, state.thickness));
+    }
+    if (board.autoThickness === "height") {
+      board.thicknessOverride = ui.hInput.value === "" ? null : normalizePositiveNumber(ui.hInput.value, effectiveThickness(board, state.thickness));
+    }
     board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board, state.depth));
     propagateAnchorsFrom(board.id);
   }

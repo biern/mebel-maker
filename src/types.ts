@@ -15,6 +15,7 @@ export interface Board {
   kind: BoardKind;
   autoThickness: AutoThicknessAxis;
   materialId: string;
+  thicknessOverride: number | null;
   depthOverride: number | null;
   laminate: LaminateEdges;
   ignoreInOrder: boolean;
