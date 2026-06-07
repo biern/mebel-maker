@@ -57,6 +57,7 @@ const ui = {
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
   exportBtn: query<HTMLButtonElement>("#exportBtn"),
+  notificationToast: query<HTMLElement>("#notificationToast"),
   selectionStatus: query<HTMLElement>("#selectionStatus"),
   snapStatus: query<HTMLElement>("#snapStatus"),
   emptySelection: query<HTMLElement>("#emptySelection"),
@@ -128,6 +129,7 @@ const maxFitScale = 1.3;
 const maxWheelScale = 2;
 const undoStack: SavedProject[] = [];
 const redoStack: SavedProject[] = [];
+let notificationTimer: number | undefined;
 
 interface SavedProject {
   schemaVersion?: 1;
@@ -588,6 +590,7 @@ function exportProjectFile(): void {
   const json = JSON.stringify(serializeProject(), null, 2);
   downloadTextFile(json, "application/json", `mebel-maker-${new Date().toISOString().slice(0, 10)}.mebel`);
   state.lastSnap = "Project exported";
+  notify("Saved .mebel project");
   updateInspector();
 }
 
@@ -606,6 +609,7 @@ function downloadTextFile(content: string, type: string, filename: string): void
 function openProjectFilePicker(): void {
   ui.projectFileInput.value = "";
   ui.projectFileInput.click();
+  notify("Choose a .mebel project file");
 }
 
 function importProjectFile(file: File): void {
@@ -616,17 +620,29 @@ function importProjectFile(file: File): void {
       if (!isSupportedProject(project)) throw new Error("Unsupported project file");
       applyProject(project);
       state.lastSnap = "Project imported";
+      notify("Loaded project");
       updateInspector();
     } catch {
       state.lastSnap = "Could not import project";
+      notify("Could not load project");
       updateInspector();
     }
   });
   reader.addEventListener("error", () => {
     state.lastSnap = "Could not read file";
+    notify("Could not read file");
     updateInspector();
   });
   reader.readAsText(file);
+}
+
+function notify(message: string): void {
+  window.clearTimeout(notificationTimer);
+  ui.notificationToast.textContent = message;
+  ui.notificationToast.hidden = false;
+  notificationTimer = window.setTimeout(() => {
+    ui.notificationToast.hidden = true;
+  }, 2400);
 }
 
 function syncSettingsInputs(): void {
@@ -1046,6 +1062,7 @@ function exportCutListCsv(): void {
     `mebel-maker-pieces-${new Date().toISOString().slice(0, 10)}.csv`
   );
   state.lastSnap = "Piece list CSV exported";
+  notify("Exported piece list CSV");
   updateInspector();
 }
 

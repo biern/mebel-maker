@@ -41,12 +41,25 @@
       </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="fitBtn" class="icon-button" title="Fit drawing to view" aria-label="Fit drawing to view">⌖</button>
-      <button id="saveBtn" class="icon-button" title="Export drawing as .mebel file" aria-label="Export drawing as .mebel file">⇩</button>
-      <button id="loadBtn" class="icon-button" title="Load drawing from .mebel file" aria-label="Load drawing from .mebel file">⇧</button>
-      <button id="exportBtn" class="icon-button" title="Export piece list as CSV" aria-label="Export piece list as CSV">CSV</button>
+      <button id="saveBtn" class="icon-button" title="Save project as .mebel file" aria-label="Save project as .mebel file">
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 3 H17 L21 7 V21 H5 Z"></path>
+          <path d="M8 3 V9 H16 V3"></path>
+          <path d="M8 21 V14 H18 V21"></path>
+        </svg>
+      </button>
+      <button id="loadBtn" class="icon-button" title="Load project from .mebel file" aria-label="Load project from .mebel file">
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6 H9 L11 8 H21 V18 A2 2 0 0 1 19 20 H5 A2 2 0 0 1 3 18 Z"></path>
+          <path d="M12 12 V17"></path>
+          <path d="M9 14 L12 17 L15 14"></path>
+        </svg>
+      </button>
+      <button id="exportBtn" class="icon-button csv-button" title="Export piece list as CSV" aria-label="Export piece list as CSV">CSV</button>
       <input id="projectFileInput" class="hidden-file-input" type="file" accept=".mebel,application/json,.json">
     </div>
   </div>
+  <div id="notificationToast" class="notification-toast" role="status" aria-live="polite" hidden></div>
   <div class="canvas-wrap">
     <canvas id="sketchCanvas"></canvas>
     <div class="anchor-overlay" id="anchorOverlay" aria-label="Board anchors"></div>

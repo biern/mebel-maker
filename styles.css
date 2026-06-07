@@ -344,6 +344,7 @@ input:disabled {
   display: grid;
   grid-template-rows: auto 1fr;
   min-width: 0;
+  position: relative;
 }
 
 .canvas-wrap {
@@ -432,6 +433,12 @@ input:disabled {
   color: var(--accent);
 }
 
+.icon-button.csv-button {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
 .toolbar-icon {
   fill: none;
   height: 20px;
@@ -451,6 +458,28 @@ input:disabled {
 }
 
 .hidden-file-input {
+  display: none;
+}
+
+.notification-toast {
+  background: var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  max-width: min(320px, calc(100% - 32px));
+  overflow: hidden;
+  padding: 10px 12px;
+  position: absolute;
+  right: 16px;
+  text-overflow: ellipsis;
+  top: 64px;
+  white-space: nowrap;
+  z-index: 8;
+}
+
+.notification-toast[hidden] {
   display: none;
 }
 
