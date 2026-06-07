@@ -234,12 +234,35 @@ function defaultLaminate(): LaminateEdges {
   return { left: false, right: false, front: false, back: false };
 }
 
+function defaultPieceName(id: number): string {
+  return `P${id}`;
+}
+
+function defaultMeasureName(id: number): string {
+  return `M${id}`;
+}
+
+function isLegacyDefaultPieceName(name: string): boolean {
+  return /^(Board \d+|Side|Shelf|Shelf \d+|Divider|Back|Front|Left side|Right side|Top|Bottom|Middle shelf|Left adjustable shelf|Right adjustable shelf|Center divider)( copy)?$/.test(name);
+}
+
+function normalizedPieceName(name: string | undefined, id: number): string {
+  const trimmed = name?.trim() ?? "";
+  return !trimmed || isLegacyDefaultPieceName(trimmed) ? defaultPieceName(id) : trimmed;
+}
+
+function normalizedMeasureName(name: string | undefined, id: number): string {
+  const trimmed = name?.trim() ?? "";
+  return trimmed || defaultMeasureName(id);
+}
+
 function withDefaults(board: Board): Board {
   const materialId = board.materialId && state.materials.some((material) => material.id === board.materialId)
     ? board.materialId
     : defaultMaterialId;
   return {
     ...board,
+    name: normalizedPieceName(board.name, board.id),
     materialId,
     depthOverride: normalizeOptionalPositiveNumber(board.depthOverride),
     laminate: board.laminate ?? defaultLaminate(),
@@ -325,7 +348,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
   if (recordHistory) remember();
   const board: Board = {
     id: state.nextId,
-    name: partial.name ?? `Board ${state.nextId}`,
+    name: normalizedPieceName(partial.name, state.nextId),
     x: partial.x ?? 120,
     y: partial.y ?? 120,
     w: partial.w ?? 400,
@@ -366,24 +389,24 @@ function beginTemplate(recordHistory: boolean, x: number, y: number): void {
 function addOpenFrame(x: number, y: number, outerW: number, outerH: number): void {
   const t = state.thickness;
   const innerW = outerW - 2 * t;
-  addTemplateBoard({ name: "Left side", x, y, w: t, h: outerH, kind: "upright", autoThickness: "width" });
-  addTemplateBoard({ name: "Right side", x: x + outerW - t, y, w: t, h: outerH, kind: "upright", autoThickness: "width" });
-  addTemplateBoard({ name: "Top", x: x + t, y, w: innerW, h: t, kind: "shelf", autoThickness: "height" });
-  addTemplateBoard({ name: "Bottom", x: x + t, y: y + outerH - t, w: innerW, h: t, kind: "shelf", autoThickness: "height" });
+  addTemplateBoard({ x, y, w: t, h: outerH, kind: "upright", autoThickness: "width" });
+  addTemplateBoard({ x: x + outerW - t, y, w: t, h: outerH, kind: "upright", autoThickness: "width" });
+  addTemplateBoard({ x: x + t, y, w: innerW, h: t, kind: "shelf", autoThickness: "height" });
+  addTemplateBoard({ x: x + t, y: y + outerH - t, w: innerW, h: t, kind: "shelf", autoThickness: "height" });
 }
 
 function addBackPanel(x: number, y: number, outerW: number, outerH: number): void {
-  addTemplateBoard({ name: "Back", x, y, w: outerW, h: outerH, kind: "back", autoThickness: "none" });
+  addTemplateBoard({ x, y, w: outerW, h: outerH, kind: "back", autoThickness: "none" });
 }
 
-function addShelf(name: string, x: number, y: number, outerW: number): void {
+function addShelf(x: number, y: number, outerW: number): void {
   const t = state.thickness;
-  addTemplateBoard({ name, x: x + t, y, w: outerW - 2 * t, h: t, kind: "shelf", autoThickness: "height" });
+  addTemplateBoard({ x: x + t, y, w: outerW - 2 * t, h: t, kind: "shelf", autoThickness: "height" });
 }
 
-function addDivider(name: string, x: number, y: number, h: number): void {
+function addDivider(x: number, y: number, h: number): void {
   const t = state.thickness;
-  addTemplateBoard({ name, x, y, w: t, h, kind: "upright", autoThickness: "width" });
+  addTemplateBoard({ x, y, w: t, h, kind: "upright", autoThickness: "width" });
 }
 
 function createTemplate(templateId: TemplateId, recordHistory = true): void {
@@ -397,14 +420,14 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
     const outerW = 820;
     const outerH = 560;
     addOpenFrame(x, y, outerW, outerH);
-    addShelf("Middle shelf", x, y + 275, outerW);
+    addShelf(x, y + 275, outerW);
   }
 
   if (templateId === "bookcase") {
     const outerW = 760;
     const outerH = 1280;
     addOpenFrame(x, y, outerW, outerH);
-    [320, 560, 800, 1040].forEach((shelfY, index) => addShelf(`Shelf ${index + 1}`, x, y + shelfY, outerW));
+    [320, 560, 800, 1040].forEach((shelfY) => addShelf(x, y + shelfY, outerW));
     addBackPanel(x, y, outerW, outerH);
   }
 
@@ -414,9 +437,9 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
     const dividerX = x + outerW / 2 - t / 2;
     const shelfY = y + 360;
     addOpenFrame(x, y, outerW, outerH);
-    addTemplateBoard({ name: "Left adjustable shelf", x: x + t, y: shelfY, w: dividerX - x - t, h: t, kind: "shelf", autoThickness: "height" });
-    addTemplateBoard({ name: "Right adjustable shelf", x: dividerX + t, y: shelfY, w: x + outerW - t - (dividerX + t), h: t, kind: "shelf", autoThickness: "height" });
-    addDivider("Center divider", dividerX, y + t, outerH - 2 * t);
+    addTemplateBoard({ x: x + t, y: shelfY, w: dividerX - x - t, h: t, kind: "shelf", autoThickness: "height" });
+    addTemplateBoard({ x: dividerX + t, y: shelfY, w: x + outerW - t - (dividerX + t), h: t, kind: "shelf", autoThickness: "height" });
+    addDivider(dividerX, y + t, outerH - 2 * t);
     addBackPanel(x, y, outerW, outerH);
   }
 
@@ -424,7 +447,7 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
     const outerW = 720;
     const outerH = 640;
     addOpenFrame(x, y, outerW, outerH);
-    addShelf("Middle shelf", x, y + 315, outerW);
+    addShelf(x, y + 315, outerW);
     addBackPanel(x, y, outerW, outerH);
   }
 
@@ -535,7 +558,10 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.materials = normalizedMaterials(project.materials);
   state.boards = (project.boards ?? []).map(withDefaults);
   state.anchors = normalizedAnchors(project.anchors);
-  state.measurements = project.measurements ?? [];
+  state.measurements = (project.measurements ?? []).map((measurement) => ({
+    ...measurement,
+    name: normalizedMeasureName(measurement.name, measurement.id)
+  }));
   state.selectedId = state.boards.some((board) => board.id === project.selectedId) ? project.selectedId : null;
   state.nextId = project.nextId ?? nextBoardId(state.boards);
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
@@ -767,7 +793,7 @@ function renderCustomMeasurements(): void {
       <div class="metric-card">
         <label class="measure-name-field">
           <span>Name</span>
-          <input data-measure-name="${measurement.id}" type="text" value="${escapeHtml(measurement.name)}" placeholder="Optional measure name">
+          <input data-measure-name="${measurement.id}" type="text" value="${escapeHtml(measurement.name)}" placeholder="${defaultMeasureName(measurement.id)}">
         </label>
         <span>${value}</span>
         <span>${anchorLabel(measurement.a)} → ${anchorLabel(measurement.b)}</span>
@@ -785,7 +811,7 @@ function renderWarnings(): void {
   }
 
   ui.warningList.innerHTML = overlaps.map((overlap) => {
-    const [a, b] = overlap.boardIds.map((id) => state.boards.find((board) => board.id === id)?.name ?? `Board ${id}`);
+    const [a, b] = overlap.boardIds.map((id) => state.boards.find((board) => board.id === id)?.name ?? defaultPieceName(id));
     return `
       <div class="warning-card">
         <strong>Overlap</strong>
@@ -825,7 +851,7 @@ function measurementValue(axis: MeasurementAxis, a: Point, b: Point): string {
 function anchorLabel(anchor: MeasurementAnchor): string {
   if (anchor.kind === "grid") return `Grid ${mm(anchor.x)}, ${mm(anchor.y)}`;
   const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
-  return `${board?.name ?? `Board ${anchor.boardId}`} ${anchor.edge}`;
+  return `${board?.name ?? defaultPieceName(anchor.boardId)} ${anchor.edge}`;
 }
 
 function renderAnchorOverlay(): void {
@@ -858,7 +884,7 @@ function renderAnchorOverlay(): void {
 
 function anchorTargetLabel(anchor: BoardAnchor): string {
   const target = state.boards.find((board) => board.id === anchor.targetBoardId);
-  return `${target?.name ?? `Board ${anchor.targetBoardId}`} ${anchor.targetEdge}`;
+  return `${target?.name ?? defaultPieceName(anchor.targetBoardId)} ${anchor.targetEdge}`;
 }
 
 function anchorChipPosition(anchor: BoardAnchor): Point | null {
@@ -1209,7 +1235,6 @@ function createPresetAt(presetId: string, point?: Point): void {
     state.gridOriginY = center.y;
   }
   addBoard({
-    name: preset.name,
     x: snapValueToGrid(state, center.x - preset.w() / 2, "x"),
     y: snapValueToGrid(state, center.y - preset.h() / 2, "y"),
     w: preset.w(),
@@ -1235,7 +1260,7 @@ function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: Measur
   remember();
   state.measurements.push({
     id: state.nextMeasurementId,
-    name: "",
+    name: defaultMeasureName(state.nextMeasurementId),
     a,
     b,
     axis
@@ -1299,7 +1324,7 @@ function deleteSelectedBoard(): void {
 function duplicateSelectedBoard(): void {
   const board = selectedBoard(state);
   if (!board) return;
-  addBoard({ ...board, name: `${board.name} copy`, x: board.x + 35, y: board.y + 35 });
+  addBoard({ ...board, name: defaultPieceName(state.nextId), x: board.x + 35, y: board.y + 35 });
   state.lastSnap = "Board duplicated";
   updateInspector();
 }
@@ -1613,10 +1638,11 @@ ui.customMeasureList.addEventListener("change", (event) => {
   const measurement = state.measurements.find((item) => item.id === id);
   if (!measurement) return;
   const name = target.value.trim();
-  if (measurement.name === name) return;
+  const nextName = name || defaultMeasureName(measurement.id);
+  if (measurement.name === nextName) return;
   remember();
-  measurement.name = name;
-  state.lastSnap = name ? "Measurement named" : "Measurement name cleared";
+  measurement.name = nextName;
+  state.lastSnap = name ? "Measurement named" : "Measurement reset";
   refresh();
 });
 document.addEventListener("keydown", (event) => {
