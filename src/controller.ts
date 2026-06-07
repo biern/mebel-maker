@@ -586,7 +586,7 @@ function loadAutosavedProject(): boolean {
 
 function exportProjectFile(): void {
   const json = JSON.stringify(serializeProject(), null, 2);
-  downloadTextFile(json, "application/json", `mebel-maker-${new Date().toISOString().slice(0, 10)}.json`);
+  downloadTextFile(json, "application/json", `mebel-maker-${new Date().toISOString().slice(0, 10)}.mebel`);
   state.lastSnap = "Project exported";
   updateInspector();
 }

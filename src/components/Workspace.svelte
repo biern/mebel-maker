@@ -41,10 +41,10 @@
       </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="fitBtn" class="icon-button" title="Fit drawing to view" aria-label="Fit drawing to view">⌖</button>
-      <button id="saveBtn" class="icon-button" title="Export drawing as JSON" aria-label="Export drawing as JSON">⇩</button>
-      <button id="loadBtn" class="icon-button" title="Load drawing from JSON file" aria-label="Load drawing from JSON file">⇧</button>
+      <button id="saveBtn" class="icon-button" title="Export drawing as .mebel file" aria-label="Export drawing as .mebel file">⇩</button>
+      <button id="loadBtn" class="icon-button" title="Load drawing from .mebel file" aria-label="Load drawing from .mebel file">⇧</button>
       <button id="exportBtn" class="icon-button" title="Export piece list as CSV" aria-label="Export piece list as CSV">CSV</button>
-      <input id="projectFileInput" class="hidden-file-input" type="file" accept="application/json,.json">
+      <input id="projectFileInput" class="hidden-file-input" type="file" accept=".mebel,application/json,.json">
     </div>
   </div>
   <div class="canvas-wrap">
