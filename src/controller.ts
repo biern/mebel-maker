@@ -1,10 +1,12 @@
 import { SketchRenderer } from "./renderer";
+import { Visualization3DRenderer } from "./visualization3d";
 import {
   boardLabel,
   boundsFor,
   computeGroups,
   computeOverlaps,
   defaultMeasurementDisplayOffset,
+  effectiveDepth,
   groupBoards,
   hitTest,
   hitResizeHandle,
@@ -41,9 +43,11 @@ declare global {
 }
 
 const canvas = query<HTMLCanvasElement>("#sketchCanvas");
+const view3dCanvas = query<HTMLCanvasElement>("#view3dCanvas");
 const ui = {
   projectNameInput: query<HTMLInputElement>("#projectNameInput"),
   templateChooser: query<HTMLElement>("#templateChooser"),
+  canvasWrap: query<HTMLElement>("#canvasWrap"),
   templateList: query<HTMLElement>("#templateList"),
   measureModeBtn: query<HTMLButtonElement>("#measureModeBtn"),
   presetList: query<HTMLElement>("#presetList"),
@@ -65,6 +69,7 @@ const ui = {
   projectFileInput: query<HTMLInputElement>("#projectFileInput"),
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
+  view3dBtn: query<HTMLButtonElement>("#view3dBtn"),
   copyCsvBtn: query<HTMLButtonElement>("#copyCsvBtn"),
   exportBtn: query<HTMLButtonElement>("#exportBtn"),
   notificationToast: query<HTMLElement>("#notificationToast"),
@@ -151,6 +156,7 @@ const state: SketchState = {
 };
 
 const renderer = new SketchRenderer(canvas, state);
+const visualization3d = new Visualization3DRenderer(view3dCanvas, state);
 const storageKey = "mebel-maker-project";
 const appVersion = import.meta.env.VITE_APP_VERSION;
 const historyLimit = 80;
@@ -164,6 +170,7 @@ const undoStack: SavedProject[] = [];
 const redoStack: SavedProject[] = [];
 let notificationTimer: number | undefined;
 let renamingMeasurementId: number | null = null;
+let activeView: "sketch" | "3d" = "sketch";
 
 interface SavedProject {
   schemaVersion?: 1;
@@ -441,10 +448,6 @@ function normalizeMeasurementDisplayOffset(value: unknown, index: number): numbe
   return Number.isFinite(parsed) ? Math.round(parsed) : defaultMeasurementDisplayOffset(index);
 }
 
-function effectiveDepth(board: Board): number {
-  return board.depthOverride ?? state.depth;
-}
-
 function displayY(y: number): number {
   return -y;
 }
@@ -631,7 +634,7 @@ function newProjectWithConfirmation(): void {
 
 function refresh(): void {
   computeGroups(state.boards);
-  renderer.draw();
+  drawActiveView();
   renderTemplateChooser();
   renderAnchorOverlay();
   renderMaterials();
@@ -644,6 +647,35 @@ function refresh(): void {
 
 function renderTemplateChooser(): void {
   ui.templateChooser.hidden = state.boards.length > 0 || state.measurements.length > 0;
+}
+
+function drawActiveView(): void {
+  if (activeView === "3d") {
+    visualization3d.draw();
+    return;
+  }
+  renderer.draw();
+}
+
+function resizeActiveView(): void {
+  if (activeView === "3d") {
+    visualization3d.resize();
+    return;
+  }
+  renderer.resize();
+}
+
+function setActiveView(view: "sketch" | "3d"): void {
+  if (activeView === view) return;
+  activeView = view;
+  ui.canvasWrap.dataset.view = view;
+  ui.view3dBtn.classList.toggle("active", view === "3d");
+  ui.view3dBtn.setAttribute("aria-pressed", String(view === "3d"));
+  state.lastSnap = view === "3d" ? "3D view" : "Sketch view";
+  window.requestAnimationFrame(() => {
+    resizeActiveView();
+    updateInspector();
+  });
 }
 
 function cloneProject(project: SavedProject): SavedProject {
@@ -1068,7 +1100,7 @@ function renderMeasurements(): void {
     cards.push(`
       <div class="metric-card">
         <strong>${selected.name}</strong>
-        <span>Board: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected))}</span>
+        <span>Board: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected, state.depth))}</span>
         <span>Position: X ${mm(selected.x)}, Y ${mm(displayY(selected.y))}</span>
       </div>
     `);
@@ -1111,7 +1143,7 @@ function renderWarnings(): void {
 function renderCutList(): void {
   const grouped = new Map<string, Board[]>();
   state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
+    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board, state.depth)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
 
@@ -1372,7 +1404,7 @@ function cutListCsv(): string {
   ];
   const grouped = new Map<string, Board[]>();
   state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
+    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board, state.depth)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
 
@@ -1456,7 +1488,7 @@ function updateBoardFromInspector(event?: Event): void {
     }
     if (target === ui.depthOverrideInput) {
       boards.forEach((item) => {
-        item.depthOverride = normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(item));
+        item.depthOverride = normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(item, state.depth));
       });
       state.lastSnap = `Depth set on ${boards.length} boards`;
     }
@@ -1466,7 +1498,7 @@ function updateBoardFromInspector(event?: Event): void {
     board.y = modelY(Number(ui.yInput.value) || 0);
     board.w = Math.max(1, Number(ui.wInput.value) || 1);
     board.h = Math.max(1, Number(ui.hInput.value) || 1);
-    board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board));
+    board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board, state.depth));
     propagateAnchorsFrom(board.id);
   }
   refresh();
@@ -2256,6 +2288,9 @@ ui.projectFileInput.addEventListener("change", () => {
 }, listenerOptions);
 ui.deleteBtn.addEventListener("click", deleteActiveSelection, listenerOptions);
 ui.fitBtn.addEventListener("click", fitToView, listenerOptions);
+ui.view3dBtn.addEventListener("click", () => {
+  setActiveView(activeView === "3d" ? "sketch" : "3d");
+}, listenerOptions);
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv(), listenerOptions);
 ui.exportBtn.addEventListener("click", exportCutListCsv, listenerOptions);
 ui.projectNameInput.addEventListener("change", () => {
@@ -2347,7 +2382,7 @@ document.addEventListener("keydown", (event) => {
     deleteActiveSelection();
   }
 }, listenerOptions);
-window.addEventListener("resize", () => renderer.resize(), listenerOptions);
+window.addEventListener("resize", resizeActiveView, listenerOptions);
 
 if (import.meta.env.DEV) {
   window.mebleBuilderDebug = {
@@ -2363,14 +2398,18 @@ if (import.meta.env.DEV) {
 }
 
 syncSettingsInputs();
+ui.canvasWrap.dataset.view = activeView;
+ui.view3dBtn.setAttribute("aria-pressed", "false");
+visualization3d.bindInteractions(listenerOptions);
 loadInitialProject();
-renderer.resize();
+resizeActiveView();
 
 if (import.meta.hot) {
   import.meta.hot.dispose((data) => {
     data.project = serializeProject();
     autosaveProject();
     controllerEvents.abort();
+    visualization3d.dispose();
     canvas.classList.remove("drop-ready");
     if (window.mebleBuilderDebug?.state === state) delete window.mebleBuilderDebug;
   });
