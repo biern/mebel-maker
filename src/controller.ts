@@ -1,5 +1,6 @@
 import { SketchRenderer } from "./renderer";
 import { Visualization3DRenderer } from "./visualization3d";
+import complexTemplateSource from "../templates/complex.mebel?raw";
 import {
   boardLabel,
   boundsFor,
@@ -210,7 +211,7 @@ interface PiecePreset {
   h: () => number;
 }
 
-type TemplateId = "cabinet" | "bookcase" | "base-cabinet" | "wall-cabinet" | "simple-box";
+type TemplateId = "cabinet" | "bookcase" | "base-cabinet" | "wall-cabinet" | "simple-box" | "complex";
 
 const presets: Record<string, PiecePreset> = {
   side: { name: "Side", kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 },
@@ -529,6 +530,11 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
   const x = 0;
   const y = 0;
 
+  if (templateId === "complex") {
+    createProjectFileTemplate(complexTemplateSource, templateLabel(templateId), recordHistory);
+    return;
+  }
+
   beginTemplate(recordHistory, x, y);
 
   if (templateId === "cabinet") {
@@ -583,9 +589,24 @@ function templateLabel(templateId: TemplateId): string {
     bookcase: "Bookcase",
     "base-cabinet": "Base cabinet",
     "wall-cabinet": "Wall cabinet",
-    "simple-box": "Simple box"
+    "simple-box": "Simple box",
+    complex: "Complex"
   };
   return labels[templateId];
+}
+
+function createProjectFileTemplate(source: string, label: string, recordHistory: boolean): void {
+  try {
+    const project = JSON.parse(source) as SavedProject;
+    if (!isSupportedProject(project)) throw new Error("Unsupported template file");
+    applyProject({ ...project, projectName: label }, recordHistory);
+    state.lastSnap = label;
+    fitToView();
+  } catch {
+    state.lastSnap = "Could not create template";
+    notify("Could not create template");
+    updateInspector();
+  }
 }
 
 function createBlankProject(recordHistory = true): void {

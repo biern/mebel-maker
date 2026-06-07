@@ -182,10 +182,6 @@ h1 {
   grid-template-columns: repeat(2, minmax(150px, 1fr));
 }
 
-.template-grid .tool-button:last-child {
-  grid-column: 1 / -1;
-}
-
 .tool-button {
   align-items: center;
   background: #f8faf6;

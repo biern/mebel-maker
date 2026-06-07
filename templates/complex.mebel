@@ -1,0 +1,790 @@
+{
+  "schemaVersion": 1,
+  "version": "75559e1",
+  "appVersion": "75559e1",
+  "projectName": "Complicated",
+  "boards": [
+    {
+      "id": 1,
+      "name": "P1",
+      "x": 0,
+      "y": 0,
+      "w": 1869,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": true,
+      "group": 1
+    },
+    {
+      "id": 2,
+      "name": "P2",
+      "x": -18,
+      "y": -1869,
+      "w": 18,
+      "h": 1869,
+      "kind": "upright",
+      "autoThickness": "width",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": true,
+      "group": 1
+    },
+    {
+      "id": 3,
+      "name": "P3",
+      "x": 1851,
+      "y": -1492,
+      "w": 18,
+      "h": 1492,
+      "kind": "upright",
+      "autoThickness": "width",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 4,
+      "name": "P4",
+      "x": 0,
+      "y": -755,
+      "w": 1103,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 5,
+      "name": "P5",
+      "x": 1103,
+      "y": -1492,
+      "w": 18,
+      "h": 1115,
+      "kind": "upright",
+      "autoThickness": "width",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 6,
+      "name": "P6",
+      "x": 730,
+      "y": -737,
+      "w": 18,
+      "h": 737,
+      "kind": "upright",
+      "autoThickness": "width",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 7,
+      "name": "P7",
+      "x": 1121,
+      "y": -1132,
+      "w": 730,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 8,
+      "name": "P8",
+      "x": 748,
+      "y": -377,
+      "w": 1103,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 10,
+      "name": "P10",
+      "x": 356,
+      "y": -1492,
+      "w": 18,
+      "h": 737,
+      "kind": "upright",
+      "autoThickness": "width",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 11,
+      "name": "P11",
+      "x": 0,
+      "y": -1510,
+      "w": 1121,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 13,
+      "name": "P13",
+      "x": 1486,
+      "y": -1510,
+      "w": 383,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 14,
+      "name": "P14",
+      "x": 1477,
+      "y": -359,
+      "w": 18,
+      "h": 359,
+      "kind": "upright",
+      "autoThickness": "width",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    },
+    {
+      "id": 15,
+      "name": "P15",
+      "x": 365,
+      "y": -1501,
+      "w": 747,
+      "h": 755,
+      "kind": "front",
+      "autoThickness": "none",
+      "materialId": "oak",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 2
+    },
+    {
+      "id": 17,
+      "name": "P17",
+      "x": 1112,
+      "y": -1123,
+      "w": 365,
+      "h": 755,
+      "kind": "front",
+      "autoThickness": "none",
+      "materialId": "oak",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 3
+    },
+    {
+      "id": 18,
+      "name": "P18",
+      "x": 1495,
+      "y": -1123,
+      "w": 365,
+      "h": 755,
+      "kind": "front",
+      "autoThickness": "none",
+      "materialId": "oak",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 4
+    },
+    {
+      "id": 21,
+      "name": "P21",
+      "x": -18,
+      "y": -1869,
+      "w": 1887,
+      "h": 1887,
+      "kind": "back",
+      "autoThickness": "none",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": true,
+      "group": 5
+    },
+    {
+      "id": 22,
+      "name": "P22",
+      "x": -9,
+      "y": -746,
+      "w": 365,
+      "h": 755,
+      "kind": "front",
+      "autoThickness": "none",
+      "materialId": "oak",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 6
+    },
+    {
+      "id": 23,
+      "name": "P23",
+      "x": 374,
+      "y": -745,
+      "w": 365,
+      "h": 755,
+      "kind": "front",
+      "autoThickness": "none",
+      "materialId": "oak",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 7
+    },
+    {
+      "id": 24,
+      "name": "P24",
+      "x": 0,
+      "y": -1132,
+      "w": 356,
+      "h": 18,
+      "kind": "shelf",
+      "autoThickness": "height",
+      "materialId": "birch-plywood",
+      "depthOverride": null,
+      "laminate": {
+        "left": false,
+        "right": false,
+        "front": false,
+        "back": false
+      },
+      "ignoreInOrder": false,
+      "group": 1
+    }
+  ],
+  "anchors": [
+    {
+      "id": 22,
+      "boardId": 6,
+      "edge": "bottom",
+      "targetBoardId": 1,
+      "targetEdge": "top"
+    },
+    {
+      "id": 23,
+      "boardId": 6,
+      "edge": "top",
+      "targetBoardId": 4,
+      "targetEdge": "bottom"
+    },
+    {
+      "id": 36,
+      "boardId": 4,
+      "edge": "left",
+      "targetBoardId": 2,
+      "targetEdge": "right"
+    },
+    {
+      "id": 37,
+      "boardId": 4,
+      "edge": "right",
+      "targetBoardId": 5,
+      "targetEdge": "left"
+    },
+    {
+      "id": 69,
+      "boardId": 10,
+      "edge": "bottom",
+      "targetBoardId": 4,
+      "targetEdge": "top"
+    },
+    {
+      "id": 71,
+      "boardId": 10,
+      "edge": "top",
+      "targetBoardId": 11,
+      "targetEdge": "bottom"
+    },
+    {
+      "id": 81,
+      "boardId": 14,
+      "edge": "bottom",
+      "targetBoardId": 1,
+      "targetEdge": "top"
+    },
+    {
+      "id": 82,
+      "boardId": 14,
+      "edge": "top",
+      "targetBoardId": 8,
+      "targetEdge": "bottom"
+    },
+    {
+      "id": 88,
+      "boardId": 5,
+      "edge": "bottom",
+      "targetBoardId": 8,
+      "targetEdge": "top"
+    },
+    {
+      "id": 89,
+      "boardId": 5,
+      "edge": "top",
+      "targetBoardId": 11,
+      "targetEdge": "bottom"
+    },
+    {
+      "id": 104,
+      "boardId": 11,
+      "edge": "left",
+      "targetBoardId": 2,
+      "targetEdge": "right"
+    },
+    {
+      "id": 107,
+      "boardId": 3,
+      "edge": "bottom",
+      "targetBoardId": 1,
+      "targetEdge": "top"
+    },
+    {
+      "id": 108,
+      "boardId": 3,
+      "edge": "top",
+      "targetBoardId": 13,
+      "targetEdge": "bottom"
+    },
+    {
+      "id": 109,
+      "boardId": 7,
+      "edge": "right",
+      "targetBoardId": 3,
+      "targetEdge": "left"
+    },
+    {
+      "id": 110,
+      "boardId": 7,
+      "edge": "left",
+      "targetBoardId": 5,
+      "targetEdge": "right"
+    },
+    {
+      "id": 118,
+      "boardId": 8,
+      "edge": "right",
+      "targetBoardId": 3,
+      "targetEdge": "left"
+    },
+    {
+      "id": 119,
+      "boardId": 8,
+      "edge": "left",
+      "targetBoardId": 6,
+      "targetEdge": "right"
+    },
+    {
+      "id": 124,
+      "boardId": 1,
+      "edge": "left",
+      "targetBoardId": 2,
+      "targetEdge": "right"
+    },
+    {
+      "id": 126,
+      "boardId": 2,
+      "edge": "bottom",
+      "targetBoardId": 1,
+      "targetEdge": "top"
+    },
+    {
+      "id": 130,
+      "boardId": 24,
+      "edge": "left",
+      "targetBoardId": 2,
+      "targetEdge": "right"
+    },
+    {
+      "id": 131,
+      "boardId": 24,
+      "edge": "right",
+      "targetBoardId": 10,
+      "targetEdge": "left"
+    }
+  ],
+  "layoutAnchors": [
+    {
+      "id": 1,
+      "boardId": 1,
+      "axis": "x",
+      "offset": 365
+    },
+    {
+      "id": 2,
+      "boardId": 1,
+      "axis": "x",
+      "offset": 739
+    },
+    {
+      "id": 3,
+      "boardId": 1,
+      "axis": "x",
+      "offset": 1112
+    },
+    {
+      "id": 4,
+      "boardId": 1,
+      "axis": "x",
+      "offset": 1486
+    },
+    {
+      "id": 5,
+      "boardId": 2,
+      "axis": "y",
+      "offset": 368
+    },
+    {
+      "id": 6,
+      "boardId": 2,
+      "axis": "y",
+      "offset": 746
+    },
+    {
+      "id": 7,
+      "boardId": 2,
+      "axis": "y",
+      "offset": 1123
+    },
+    {
+      "id": 8,
+      "boardId": 2,
+      "axis": "y",
+      "offset": 1501
+    },
+    {
+      "id": 16,
+      "boardId": 3,
+      "axis": "y",
+      "offset": 369
+    },
+    {
+      "id": 17,
+      "boardId": 3,
+      "axis": "y",
+      "offset": 746
+    },
+    {
+      "id": 18,
+      "boardId": 3,
+      "axis": "y",
+      "offset": 1124
+    }
+  ],
+  "measurements": [
+    {
+      "id": 1,
+      "name": "M1",
+      "a": {
+        "kind": "board-edge",
+        "boardId": 4,
+        "edge": "bottom",
+        "offset": 156.45374157226385
+      },
+      "b": {
+        "kind": "board-edge",
+        "boardId": 1,
+        "edge": "top",
+        "offset": 159.66911316720035
+      },
+      "axis": "vertical",
+      "displayOffset": 46
+    },
+    {
+      "id": 2,
+      "name": "M2",
+      "a": {
+        "kind": "board-edge",
+        "boardId": 2,
+        "edge": "right",
+        "offset": 1427.9481403863758
+      },
+      "b": {
+        "kind": "board-edge",
+        "boardId": 6,
+        "edge": "left",
+        "offset": 286.30202560156624
+      },
+      "axis": "horizontal",
+      "displayOffset": 60
+    },
+    {
+      "id": 3,
+      "name": "M3",
+      "a": {
+        "kind": "board-edge",
+        "boardId": 5,
+        "edge": "right",
+        "offset": 853.3080327763436
+      },
+      "b": {
+        "kind": "board-edge",
+        "boardId": 3,
+        "edge": "left",
+        "offset": 1231.3403369838493
+      },
+      "axis": "horizontal",
+      "displayOffset": -27
+    },
+    {
+      "id": 4,
+      "name": "M4",
+      "a": {
+        "kind": "board-edge",
+        "boardId": 8,
+        "edge": "top",
+        "offset": 551.5
+      },
+      "b": {
+        "kind": "board-edge",
+        "boardId": 7,
+        "edge": "bottom",
+        "offset": 168.340583862087
+      },
+      "axis": "vertical",
+      "displayOffset": 88
+    },
+    {
+      "id": 5,
+      "name": "M5",
+      "a": {
+        "kind": "board-edge",
+        "boardId": 10,
+        "edge": "right",
+        "offset": 311.6615867039279
+      },
+      "b": {
+        "kind": "board-edge",
+        "boardId": 5,
+        "edge": "left",
+        "offset": 291.9334520521436
+      },
+      "axis": "horizontal",
+      "displayOffset": 102
+    },
+    {
+      "id": 6,
+      "name": "M6",
+      "a": {
+        "kind": "board-edge",
+        "boardId": 11,
+        "edge": "bottom",
+        "offset": 611.7693733298971
+      },
+      "b": {
+        "kind": "board-edge",
+        "boardId": 4,
+        "edge": "top",
+        "offset": 607.2167268717931
+      },
+      "axis": "vertical",
+      "displayOffset": 116
+    }
+  ],
+  "materials": [
+    {
+      "id": "birch-plywood",
+      "name": "Birch plywood",
+      "color": "#d9b77e"
+    },
+    {
+      "id": "oak",
+      "name": "Oak",
+      "color": "#c99756"
+    },
+    {
+      "id": "walnut",
+      "name": "Walnut",
+      "color": "#7a4f34"
+    },
+    {
+      "id": "pine",
+      "name": "Pine",
+      "color": "#e1c889"
+    },
+    {
+      "id": "white-melamine",
+      "name": "White melamine",
+      "color": "#f5f3ec"
+    },
+    {
+      "id": "black",
+      "name": "Black",
+      "color": "#252525"
+    },
+    {
+      "id": "white",
+      "name": "White",
+      "color": "#ffffff"
+    },
+    {
+      "id": "gray",
+      "name": "Gray",
+      "color": "#9aa0a6"
+    },
+    {
+      "id": "red",
+      "name": "Red",
+      "color": "#b8483b"
+    },
+    {
+      "id": "blue",
+      "name": "Blue",
+      "color": "#3f75a3"
+    },
+    {
+      "id": "green",
+      "name": "Green",
+      "color": "#538052"
+    }
+  ],
+  "selectedId": null,
+  "selectedIds": [],
+  "selectedMeasurementId": null,
+  "nextId": 25,
+  "nextAnchorId": 132,
+  "nextLayoutAnchorId": 19,
+  "nextMeasurementId": 7,
+  "thickness": 18,
+  "depth": 300,
+  "grid": 5,
+  "gridOriginX": 507.1775988815943,
+  "gridOriginY": 71.5283336781634,
+  "snap": true,
+  "showDimensions": true,
+  "showFrontPanels": false,
+  "scale": 0.3405137216861568,
+  "panX": 280.1115185201347,
+  "panY": 818.3998769043933
+}

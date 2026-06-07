@@ -118,6 +118,10 @@
           <span class="icon">□</span>
           Simple box
         </button>
+        <button class="tool-button" data-template="complex" title="Create the complex cabinet template">
+          <span class="icon">▦</span>
+          Complex
+        </button>
       </div>
     </div>
     <form id="measureRenameForm" class="measure-rename-popover" hidden>
