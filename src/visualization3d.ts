@@ -21,7 +21,6 @@ interface BoardBox {
 
 const selectedStroke = "#1f6659";
 const normalStroke = "#4d5a52";
-const sideViewSnapAngle = THREE.MathUtils.degToRad(8);
 
 export class Visualization3DRenderer {
   private readonly renderer: THREE.WebGLRenderer;
@@ -43,8 +42,6 @@ export class Visualization3DRenderer {
     this.controls.enableRotate = true;
     this.controls.enableZoom = true;
     this.controls.enablePan = true;
-    this.controls.minPolarAngle = THREE.MathUtils.degToRad(82);
-    this.controls.maxPolarAngle = Math.PI / 2;
     this.controls.screenSpacePanning = true;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
@@ -56,7 +53,6 @@ export class Visualization3DRenderer {
       TWO: THREE.TOUCH.DOLLY_PAN
     };
     this.controls.addEventListener("change", () => this.renderFrame());
-    this.controls.addEventListener("end", () => this.snapCameraNearSideView());
     this.scene.add(this.root);
     this.addLighting();
     this.startRenderLoop();
@@ -140,7 +136,7 @@ export class Visualization3DRenderer {
   }
 
   private resetCamera(): void {
-    this.camera.position.set(this.sceneSpan * 0.42, this.sceneSpan * 0.1, this.sceneSpan);
+    this.camera.position.set(this.sceneSpan * 0.55, 0, this.sceneSpan * 1.45);
     this.camera.lookAt(0, 0, 0);
     this.controls.target.set(0, 0, 0);
     this.controls.update();
@@ -249,28 +245,6 @@ export class Visualization3DRenderer {
 
   private renderFrame(): void {
     this.renderer.render(this.scene, this.camera);
-  }
-
-  private snapCameraNearSideView(): void {
-    const polar = this.controls.getPolarAngle();
-    if (Math.abs(polar - Math.PI / 2) > sideViewSnapAngle) return;
-
-    const quarterTurn = Math.PI / 2;
-    const azimuth = this.controls.getAzimuthalAngle();
-    const snappedAzimuth = Math.round(azimuth / quarterTurn) * quarterTurn;
-    if (Math.abs(this.normalizedAngle(azimuth - snappedAzimuth)) > sideViewSnapAngle) return;
-
-    const radius = this.camera.position.distanceTo(this.controls.target);
-    const target = this.controls.target;
-    const snapped = new THREE.Vector3().setFromSpherical(new THREE.Spherical(radius, Math.PI / 2, snappedAzimuth));
-    this.camera.position.copy(target).add(snapped);
-    this.camera.lookAt(target);
-    this.controls.update();
-    this.renderFrame();
-  }
-
-  private normalizedAngle(angle: number): number {
-    return Math.atan2(Math.sin(angle), Math.cos(angle));
   }
 
   private startRenderLoop(): void {
