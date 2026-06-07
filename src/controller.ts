@@ -344,6 +344,14 @@ function effectiveDepth(board: Board): number {
   return board.depthOverride ?? state.depth;
 }
 
+function displayY(y: number): number {
+  return -y;
+}
+
+function modelY(y: number): number {
+  return -y;
+}
+
 function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: AutoThicknessAxis }, recordHistory = true): void {
   if (recordHistory) remember();
   const board: Board = {
@@ -703,7 +711,7 @@ function updateInspector(): void {
   if (!board) return;
   ui.nameInput.value = board.name;
   ui.xInput.value = String(Math.round(board.x));
-  ui.yInput.value = String(Math.round(board.y));
+  ui.yInput.value = String(Math.round(displayY(board.y)));
   ui.wInput.value = String(Math.round(board.w));
   ui.hInput.value = String(Math.round(board.h));
   ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
@@ -759,7 +767,7 @@ function renderMeasurements(): void {
       <div class="metric-card">
         <strong>${selected.name}</strong>
         <span>Board: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected))}</span>
-        <span>Position: X ${mm(selected.x)}, Y ${mm(selected.y)}</span>
+        <span>Position: X ${mm(selected.x)}, Y ${mm(displayY(selected.y))}</span>
       </div>
     `);
   }
@@ -849,7 +857,7 @@ function measurementValue(axis: MeasurementAxis, a: Point, b: Point): string {
 }
 
 function anchorLabel(anchor: MeasurementAnchor): string {
-  if (anchor.kind === "grid") return `Grid ${mm(anchor.x)}, ${mm(anchor.y)}`;
+  if (anchor.kind === "grid") return `Grid ${mm(anchor.x)}, ${mm(displayY(anchor.y))}`;
   const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
   return `${board?.name ?? defaultPieceName(anchor.boardId)} ${anchor.edge}`;
 }
@@ -1166,7 +1174,7 @@ function updateBoardFromInspector(event?: Event): void {
   remember();
   board.name = ui.nameInput.value.trim() || board.name;
   board.x = Number(ui.xInput.value) || 0;
-  board.y = Number(ui.yInput.value) || 0;
+  board.y = modelY(Number(ui.yInput.value) || 0);
   board.w = Math.max(1, Number(ui.wInput.value) || 1);
   board.h = Math.max(1, Number(ui.hInput.value) || 1);
   board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board));

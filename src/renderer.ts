@@ -43,6 +43,7 @@ export class SketchRenderer {
     this.drawMeasurements();
     this.drawDimensions();
     this.drawResizeHandles();
+    this.drawOriginAxis(rect.width, rect.height);
   }
 
   private drawGrid(width: number, height: number): void {
@@ -74,6 +75,42 @@ export class SketchRenderer {
     if (fraction <= 2) return 2 * base;
     if (fraction <= 5) return 5 * base;
     return 10 * base;
+  }
+
+  private drawOriginAxis(width: number, height: number): void {
+    const origin = worldToScreen(this.state, 0, 0);
+    const axisLength = 42;
+    const visibilityMargin = axisLength + 18;
+    if (
+      origin.x < -visibilityMargin ||
+      origin.x > width + visibilityMargin ||
+      origin.y < -visibilityMargin ||
+      origin.y > height + visibilityMargin
+    ) return;
+
+    const axisX = Math.max(1, Math.min(width - 1, origin.x));
+    const axisY = Math.max(1, Math.min(height - 1, origin.y));
+    const yLabelNearEdge = axisX < 12;
+
+    this.ctx.save();
+    this.ctx.strokeStyle = "#1f6659";
+    this.ctx.fillStyle = "#1f6659";
+    this.ctx.lineWidth = 2;
+    this.ctx.font = "11px system-ui";
+    this.ctx.textBaseline = "middle";
+
+    this.drawArrow(axisX, axisY, axisX + axisLength, axisY);
+    this.drawArrow(axisX, axisY, axisX, axisY - axisLength);
+    this.ctx.beginPath();
+    this.ctx.arc(axisX, axisY, 3, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.textAlign = "left";
+    this.ctx.fillText("X", axisX + axisLength + 7, axisY);
+    this.ctx.fillText("0,0", axisX + 6, axisY + 13);
+    this.ctx.textAlign = yLabelNearEdge ? "left" : "center";
+    this.ctx.fillText("Y", axisX + (yLabelNearEdge ? 7 : 0), axisY - axisLength - 10);
+    this.ctx.restore();
   }
 
   private drawBoard(board: Board): void {
@@ -358,6 +395,24 @@ export class SketchRenderer {
     this.ctx.moveTo(x1, y1);
     this.ctx.lineTo(x2, y2);
     this.ctx.stroke();
+  }
+
+  private drawArrow(x1: number, y1: number, x2: number, y2: number): void {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const arrowSize = 7;
+    this.line(x1, y1, x2, y2);
+    this.ctx.beginPath();
+    this.ctx.moveTo(x2, y2);
+    this.ctx.lineTo(
+      x2 - arrowSize * Math.cos(angle - Math.PI / 6),
+      y2 - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+    this.ctx.lineTo(
+      x2 - arrowSize * Math.cos(angle + Math.PI / 6),
+      y2 - arrowSize * Math.sin(angle + Math.PI / 6)
+    );
+    this.ctx.closePath();
+    this.ctx.fill();
   }
 
   private drawExtension(x1: number, y1: number, x2: number, y2: number, color: string): void {

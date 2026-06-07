@@ -16,23 +16,23 @@
       </label>
       <div class="two-col">
         <label class="field">
-          <span>X</span>
+          <span>X (mm)</span>
           <input id="xInput" type="number" step="1">
         </label>
         <label class="field">
-          <span>Y</span>
+          <span>Y (mm)</span>
           <input id="yInput" type="number" step="1">
         </label>
         <label class="field">
-          <span>Width</span>
+          <span>Width (mm)</span>
           <input id="wInput" type="number" min="1" step="1">
         </label>
         <label class="field">
-          <span>Height</span>
+          <span>Height (mm)</span>
           <input id="hInput" type="number" min="1" step="1">
         </label>
         <label class="field">
-          <span>Depth</span>
+          <span>Depth (mm)</span>
           <input id="depthOverrideInput" type="number" min="1" step="1" placeholder="Global">
         </label>
       </div>

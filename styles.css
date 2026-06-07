@@ -504,15 +504,12 @@ input:disabled {
   border: 1px solid rgba(31, 102, 89, 0.72);
   bottom: 26px;
   box-shadow: 0 8px 20px rgba(35, 43, 38, 0.12);
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 48px 1fr;
+  display: block;
   left: 16px;
-  min-height: 92px;
-  padding: 18px 14px 14px;
+  padding: 14px;
   pointer-events: none;
   position: absolute;
-  width: 174px;
+  width: 146px;
 }
 
 .anchor-overlay {
@@ -564,70 +561,6 @@ input:disabled {
   position: absolute;
   white-space: nowrap;
   width: 1px;
-}
-
-.axis-glyph {
-  height: 58px;
-  position: relative;
-  width: 48px;
-}
-
-.axis-line {
-  background: var(--accent);
-  display: block;
-  position: absolute;
-}
-
-.axis-line::after {
-  border-style: solid;
-  content: "";
-  display: block;
-  position: absolute;
-}
-
-.axis-x {
-  bottom: 9px;
-  height: 2px;
-  left: 5px;
-  width: 42px;
-}
-
-.axis-x::after {
-  border-color: transparent transparent transparent var(--accent);
-  border-width: 5px 0 5px 8px;
-  right: -1px;
-  top: -4px;
-}
-
-.axis-y {
-  bottom: 9px;
-  height: 34px;
-  left: 5px;
-  width: 2px;
-}
-
-.axis-y::after {
-  border-color: transparent transparent var(--accent) transparent;
-  border-width: 0 5px 8px;
-  left: -4px;
-  top: -1px;
-}
-
-.axis-label {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  position: absolute;
-}
-
-.axis-label-x {
-  bottom: 2px;
-  right: 0;
-}
-
-.axis-label-y {
-  left: 0;
-  top: 0;
 }
 
 .scale-glyph {

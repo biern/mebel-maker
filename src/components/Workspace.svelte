@@ -79,12 +79,6 @@
     <canvas id="sketchCanvas"></canvas>
     <div class="anchor-overlay" id="anchorOverlay" aria-label="Board anchors"></div>
     <div class="viewport-overlay" id="viewportOverlay" aria-hidden="true">
-      <div class="axis-glyph">
-        <span class="axis-line axis-x"></span>
-        <span class="axis-line axis-y"></span>
-        <span class="axis-label axis-label-x">X</span>
-        <span class="axis-label axis-label-y">Y</span>
-      </div>
       <div class="scale-glyph">
         <span class="scale-line" id="overlayScaleBar"></span>
         <span class="scale-label" id="overlayScaleLabel">100 mm</span>
