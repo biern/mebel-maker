@@ -30,6 +30,7 @@ export class Visualization3DRenderer {
   private readonly root = new THREE.Group();
   private sceneSpan = 1000;
   private cameraReady = false;
+  private animationFrame: number | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement, private readonly state: SketchState) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -38,10 +39,23 @@ export class Visualization3DRenderer {
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
+    this.controls.enableRotate = true;
+    this.controls.enableZoom = true;
+    this.controls.enablePan = true;
     this.controls.screenSpacePanning = true;
+    this.controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
+    this.controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN
+    };
     this.controls.addEventListener("change", () => this.renderFrame());
     this.scene.add(this.root);
     this.addLighting();
+    this.startRenderLoop();
   }
 
   bindInteractions(options: AddEventListenerOptions): void {
@@ -49,6 +63,8 @@ export class Visualization3DRenderer {
   }
 
   dispose(): void {
+    if (this.animationFrame !== null) window.cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = null;
     this.controls.dispose();
     this.clearRoot();
     this.renderer.dispose();
@@ -229,5 +245,14 @@ export class Visualization3DRenderer {
 
   private renderFrame(): void {
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private startRenderLoop(): void {
+    const tick = () => {
+      this.animationFrame = window.requestAnimationFrame(tick);
+      this.controls.update();
+      this.renderFrame();
+    };
+    tick();
   }
 }
