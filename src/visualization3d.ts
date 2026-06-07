@@ -154,7 +154,7 @@ export class Visualization3DRenderer {
   private boxForBoard(board: Board, centerX: number, centerY: number, sceneDepth: number, overlayThickness: number): BoardBox {
     const range = this.zRangeForBoard(board, effectiveDepth(board, this.state.depth), overlayThickness);
     const d = Math.max(1, range.front - range.back);
-    const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.18 : board.kind === "front" ? 0.72 : 1;
+    const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.18 : 1;
     return {
       board,
       x: board.x + board.w / 2 - centerX,
