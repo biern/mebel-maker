@@ -18,6 +18,8 @@ import type {
   SnapResult
 } from "./types";
 
+const SNAP_THRESHOLD_SCREEN_PX = 42;
+
 export function mm(value: number): string {
   return `${Math.round(value)} mm`;
 }
@@ -174,7 +176,7 @@ export function innerDimensions(boards: Board[], thickness: number): InnerDimens
 
 export function snapBoard(state: SketchState, board: Board, targetX: number, targetY: number, ignoreIds = new Set([board.id])): SnapResult {
   if (!state.snap) return { x: targetX, y: targetY, label: "Snap off", guides: [] };
-  const threshold = 14 / state.scale;
+  const threshold = SNAP_THRESHOLD_SCREEN_PX / state.scale;
   const snapped = {
     x: snapValueToGrid(state, targetX, "x"),
     y: snapValueToGrid(state, targetY, "y")
@@ -189,38 +191,42 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
   state.boards.forEach((other) => {
     if (ignoreIds.has(other.id)) return;
     const oe = rectEdges(other);
-    const xPairs: Array<[number, number, string]> = [
-      [me.left, oe.left, "left aligned"],
-      [me.right, oe.right, "right aligned"],
-      [me.centerX, oe.centerX, "center aligned"],
-      [me.left, oe.right, "touching right edge"],
-      [me.right, oe.left, "touching left edge"]
+    const xPairs: Array<[number, number, string, BoardEdge | null, BoardEdge | null]> = [
+      [me.left, oe.left, "left aligned", null, null],
+      [me.right, oe.right, "right aligned", null, null],
+      [me.centerX, oe.centerX, "center aligned", null, null],
+      [me.left, oe.right, "touching right edge", "left", "right"],
+      [me.right, oe.left, "touching left edge", "right", "left"]
     ];
-    const yPairs: Array<[number, number, string]> = [
-      [me.top, oe.top, "top aligned"],
-      [me.bottom, oe.bottom, "bottom aligned"],
-      [me.centerY, oe.centerY, "middle aligned"],
-      [me.top, oe.bottom, "flush below"],
-      [me.bottom, oe.top, "flush above"]
+    const yPairs: Array<[number, number, string, BoardEdge | null, BoardEdge | null]> = [
+      [me.top, oe.top, "top aligned", null, null],
+      [me.bottom, oe.bottom, "bottom aligned", null, null],
+      [me.centerY, oe.centerY, "middle aligned", null, null],
+      [me.top, oe.bottom, "flush below", "top", "bottom"],
+      [me.bottom, oe.top, "flush above", "bottom", "top"]
     ];
 
-    xPairs.forEach(([from, to, note]) => {
+    xPairs.forEach(([from, to, note, edge, targetEdge]) => {
       const delta = to - from;
       if (Math.abs(delta) < bestX) {
         snapped.x = targetX + delta;
         bestX = Math.abs(delta);
         label = note;
-        guides[0] = { orientation: "vertical", position: to, label: note };
+        const previewRect = { ...moving, x: targetX + delta };
+        const linkPoint = edge && targetEdge ? connectionPreviewPoint(board, previewRect, edge, other, targetEdge) : undefined;
+        guides[0] = { orientation: "vertical", position: to, label: note, linkPoint };
       }
     });
 
-    yPairs.forEach(([from, to, note]) => {
+    yPairs.forEach(([from, to, note, edge, targetEdge]) => {
       const delta = to - from;
       if (Math.abs(delta) < bestY) {
         snapped.y = targetY + delta;
         bestY = Math.abs(delta);
         label = note;
-        guides[1] = { orientation: "horizontal", position: to, label: note };
+        const previewRect = { ...moving, y: targetY + delta };
+        const linkPoint = edge && targetEdge ? connectionPreviewPoint(board, previewRect, edge, other, targetEdge) : undefined;
+        guides[1] = { orientation: "horizontal", position: to, label: note, linkPoint };
       }
     });
   });
@@ -454,7 +460,7 @@ export function computeOverlaps(boards: Board[]): OverlapRegion[] {
 
 function snapRect(state: SketchState, board: Board, rect: Rect, movingEdges: BoardEdge[]): RectSnapResult {
   if (!state.snap) return { rect, label: "Snap off", guides: [] };
-  const threshold = 14 / state.scale;
+  const threshold = SNAP_THRESHOLD_SCREEN_PX / state.scale;
   const snapped = { ...rect };
   let label = `Grid ${state.grid} mm`;
   const guides: SnapGuide[] = [];
@@ -475,16 +481,19 @@ function snapRect(state: SketchState, board: Board, rect: Rect, movingEdges: Boa
     state.boards.forEach((other) => {
       if (other.id === board.id) return;
       const otherEdges = rectEdges(other);
-      snapTargetsForEdge(otherEdges, edge).forEach(([target, targetLabel]) => {
+      snapTargetsForEdge(otherEdges, edge).forEach(([target, targetLabel, targetEdge]) => {
         const delta = target - currentValue;
         if (Math.abs(delta) < bestDelta) {
           bestDelta = Math.abs(delta);
           nextDelta = delta;
           bestLabel = targetLabel;
+          const previewRect = applyPreviewEdgeDelta(snapped, edge, delta, state.thickness);
+          const linkPoint = targetEdge ? connectionPreviewPoint(board, previewRect, edge, other, targetEdge) : undefined;
           bestGuide = {
             orientation: edge === "left" || edge === "right" ? "vertical" : "horizontal",
             position: target,
-            label: targetLabel
+            label: targetLabel,
+            linkPoint
           };
         }
       });
@@ -558,19 +567,46 @@ function edgeValue(edges: RectEdges, edge: BoardEdge): number {
   return edges.bottom;
 }
 
-function snapTargetsForEdge(edges: RectEdges, edge: BoardEdge): Array<[number, string]> {
+function snapTargetsForEdge(edges: RectEdges, edge: BoardEdge): Array<[number, string, BoardEdge | null]> {
   if (edge === "left" || edge === "right") {
     return [
-      [edges.left, "left edge"],
-      [edges.right, "right edge"],
-      [edges.centerX, "vertical center"]
+      [edges.left, "left edge", edge === "right" ? "left" : null],
+      [edges.right, "right edge", edge === "left" ? "right" : null],
+      [edges.centerX, "vertical center", null]
     ];
   }
   return [
-    [edges.top, "top edge"],
-    [edges.bottom, "bottom edge"],
-    [edges.centerY, "horizontal center"]
+    [edges.top, "top edge", edge === "bottom" ? "top" : null],
+    [edges.bottom, "bottom edge", edge === "top" ? "bottom" : null],
+    [edges.centerY, "horizontal center", null]
   ];
+}
+
+function applyPreviewEdgeDelta(rect: Rect, edge: BoardEdge, delta: number, minSize: number): Rect {
+  const preview = { ...rect };
+  applyEdgeDelta(preview, edge, delta, minSize);
+  return preview;
+}
+
+function connectionPreviewPoint(board: Board, rect: Rect, edge: BoardEdge, target: Board, targetEdge: BoardEdge): Point | undefined {
+  if (isOverlayPanel(board) || isOverlayPanel(target)) return undefined;
+  const edges = edgesForRect(rect);
+  const targetEdges = rectEdges(target);
+  const sharedEdge = edgeValue(edges, edge);
+  const targetSharedEdge = edgeValue(targetEdges, targetEdge);
+  if (Math.abs(sharedEdge - targetSharedEdge) > 0.5) return undefined;
+
+  if (edge === "left" || edge === "right") {
+    const top = Math.max(rect.y, target.y);
+    const bottom = Math.min(rect.y + rect.h, target.y + target.h);
+    if (top > bottom + 0.5) return undefined;
+    return { x: sharedEdge, y: (top + bottom) / 2 };
+  }
+
+  const left = Math.max(rect.x, target.x);
+  const right = Math.min(rect.x + rect.w, target.x + target.w);
+  if (left > right + 0.5) return undefined;
+  return { x: (left + right) / 2, y: sharedEdge };
 }
 
 function applyEdgeDelta(rect: Rect, edge: BoardEdge, delta: number, minSize: number): void {

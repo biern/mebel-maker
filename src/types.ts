@@ -174,6 +174,7 @@ export interface SnapGuide {
   orientation: "vertical" | "horizontal";
   position: number;
   label: string;
+  linkPoint?: Point;
 }
 
 export interface Measurement {

@@ -659,6 +659,12 @@ select:disabled {
   outline: 0;
 }
 
+.anchor-chip-preview {
+  background: #f3f8ff;
+  border-style: dashed;
+  pointer-events: none;
+}
+
 .anchor-chip-icon {
   fill: none;
   height: 18px;

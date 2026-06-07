@@ -1177,17 +1177,33 @@ function renderAnchorOverlay(): void {
       const point = worldToScreen(state, position.x, position.y);
       return `
         <button class="anchor-chip" data-remove-anchor="${anchor.id}" type="button" style="left: ${point.x}px; top: ${point.y - 8}px" title="Remove anchor to ${escapeHtml(anchorTargetLabel(anchor))}" aria-label="Remove anchor to ${escapeHtml(anchorTargetLabel(anchor))}">
-          <svg class="anchor-chip-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8.5 7.5 L7 6 C5.5 4.5 3.2 4.5 1.7 6 C.2 7.5 .2 9.8 1.7 11.3 L4.7 14.3 C5.8 15.4 7.4 15.7 8.8 15.1"></path>
-            <path d="M15.5 16.5 L17 18 C18.5 19.5 20.8 19.5 22.3 18 C23.8 16.5 23.8 14.2 22.3 12.7 L19.3 9.7 C18.2 8.6 16.6 8.3 15.2 8.9"></path>
-            <path d="M9 15 L15 9"></path>
-            <path d="M5 21 L19 3"></path>
-          </svg>
+          ${anchorChipIcon()}
           <span class="visually-hidden">Remove anchor</span>
         </button>
       `;
     })
+    .join("") + state.snapGuides
+    .flatMap((guide) => guide.linkPoint ? [guide.linkPoint] : [])
+    .map((position) => {
+      const point = worldToScreen(state, position.x, position.y);
+      return `
+        <span class="anchor-chip anchor-chip-preview" style="left: ${point.x}px; top: ${point.y - 8}px" title="Will link when released" aria-hidden="true">
+          ${anchorChipIcon()}
+        </span>
+      `;
+    })
     .join("");
+}
+
+function anchorChipIcon(): string {
+  return `
+    <svg class="anchor-chip-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8.5 7.5 L7 6 C5.5 4.5 3.2 4.5 1.7 6 C.2 7.5 .2 9.8 1.7 11.3 L4.7 14.3 C5.8 15.4 7.4 15.7 8.8 15.1"></path>
+      <path d="M15.5 16.5 L17 18 C18.5 19.5 20.8 19.5 22.3 18 C23.8 16.5 23.8 14.2 22.3 12.7 L19.3 9.7 C18.2 8.6 16.6 8.3 15.2 8.9"></path>
+      <path d="M9 15 L15 9"></path>
+      <path d="M5 21 L19 3"></path>
+    </svg>
+  `;
 }
 
 function anchorTargetLabel(anchor: BoardAnchor): string {
