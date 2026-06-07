@@ -99,6 +99,17 @@ assert(dividerSnap.guides.some((guide) => guide.orientation === "vertical"), "la
 const shelfResize = resizeBoard(state, shelf, "e", rectFromBoard(shelf), { x: shelf.x + shelf.w, y: shelf.y + shelf.h / 2 }, { x: shelf.x + shelf.w + 90, y: shelf.y + 120 });
 assert(shelfResize.rect.h === state.thickness, "shelf resize should keep thickness locked");
 assert(shelfResize.rect.w > shelf.w, "shelf end-handle resize should change length");
+const narrowShelf: Board = { ...shelf, id: 9, name: "Narrow shelf", w: 700 };
+const narrowShelfResize = resizeBoard(
+  state,
+  narrowShelf,
+  "e",
+  rectFromBoard(narrowShelf),
+  { x: narrowShelf.x + narrowShelf.w, y: narrowShelf.y + narrowShelf.h / 2 },
+  { x: 950, y: narrowShelf.y + narrowShelf.h / 2 }
+);
+assert(narrowShelfResize.rect.x + narrowShelfResize.rect.w === 962, "resize should prefer nearby board edges over nearby grid lines");
+assert(narrowShelfResize.guides.some((guide) => guide.linkPoint), "resize edge-to-edge snap should expose a link icon preview point");
 
 const upright = state.boards.find((board) => board.name === "Left side");
 assert(upright, "left side exists");

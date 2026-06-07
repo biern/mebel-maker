@@ -18,7 +18,7 @@ import type {
   SnapResult
 } from "./types";
 
-const SNAP_THRESHOLD_SCREEN_PX = 42;
+const SNAP_THRESHOLD_SCREEN_PX = 14;
 
 export function mm(value: number): string {
   return `${Math.round(value)} mm`;
@@ -185,6 +185,7 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
   let bestX = threshold;
   let bestY = threshold;
   const guides: SnapGuide[] = [];
+  const guideLinks: Array<{ edge: BoardEdge; target: Board; targetEdge: BoardEdge } | null> = [];
   const moving = { ...board, x: targetX, y: targetY };
   const me = rectEdges(moving);
 
@@ -212,9 +213,8 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
         snapped.x = targetX + delta;
         bestX = Math.abs(delta);
         label = note;
-        const previewRect = { ...moving, x: targetX + delta };
-        const linkPoint = edge && targetEdge ? connectionPreviewPoint(board, previewRect, edge, other, targetEdge) : undefined;
-        guides[0] = { orientation: "vertical", position: to, label: note, linkPoint };
+        guideLinks[0] = edge && targetEdge ? { edge, target: other, targetEdge } : null;
+        guides[0] = { orientation: "vertical", position: to, label: note };
       }
     });
 
@@ -224,9 +224,8 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
         snapped.y = targetY + delta;
         bestY = Math.abs(delta);
         label = note;
-        const previewRect = { ...moving, y: targetY + delta };
-        const linkPoint = edge && targetEdge ? connectionPreviewPoint(board, previewRect, edge, other, targetEdge) : undefined;
-        guides[1] = { orientation: "horizontal", position: to, label: note, linkPoint };
+        guideLinks[1] = edge && targetEdge ? { edge, target: other, targetEdge } : null;
+        guides[1] = { orientation: "horizontal", position: to, label: note };
       }
     });
   });
@@ -238,6 +237,7 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
         snapped.x = targetX + delta;
         bestX = Math.abs(delta);
         label = `${source.name} layout anchor`;
+        guideLinks[0] = null;
         guides[0] = { orientation: "vertical", position, label };
       }
       return;
@@ -248,8 +248,15 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
       snapped.y = targetY + delta;
       bestY = Math.abs(delta);
       label = `${source.name} layout anchor`;
+      guideLinks[1] = null;
       guides[1] = { orientation: "horizontal", position, label };
     }
+  });
+
+  const finalMoving = { ...board, x: snapped.x, y: snapped.y };
+  guideLinks.forEach((link, index) => {
+    if (!link || !guides[index]) return;
+    guides[index].linkPoint = connectionPreviewPoint(board, finalMoving, link.edge, link.target, link.targetEdge);
   });
 
   return { ...snapped, label, guides: guides.filter(Boolean) };
@@ -473,8 +480,7 @@ function snapRect(state: SketchState, board: Board, rect: Rect, movingEdges: Boa
     const gridValue = snapValueToGrid(state, currentValue, edge === "left" || edge === "right" ? "x" : "y");
     let nextDelta = gridValue - currentValue;
 
-    if (Math.abs(nextDelta) < bestDelta) {
-      bestDelta = Math.abs(nextDelta);
+    if (Math.abs(nextDelta) <= threshold) {
       bestLabel = `Grid ${state.grid} mm`;
     }
 
