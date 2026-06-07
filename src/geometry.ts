@@ -518,6 +518,8 @@ function layoutAnchorTargets(
     if (ignoreIds.has(anchor.boardId)) return [];
     const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
     if (!board) return [];
+    const span = anchor.axis === "x" ? board.w : board.h;
+    if (anchor.offset < 0 || anchor.offset > span) return [];
     return [{ anchor, board, position: (anchor.axis === "x" ? board.x : board.y) + anchor.offset }];
   });
 }

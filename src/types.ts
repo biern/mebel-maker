@@ -53,7 +53,6 @@ export interface SketchState {
   boards: Board[];
   anchors: BoardAnchor[];
   layoutAnchors: BoardLayoutAnchor[];
-  layoutGuides: BoardLayoutGuide[];
   measurements: Measurement[];
   materials: Material[];
   selectedId: number | null;
@@ -62,7 +61,6 @@ export interface SketchState {
   nextId: number;
   nextAnchorId: number;
   nextLayoutAnchorId: number;
-  nextLayoutGuideId: number;
   nextMeasurementId: number;
   thickness: number;
   depth: number;
@@ -102,15 +100,6 @@ export interface BoardLayoutAnchor {
   boardId: number;
   axis: LayoutAnchorAxis;
   offset: number;
-}
-
-export interface BoardLayoutGuide {
-  id: number;
-  boardId: number;
-  axis: LayoutAnchorAxis;
-  startOffset: number;
-  endOffset: number;
-  thickness: number;
 }
 
 export interface DragState {
