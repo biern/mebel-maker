@@ -893,8 +893,9 @@ function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
 }
 
 function updateLayoutAnchorAxisLabels(): void {
-  ui.layoutAnchorStartLabel.textContent = "Start offset (mm)";
-  ui.layoutAnchorEndLabel.textContent = "End offset (mm)";
+  const axis = selectedLayoutAnchorAxis();
+  ui.layoutAnchorStartLabel.textContent = axis === "x" ? "Left guide (mm)" : "Top guide (mm)";
+  ui.layoutAnchorEndLabel.textContent = axis === "x" ? "Right guide (mm)" : "Bottom guide (mm)";
 }
 
 function updateLayoutBalanceControls(): void {
