@@ -61,7 +61,7 @@ const ui = {
   measureHeightBtn: query<HTMLButtonElement>("#measureHeightBtn"),
   saveBtn: query<HTMLButtonElement>("#saveBtn"),
   loadBtn: query<HTMLButtonElement>("#loadBtn"),
-  clearProjectBtn: query<HTMLButtonElement>("#clearProjectBtn"),
+  newProjectBtn: query<HTMLButtonElement>("#newProjectBtn"),
   projectFileInput: query<HTMLInputElement>("#projectFileInput"),
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
@@ -523,8 +523,8 @@ function addDivider(x: number, y: number, h: number): void {
 
 function createTemplate(templateId: TemplateId, recordHistory = true): void {
   const t = state.thickness;
-  const x = 160;
-  const y = 120;
+  const x = 0;
+  const y = 0;
 
   beginTemplate(recordHistory, x, y);
 
@@ -608,25 +608,25 @@ function createBlankProject(recordHistory = true): void {
   state.tool = "select";
   state.pendingMeasurementAnchor = null;
   state.previewMeasurementAnchor = null;
-  state.gridOriginX = 160;
-  state.gridOriginY = 120;
+  state.gridOriginX = 0;
+  state.gridOriginY = 0;
   state.scale = 0.62;
   state.panX = 160;
   state.panY = 110;
-  state.lastSnap = recordHistory ? "Project cleared" : "Ready";
+  state.lastSnap = recordHistory ? "New project" : "Ready";
   refresh();
 }
 
-function clearProjectWithConfirmation(): void {
+function newProjectWithConfirmation(): void {
   const hasProjectContent = Boolean(state.projectName) || state.boards.length > 0 || state.measurements.length > 0;
   if (!hasProjectContent) {
-    state.lastSnap = "Project already clear";
+    state.lastSnap = "Ready for a new project";
     updateInspector();
     return;
   }
-  if (!window.confirm("Clear this project? This removes the project name, pieces, measurements, and anchors.")) return;
+  if (!window.confirm("Start a new project? This removes the current project name, pieces, measurements, and anchors.")) return;
   createBlankProject();
-  notify("Project cleared");
+  notify("New project ready");
 }
 
 function refresh(): void {
@@ -2249,7 +2249,7 @@ ui.measureWidthBtn.addEventListener("click", () => addSelectedMeasurement("horiz
 ui.measureHeightBtn.addEventListener("click", () => addSelectedMeasurement("vertical"), listenerOptions);
 ui.saveBtn.addEventListener("click", exportProjectFile, listenerOptions);
 ui.loadBtn.addEventListener("click", openProjectFilePicker, listenerOptions);
-ui.clearProjectBtn.addEventListener("click", clearProjectWithConfirmation, listenerOptions);
+ui.newProjectBtn.addEventListener("click", newProjectWithConfirmation, listenerOptions);
 ui.projectFileInput.addEventListener("change", () => {
   const file = ui.projectFileInput.files?.[0];
   if (file) importProjectFile(file);

@@ -19,13 +19,12 @@
           <path d="M8 21 V14 H18 V21"></path>
         </svg>
       </button>
-      <button id="clearProjectBtn" class="icon-button danger" title="Clear project" aria-label="Clear project">
+      <button id="newProjectBtn" class="icon-button" title="New project" aria-label="New project">
         <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 7 H20"></path>
-          <path d="M9 7 V5 H15 V7"></path>
-          <path d="M7 7 L8 20 H16 L17 7"></path>
-          <path d="M10 11 V17"></path>
-          <path d="M14 11 V17"></path>
+          <path d="M5 4 H15 L19 8 V20 H5 Z"></path>
+          <path d="M15 4 V9 H19"></path>
+          <path d="M12 12 V18"></path>
+          <path d="M9 15 H15"></path>
         </svg>
       </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
