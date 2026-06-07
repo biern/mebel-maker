@@ -986,6 +986,15 @@ function setCheckboxValue(input: HTMLInputElement, value: boolean | null): void 
   input.indeterminate = value === null;
 }
 
+function commitOnChangeOrEnter(input: HTMLInputElement, onChange: (event: Event) => void): void {
+  input.addEventListener("change", onChange, listenerOptions);
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    input.blur();
+  }, listenerOptions);
+}
+
 function setSelectionButtonsDisabled(disabled: boolean): void {
   ui.duplicateBtn.disabled = disabled;
   ui.rotateBtn.disabled = disabled;
@@ -2395,7 +2404,7 @@ ui.projectNameInput.addEventListener("change", () => {
   state.lastSnap = nextName ? "Project named" : "Project name cleared";
   refresh();
 }, listenerOptions);
-ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)), listenerOptions);
+commitOnChangeOrEnter(ui.thicknessInput, () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
 ui.depthInput.addEventListener("change", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)), listenerOptions);
 ui.gridInput.addEventListener("input", () => {
   remember();
@@ -2420,7 +2429,7 @@ ui.frontLayerToggle.addEventListener("change", () => {
   refresh();
 }, listenerOptions);
 [ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput]
-  .forEach((input) => input.addEventListener("input", updateBoardFromInspector, listenerOptions));
+  .forEach((input) => commitOnChangeOrEnter(input, updateBoardFromInspector));
 ui.materialInput.addEventListener("change", updateMaterialFromInspector, listenerOptions);
 ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary, listenerOptions);
 ui.layoutAnchorBalanceInput.addEventListener("change", updateLayoutBalanceControls, listenerOptions);
