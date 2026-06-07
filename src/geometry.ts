@@ -18,7 +18,7 @@ import type {
   SnapResult
 } from "./types";
 
-const SNAP_THRESHOLD_SCREEN_PX = 14;
+const SNAP_THRESHOLD_SCREEN_PX = 28;
 
 export function mm(value: number): string {
   return `${Math.round(value)} mm`;
