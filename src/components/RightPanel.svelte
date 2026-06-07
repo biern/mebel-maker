@@ -76,15 +76,15 @@
         </div>
         <label class="check-chip">
           <input id="layoutAnchorBalanceInput" type="checkbox">
-          <span>Balance open gaps</span>
+          <span>Equal gaps using thickness</span>
         </label>
         <div class="layout-anchor-balance-grid">
           <label class="field compact-field">
-            <span id="layoutAnchorStartLabel">Start (mm)</span>
+            <span id="layoutAnchorStartLabel">Start offset (mm)</span>
             <input id="layoutAnchorStartInput" type="number" step="1">
           </label>
           <label class="field compact-field">
-            <span id="layoutAnchorEndLabel">End (mm)</span>
+            <span id="layoutAnchorEndLabel">End offset (mm)</span>
             <input id="layoutAnchorEndInput" type="number" step="1">
           </label>
           <label class="field compact-field full-row">
