@@ -56,6 +56,7 @@ const ui = {
   projectFileInput: query<HTMLInputElement>("#projectFileInput"),
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
+  copyCsvBtn: query<HTMLButtonElement>("#copyCsvBtn"),
   exportBtn: query<HTMLButtonElement>("#exportBtn"),
   notificationToast: query<HTMLElement>("#notificationToast"),
   selectionStatus: query<HTMLElement>("#selectionStatus"),
@@ -1033,6 +1034,30 @@ function effectiveDepthWithDefault(board: Board, defaultDepth: number): number {
 }
 
 function exportCutListCsv(): void {
+  const csv = cutListCsv();
+  downloadTextFile(
+    csv,
+    "text/csv;charset=utf-8",
+    `mebel-maker-pieces-${new Date().toISOString().slice(0, 10)}.csv`
+  );
+  state.lastSnap = "Piece list CSV exported";
+  notify("Saved piece list CSV");
+  updateInspector();
+}
+
+async function copyCutListCsv(): Promise<void> {
+  try {
+    await copyText(cutListCsv());
+    state.lastSnap = "Piece list CSV copied";
+    notify("Copied piece list CSV");
+  } catch {
+    state.lastSnap = "Could not copy CSV";
+    notify("Could not copy CSV");
+  }
+  updateInspector();
+}
+
+function cutListCsv(): string {
   const rows = [
     ["quantity", "width_mm", "height_mm", "depth_mm", "thickness_mm", "material", "laminate_edges", "pieces"]
   ];
@@ -1056,14 +1081,40 @@ function exportCutListCsv(): void {
     ]);
   });
 
-  downloadTextFile(
-    rows.map((row) => row.map(csvCell).join(",")).join("\n"),
-    "text/csv;charset=utf-8",
-    `mebel-maker-pieces-${new Date().toISOString().slice(0, 10)}.csv`
-  );
-  state.lastSnap = "Piece list CSV exported";
-  notify("Exported piece list CSV");
-  updateInspector();
+  return rows.map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+async function copyText(text: string): Promise<void> {
+  if (window.navigator.clipboard?.writeText) {
+    try {
+      await window.navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fall back for browsers that expose the API but deny it in this context.
+    }
+  }
+
+  let eventCopied = false;
+  const copyListener = (event: ClipboardEvent) => {
+    event.clipboardData?.setData("text/plain", text);
+    event.preventDefault();
+    eventCopied = true;
+  };
+  document.addEventListener("copy", copyListener);
+  const eventCopySucceeded = document.execCommand("copy");
+  document.removeEventListener("copy", copyListener);
+  if (eventCopySucceeded && eventCopied) return;
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.left = "-9999px";
+  textArea.style.position = "fixed";
+  document.body.append(textArea);
+  textArea.focus();
+  textArea.select();
+  const copied = document.execCommand("copy");
+  textArea.remove();
+  if (!copied) throw new Error("Clipboard copy failed");
 }
 
 function csvCell(value: string): string {
@@ -1492,6 +1543,7 @@ ui.projectFileInput.addEventListener("change", () => {
 });
 ui.deleteBtn.addEventListener("click", deleteSelectedBoard);
 ui.fitBtn.addEventListener("click", fitToView);
+ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv());
 ui.exportBtn.addEventListener("click", exportCutListCsv);
 ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
 ui.depthInput.addEventListener("change", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)));

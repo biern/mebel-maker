@@ -434,9 +434,16 @@ input:disabled {
 }
 
 .icon-button.csv-button {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
+  gap: 1px;
+  grid-template-rows: 18px auto;
   letter-spacing: 0;
+}
+
+.icon-button.csv-button .toolbar-icon {
+  height: 17px;
+  width: 17px;
 }
 
 .toolbar-icon {
