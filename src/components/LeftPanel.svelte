@@ -18,27 +18,22 @@
       <button class="preset-card" draggable="true" data-preset="side" title="Side panel">
         <span class="piece-preview vertical"></span>
         <span>Side</span>
-        <strong>18 × 560</strong>
       </button>
       <button class="preset-card" draggable="true" data-preset="shelf" title="Shelf board">
         <span class="piece-preview horizontal"></span>
         <span>Shelf</span>
-        <strong>784 × 18</strong>
       </button>
       <button class="preset-card" draggable="true" data-preset="divider" title="Vertical divider">
         <span class="piece-preview vertical slim"></span>
         <span>Divider</span>
-        <strong>18 × 524</strong>
       </button>
       <button class="preset-card" draggable="true" data-preset="back" title="Back panel">
         <span class="piece-preview panel"></span>
         <span>Back</span>
-        <strong>820 × 560</strong>
       </button>
       <button class="preset-card" draggable="true" data-preset="front" title="Front panel">
         <span class="piece-preview panel front"></span>
         <span>Front</span>
-        <strong>820 × 560</strong>
       </button>
     </div>
   </section>

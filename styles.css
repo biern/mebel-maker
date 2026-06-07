@@ -226,6 +226,7 @@ h1 {
 .preset-list {
   display: grid;
   gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .preset-card {
@@ -236,10 +237,10 @@ h1 {
   color: var(--ink);
   cursor: grab;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 32px 1fr auto;
-  min-height: 44px;
-  padding: 8px 10px;
+  gap: 7px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  min-height: 50px;
+  padding: 8px;
   text-align: left;
 }
 
@@ -254,10 +255,13 @@ h1 {
   cursor: grabbing;
 }
 
-.preset-card strong {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+.preset-card span:last-child {
+  font-size: 13px;
+  font-weight: 650;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .piece-preview {
