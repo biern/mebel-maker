@@ -43,6 +43,7 @@ declare global {
 const canvas = query<HTMLCanvasElement>("#sketchCanvas");
 const ui = {
   projectNameInput: query<HTMLInputElement>("#projectNameInput"),
+  templateChooser: query<HTMLElement>("#templateChooser"),
   templateList: query<HTMLElement>("#templateList"),
   measureModeBtn: query<HTMLButtonElement>("#measureModeBtn"),
   presetList: query<HTMLElement>("#presetList"),
@@ -60,6 +61,7 @@ const ui = {
   measureHeightBtn: query<HTMLButtonElement>("#measureHeightBtn"),
   saveBtn: query<HTMLButtonElement>("#saveBtn"),
   loadBtn: query<HTMLButtonElement>("#loadBtn"),
+  clearProjectBtn: query<HTMLButtonElement>("#clearProjectBtn"),
   projectFileInput: query<HTMLInputElement>("#projectFileInput"),
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
@@ -583,13 +585,54 @@ function templateLabel(templateId: TemplateId): string {
   return labels[templateId];
 }
 
-function createStarter(recordHistory = true): void {
-  createTemplate("cabinet", recordHistory);
+function createBlankProject(recordHistory = true): void {
+  if (recordHistory) remember();
+  state.projectName = "";
+  state.boards = [];
+  state.anchors = [];
+  state.layoutAnchors = [];
+  state.measurements = [];
+  state.selectedId = null;
+  state.selectedIds = [];
+  state.selectedMeasurementId = null;
+  state.nextId = 1;
+  state.nextAnchorId = 1;
+  state.nextLayoutAnchorId = 1;
+  state.nextMeasurementId = 1;
+  state.dragging = null;
+  state.resizing = null;
+  state.measurementDragging = null;
+  state.panning = null;
+  state.selectionBox = null;
+  state.snapGuides = [];
+  state.tool = "select";
+  state.pendingMeasurementAnchor = null;
+  state.previewMeasurementAnchor = null;
+  state.gridOriginX = 160;
+  state.gridOriginY = 120;
+  state.scale = 0.62;
+  state.panX = 160;
+  state.panY = 110;
+  state.lastSnap = recordHistory ? "Project cleared" : "Ready";
+  refresh();
+}
+
+function clearProjectWithConfirmation(): void {
+  const hasProjectContent = Boolean(state.projectName) || state.boards.length > 0 || state.measurements.length > 0;
+  if (!hasProjectContent) {
+    state.lastSnap = "Project already clear";
+    updateInspector();
+    return;
+  }
+  if (!window.confirm("Clear this project? This removes the project name, pieces, measurements, and anchors.")) return;
+  createBlankProject();
+  notify("Project cleared");
 }
 
 function refresh(): void {
   computeGroups(state.boards);
   renderer.draw();
+  renderTemplateChooser();
   renderAnchorOverlay();
   renderMaterials();
   updateInspector();
@@ -597,6 +640,10 @@ function refresh(): void {
   renderWarnings();
   renderCutList();
   autosaveProject();
+}
+
+function renderTemplateChooser(): void {
+  ui.templateChooser.hidden = state.boards.length > 0 || state.measurements.length > 0;
 }
 
 function cloneProject(project: SavedProject): SavedProject {
@@ -749,7 +796,7 @@ function loadInitialProject(): void {
     return;
   }
 
-  if (!loadAutosavedProject()) createStarter(false);
+  if (!loadAutosavedProject()) createBlankProject(false);
 }
 
 function exportProjectFile(): void {
@@ -2202,6 +2249,7 @@ ui.measureWidthBtn.addEventListener("click", () => addSelectedMeasurement("horiz
 ui.measureHeightBtn.addEventListener("click", () => addSelectedMeasurement("vertical"), listenerOptions);
 ui.saveBtn.addEventListener("click", exportProjectFile, listenerOptions);
 ui.loadBtn.addEventListener("click", openProjectFilePicker, listenerOptions);
+ui.clearProjectBtn.addEventListener("click", clearProjectWithConfirmation, listenerOptions);
 ui.projectFileInput.addEventListener("change", () => {
   const file = ui.projectFileInput.files?.[0];
   if (file) importProjectFile(file);

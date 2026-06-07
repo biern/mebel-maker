@@ -176,6 +176,16 @@ h1 {
   grid-template-columns: 1fr;
 }
 
+.template-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+}
+
+.template-grid .tool-button:last-child {
+  grid-column: 1 / -1;
+}
+
 .tool-button {
   align-items: center;
   background: #f8faf6;
@@ -369,6 +379,34 @@ select:disabled {
 .canvas-wrap {
   min-height: 0;
   position: relative;
+}
+
+.template-chooser {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(35, 43, 38, 0.16);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 38px rgba(35, 43, 38, 0.14);
+  display: grid;
+  gap: 12px;
+  left: 50%;
+  max-width: min(460px, calc(100% - 32px));
+  padding: 16px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 460px;
+  z-index: 4;
+}
+
+.template-chooser h2 {
+  font-size: 14px;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.template-chooser[hidden] {
+  display: none;
 }
 
 .measure-rename-popover {

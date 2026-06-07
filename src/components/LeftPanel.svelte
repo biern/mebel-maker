@@ -12,32 +12,6 @@
     <input id="projectNameInput" type="text" maxlength="80" placeholder="Untitled project" autocomplete="off">
   </label>
 
-  <details class="tool-section collapsible-section" open>
-    <summary>Templates</summary>
-    <div class="button-grid compact" id="templateList">
-      <button class="tool-button" data-template="cabinet" title="Create a connected cabinet starter">
-        <span class="icon">▣</span>
-        Cabinet
-      </button>
-      <button class="tool-button" data-template="bookcase" title="Create a tall bookcase template">
-        <span class="icon">▤</span>
-        Bookcase
-      </button>
-      <button class="tool-button" data-template="base-cabinet" title="Create a base cabinet template">
-        <span class="icon">▥</span>
-        Base cabinet
-      </button>
-      <button class="tool-button" data-template="wall-cabinet" title="Create a wall cabinet template">
-        <span class="icon">▧</span>
-        Wall cabinet
-      </button>
-      <button class="tool-button" data-template="simple-box" title="Create a simple open box template">
-        <span class="icon">□</span>
-        Simple box
-      </button>
-    </div>
-  </details>
-
   <section class="tool-section">
     <h2>Pieces</h2>
     <div class="preset-list" id="presetList">

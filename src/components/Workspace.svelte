@@ -19,6 +19,15 @@
           <path d="M8 21 V14 H18 V21"></path>
         </svg>
       </button>
+      <button id="clearProjectBtn" class="icon-button danger" title="Clear project" aria-label="Clear project">
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7 H20"></path>
+          <path d="M9 7 V5 H15 V7"></path>
+          <path d="M7 7 L8 20 H16 L17 7"></path>
+          <path d="M10 11 V17"></path>
+          <path d="M14 11 V17"></path>
+        </svg>
+      </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="undoBtn" class="icon-button" title="Undo last change" aria-label="Undo">↶</button>
       <button id="redoBtn" class="icon-button" title="Redo last change" aria-label="Redo">↷</button>
@@ -77,6 +86,31 @@
   <div id="notificationToast" class="notification-toast" role="status" aria-live="polite" hidden></div>
   <div class="canvas-wrap">
     <canvas id="sketchCanvas"></canvas>
+    <div id="templateChooser" class="template-chooser" aria-label="Project templates" hidden>
+      <h2>Start with a template</h2>
+      <div class="template-grid" id="templateList">
+        <button class="tool-button" data-template="cabinet" title="Create a connected cabinet starter">
+          <span class="icon">▣</span>
+          Cabinet
+        </button>
+        <button class="tool-button" data-template="bookcase" title="Create a tall bookcase template">
+          <span class="icon">▤</span>
+          Bookcase
+        </button>
+        <button class="tool-button" data-template="base-cabinet" title="Create a base cabinet template">
+          <span class="icon">▥</span>
+          Base cabinet
+        </button>
+        <button class="tool-button" data-template="wall-cabinet" title="Create a wall cabinet template">
+          <span class="icon">▧</span>
+          Wall cabinet
+        </button>
+        <button class="tool-button" data-template="simple-box" title="Create a simple open box template">
+          <span class="icon">□</span>
+          Simple box
+        </button>
+      </div>
+    </div>
     <form id="measureRenameForm" class="measure-rename-popover" hidden>
       <label class="field compact-field">
         <span>Measure name</span>
