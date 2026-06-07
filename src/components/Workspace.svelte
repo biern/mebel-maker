@@ -23,9 +23,9 @@
       <button id="undoBtn" class="icon-button" title="Undo last change" aria-label="Undo">↶</button>
       <button id="redoBtn" class="icon-button" title="Redo last change" aria-label="Redo">↷</button>
       <span class="toolbar-separator" aria-hidden="true"></span>
-      <button id="duplicateBtn" class="icon-button" title="Duplicate selected board (Cmd/Ctrl+D)" aria-label="Duplicate selected board">⧉</button>
-      <button id="rotateBtn" class="icon-button" title="Rotate selected board 90 degrees (R)" aria-label="Rotate selected board">⟳</button>
-      <button id="deleteBtn" class="icon-button danger" title="Delete selected board" aria-label="Delete selected board">⌫</button>
+      <button id="duplicateBtn" class="icon-button" title="Duplicate selected boards (Cmd/Ctrl+D)" aria-label="Duplicate selected boards">⧉</button>
+      <button id="rotateBtn" class="icon-button" title="Rotate selected boards 90 degrees (R)" aria-label="Rotate selected boards">⟳</button>
+      <button id="deleteBtn" class="icon-button danger" title="Delete selected boards" aria-label="Delete selected boards">⌫</button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="measureModeBtn" class="icon-button" title="Add anchored measurement" aria-label="Add anchored measurement">
         <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">

@@ -10,7 +10,8 @@ import {
   resizeBoard,
   resolveMeasurementAnchor,
   snapBoard,
-  snapValueToGrid
+  snapValueToGrid,
+  selectedBoards
 } from "../src/geometry";
 import type { Board, MeasurementAnchor, SketchState } from "../src/types";
 
@@ -36,6 +37,7 @@ function starterState(): SketchState {
     measurements: [],
     materials: [{ id: materialId, name: "Birch plywood", color: "#d9b77e" }],
     selectedId: 1,
+    selectedIds: [1],
     nextId: 6,
     nextAnchorId: 1,
     nextMeasurementId: 1,
@@ -53,6 +55,7 @@ function starterState(): SketchState {
     dragging: null,
     resizing: null,
     panning: null,
+    selectionBox: null,
     snapGuides: [],
     tool: "select",
     pendingMeasurementAnchor: null,
@@ -65,6 +68,10 @@ const state = starterState();
 computeGroups(state.boards);
 
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "thin horizontal shelf should be hittable");
+assert(selectedBoards(state).length === 1, "single primary selection should resolve as one selected board");
+state.selectedIds = [1, 2];
+assert(selectedBoards(state).length === 2, "selected board sets should resolve multiple boards");
+state.selectedIds = [1];
 assert(groupBoards(state, 1).length === 5, "starter cabinet should be one connected structural group");
 assert(computeOverlaps(state.boards).length === 0, "starter cabinet should not begin with overlaps");
 assert(snapValueToGrid(state, 171, "x") === 160, "grid snapping should use the drawing origin");

@@ -54,6 +54,7 @@ export interface SketchState {
   measurements: Measurement[];
   materials: Material[];
   selectedId: number | null;
+  selectedIds: number[];
   nextId: number;
   nextAnchorId: number;
   nextMeasurementId: number;
@@ -71,6 +72,7 @@ export interface SketchState {
   dragging: DragState | null;
   resizing: ResizeState | null;
   panning: PanState | null;
+  selectionBox: SelectionBoxState | null;
   snapGuides: SnapGuide[];
   tool: SketchTool;
   pendingMeasurementAnchor: MeasurementAnchor | null;
@@ -89,9 +91,9 @@ export interface BoardAnchor {
 }
 
 export interface DragState {
-  id: number;
-  offsetX: number;
-  offsetY: number;
+  ids: number[];
+  startPoint: Point;
+  startRects: Array<Rect & { id: number }>;
 }
 
 export interface PanState {
@@ -106,6 +108,12 @@ export interface ResizeState {
   handle: ResizeHandle;
   startPoint: Point;
   startRect: Rect;
+}
+
+export interface SelectionBoxState {
+  start: Point;
+  current: Point;
+  additive: boolean;
 }
 
 export interface Point {
