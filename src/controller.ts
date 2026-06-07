@@ -77,6 +77,12 @@ const ui = {
   depthOverrideInput: query<HTMLInputElement>("#depthOverrideInput"),
   layoutAnchorAxisInput: query<HTMLSelectElement>("#layoutAnchorAxisInput"),
   layoutAnchorCountInput: query<HTMLInputElement>("#layoutAnchorCountInput"),
+  layoutAnchorBalanceInput: query<HTMLInputElement>("#layoutAnchorBalanceInput"),
+  layoutAnchorStartInput: query<HTMLSelectElement>("#layoutAnchorStartInput"),
+  layoutAnchorEndInput: query<HTMLSelectElement>("#layoutAnchorEndInput"),
+  layoutAnchorStartLabel: query<HTMLElement>("#layoutAnchorStartLabel"),
+  layoutAnchorEndLabel: query<HTMLElement>("#layoutAnchorEndLabel"),
+  layoutAnchorThicknessInput: query<HTMLInputElement>("#layoutAnchorThicknessInput"),
   layoutAnchorApplyBtn: query<HTMLButtonElement>("#layoutAnchorApplyBtn"),
   layoutAnchorClearBtn: query<HTMLButtonElement>("#layoutAnchorClearBtn"),
   layoutAnchorSummary: query<HTMLElement>("#layoutAnchorSummary"),
@@ -800,6 +806,7 @@ function notify(message: string): void {
 
 function syncSettingsInputs(): void {
   ui.thicknessInput.value = String(state.thickness);
+  ui.layoutAnchorThicknessInput.value = String(state.thickness);
   ui.depthInput.value = String(state.depth);
   ui.gridInput.value = String(state.grid);
   ui.snapToggle.checked = state.snap;
@@ -822,6 +829,19 @@ function layoutAnchorsForBoard(boardId: number, axis?: LayoutAnchorAxis): BoardL
 function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
   if (board.autoThickness === "width") return "y";
   return "x";
+}
+
+function updateLayoutAnchorAxisLabels(): void {
+  const axis = selectedLayoutAnchorAxis();
+  ui.layoutAnchorStartLabel.textContent = axis === "x" ? "Left edge" : "Top edge";
+  ui.layoutAnchorEndLabel.textContent = axis === "x" ? "Right edge" : "Bottom edge";
+}
+
+function updateLayoutBalanceControls(): void {
+  const disabled = ui.layoutAnchorBalanceInput.disabled || !ui.layoutAnchorBalanceInput.checked;
+  ui.layoutAnchorStartInput.disabled = disabled;
+  ui.layoutAnchorEndInput.disabled = disabled;
+  ui.layoutAnchorThicknessInput.disabled = disabled;
 }
 
 function setInputValue(input: HTMLInputElement, value: string | null, placeholder = "Mixed"): void {
@@ -869,11 +889,15 @@ function updateInspector(): void {
   ui.nameInput.disabled = false;
   ui.layoutAnchorAxisInput.disabled = !board || multi;
   ui.layoutAnchorCountInput.disabled = !board || multi;
+  ui.layoutAnchorBalanceInput.disabled = !board || multi;
   ui.layoutAnchorApplyBtn.disabled = !board || multi;
   ui.layoutAnchorClearBtn.disabled = !board || multi || layoutAnchorsForBoard(board.id).length === 0;
   if (!board || multi) ui.layoutAnchorSummary.textContent = "No layout anchors";
   ui.materialLabelSwatch.style.background = board && !multi ? materialColor(board.materialId) : "transparent";
-  if (!hasSelection) return;
+  if (!hasSelection) {
+    updateLayoutBalanceControls();
+    return;
+  }
 
   if (multi) {
     ui.nameInput.disabled = true;
@@ -896,7 +920,9 @@ function updateInspector(): void {
     ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
     ui.materialInput.value = board.materialId;
     ui.layoutAnchorAxisInput.value = axis;
+    updateLayoutAnchorAxisLabels();
     if (anchors.length) ui.layoutAnchorCountInput.value = String(anchors.length);
+    if (!ui.layoutAnchorThicknessInput.value) ui.layoutAnchorThicknessInput.value = String(state.thickness);
     ui.layoutAnchorSummary.textContent = anchors.length
       ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
       : "No layout anchors";
@@ -914,6 +940,7 @@ function updateInspector(): void {
   setCheckboxValue(ui.laminateFrontInput, commonValue(boards, (item) => String(item.laminate.front)) === null ? null : boards[0].laminate.front);
   setCheckboxValue(ui.laminateBackInput, commonValue(boards, (item) => String(item.laminate.back)) === null ? null : boards[0].laminate.back);
   setCheckboxValue(ui.ignoreOrderInput, commonValue(boards, (item) => String(item.ignoreInOrder)) === null ? null : boards[0].ignoreInOrder);
+  updateLayoutBalanceControls();
 }
 
 function updateViewportOverlay(): void {
@@ -1237,6 +1264,9 @@ function applyThicknessChange(newThickness: number): void {
   const oldThickness = state.thickness;
   const delta = newThickness - oldThickness;
   state.thickness = newThickness;
+  if (normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, oldThickness) === oldThickness) {
+    ui.layoutAnchorThicknessInput.value = String(newThickness);
+  }
   state.boards.forEach((board) => {
     if (board.autoThickness === "width") {
       if (board.x > 160) board.x += oldThickness - newThickness;
@@ -1472,6 +1502,7 @@ function selectedLayoutAnchorAxis(): LayoutAnchorAxis {
 function updateLayoutAnchorSummary(): void {
   const board = selectedBoard(state);
   if (!board) return;
+  updateLayoutAnchorAxisLabels();
   const axis = selectedLayoutAnchorAxis();
   const anchors = layoutAnchorsForBoard(board.id, axis);
   ui.layoutAnchorCountInput.value = anchors.length ? String(anchors.length) : ui.layoutAnchorCountInput.value;
@@ -1480,24 +1511,47 @@ function updateLayoutAnchorSummary(): void {
     : "No layout anchors";
 }
 
+function layoutAnchorOffsets(board: Board, axis: LayoutAnchorAxis, count: number): number[] | null {
+  const span = axis === "x" ? board.w : board.h;
+  if (!ui.layoutAnchorBalanceInput.checked) {
+    return Array.from({ length: count }, (_, index) => Math.round((span * (index + 1)) / (count + 1)));
+  }
+
+  const pieceThickness = Math.max(1, normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, state.thickness));
+  const startInset = ui.layoutAnchorStartInput.value === "inside" ? pieceThickness : 0;
+  const endInset = ui.layoutAnchorEndInput.value === "inside" ? pieceThickness : 0;
+  const clearSpan = span - startInset - endInset;
+  const openGap = (clearSpan - count * pieceThickness) / (count + 1);
+  if (openGap < 0) return null;
+
+  return Array.from({ length: count }, (_, index) =>
+    Math.round(startInset + openGap * (index + 1) + pieceThickness * index + pieceThickness / 2)
+  );
+}
+
 function distributeLayoutAnchors(): void {
   const board = selectedBoard(state);
   if (!board || selectedBoards(state).length > 1) return;
   const axis = selectedLayoutAnchorAxis();
   const count = Math.max(1, Math.min(20, normalizePositiveNumber(ui.layoutAnchorCountInput.value, 4)));
-  const span = axis === "x" ? board.w : board.h;
+  const offsets = layoutAnchorOffsets(board, axis, count);
+  if (!offsets) {
+    state.lastSnap = "Not enough span for balanced anchors";
+    updateInspector();
+    return;
+  }
   remember();
   state.layoutAnchors = state.layoutAnchors.filter((anchor) => !(anchor.boardId === board.id && anchor.axis === axis));
-  for (let index = 1; index <= count; index += 1) {
+  offsets.forEach((offset) => {
     state.layoutAnchors.push({
       id: state.nextLayoutAnchorId,
       boardId: board.id,
       axis,
-      offset: Math.round((span * index) / (count + 1))
+      offset
     });
     state.nextLayoutAnchorId += 1;
-  }
-  state.lastSnap = `${count} layout anchors added`;
+  });
+  state.lastSnap = ui.layoutAnchorBalanceInput.checked ? `${count} balanced anchors added` : `${count} layout anchors added`;
   refresh();
 }
 
@@ -2133,6 +2187,7 @@ ui.frontLayerToggle.addEventListener("change", () => {
   .forEach((input) => input.addEventListener("input", updateBoardFromInspector, listenerOptions));
 ui.materialInput.addEventListener("change", updateMaterialFromInspector, listenerOptions);
 ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary, listenerOptions);
+ui.layoutAnchorBalanceInput.addEventListener("change", updateLayoutBalanceControls, listenerOptions);
 ui.layoutAnchorApplyBtn.addEventListener("click", distributeLayoutAnchors, listenerOptions);
 ui.layoutAnchorClearBtn.addEventListener("click", clearLayoutAnchors, listenerOptions);
 ui.materialForm.addEventListener("submit", (event) => {

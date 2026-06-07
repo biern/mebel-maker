@@ -330,7 +330,8 @@ input:focus {
   outline: 2px solid rgba(40, 127, 111, 0.16);
 }
 
-input:disabled {
+input:disabled,
+select:disabled {
   background: #eef1ed;
   color: var(--muted);
   cursor: not-allowed;
@@ -684,10 +685,15 @@ input:disabled {
 }
 
 .layout-anchor-controls,
-.layout-anchor-actions {
+.layout-anchor-actions,
+.layout-anchor-balance-grid {
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
+}
+
+.layout-anchor-balance-grid .full-row {
+  grid-column: 1 / -1;
 }
 
 .compact-field {

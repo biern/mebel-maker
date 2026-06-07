@@ -74,6 +74,30 @@
             <input id="layoutAnchorCountInput" type="number" min="1" max="20" step="1" value="4">
           </label>
         </div>
+        <label class="check-chip">
+          <input id="layoutAnchorBalanceInput" type="checkbox">
+          <span>Balance open gaps</span>
+        </label>
+        <div class="layout-anchor-balance-grid">
+          <label class="field compact-field">
+            <span id="layoutAnchorStartLabel">Left edge</span>
+            <select id="layoutAnchorStartInput">
+              <option value="outside">Outside</option>
+              <option value="inside">Inside</option>
+            </select>
+          </label>
+          <label class="field compact-field">
+            <span id="layoutAnchorEndLabel">Right edge</span>
+            <select id="layoutAnchorEndInput">
+              <option value="outside">Outside</option>
+              <option value="inside">Inside</option>
+            </select>
+          </label>
+          <label class="field compact-field full-row">
+            <span>Piece thickness (mm)</span>
+            <input id="layoutAnchorThicknessInput" type="number" min="1" step="1" value="18">
+          </label>
+        </div>
         <div class="layout-anchor-actions">
           <button id="layoutAnchorApplyBtn" class="inline-action" type="button">Distribute</button>
           <button id="layoutAnchorClearBtn" class="inline-action" type="button">Clear</button>
