@@ -595,6 +595,25 @@ select:disabled {
   width: 100%;
 }
 
+#view3dCanvas {
+  background: var(--canvas);
+  cursor: grab;
+  display: none;
+  height: 100%;
+  touch-action: none;
+  width: 100%;
+}
+
+.canvas-wrap[data-view="3d"] #sketchCanvas,
+.canvas-wrap[data-view="3d"] .anchor-overlay,
+.canvas-wrap[data-view="3d"] .viewport-overlay {
+  display: none;
+}
+
+.canvas-wrap[data-view="3d"] #view3dCanvas {
+  display: block;
+}
+
 .viewport-overlay {
   align-items: center;
   background: rgba(255, 255, 255, 0.94);

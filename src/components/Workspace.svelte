@@ -65,6 +65,15 @@
       </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="fitBtn" class="icon-button" title="Fit drawing to view" aria-label="Fit drawing to view">⌖</button>
+      <button id="view3dBtn" class="icon-button" title="Toggle 3D view" aria-label="Toggle 3D view">
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z"></path>
+          <path d="M12 12 L20 7.5"></path>
+          <path d="M12 12 V21"></path>
+          <path d="M12 12 L4 7.5"></path>
+          <path d="M12 3 V12"></path>
+        </svg>
+      </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="copyCsvBtn" class="icon-button" title="Copy piece list as CSV" aria-label="Copy piece list as CSV">
         <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -84,8 +93,9 @@
     </div>
   </div>
   <div id="notificationToast" class="notification-toast" role="status" aria-live="polite" hidden></div>
-  <div class="canvas-wrap">
+  <div class="canvas-wrap" id="canvasWrap">
     <canvas id="sketchCanvas"></canvas>
+    <canvas id="view3dCanvas" aria-label="3D visualization"></canvas>
     <div id="templateChooser" class="template-chooser" aria-label="Project templates" hidden>
       <h2>Start with a template</h2>
       <div class="template-grid" id="templateList">

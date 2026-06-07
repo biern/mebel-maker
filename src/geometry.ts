@@ -113,6 +113,10 @@ export function rectFromBoard(board: Board): Rect {
   return { x: board.x, y: board.y, w: board.w, h: board.h };
 }
 
+export function effectiveDepth(board: Board, defaultDepth: number): number {
+  return board.depthOverride ?? defaultDepth;
+}
+
 export function snapValueToGrid(state: SketchState, value: number, axis: "x" | "y"): number {
   const origin = axis === "x" ? state.gridOriginX : state.gridOriginY;
   return origin + Math.round((value - origin) / state.grid) * state.grid;
