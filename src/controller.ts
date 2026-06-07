@@ -165,6 +165,7 @@ const minFitScale = 0.125;
 const minWheelScale = 0.09;
 const maxFitScale = 1.3;
 const maxWheelScale = 2;
+const originViewMargin = 46;
 const controllerEvents = new AbortController();
 const listenerOptions = { signal: controllerEvents.signal };
 const undoStack: SavedProject[] = [];
@@ -528,18 +529,18 @@ function addDivider(x: number, y: number, h: number): void {
 function createTemplate(templateId: TemplateId, recordHistory = true): void {
   const t = state.thickness;
   const x = 0;
-  const y = 0;
 
   if (templateId === "complex") {
     createProjectFileTemplate(complexTemplateSource, templateLabel(templateId), recordHistory);
     return;
   }
 
-  beginTemplate(recordHistory, x, y);
+  beginTemplate(recordHistory, x, 0);
 
   if (templateId === "cabinet") {
     const outerW = 820;
     const outerH = 560;
+    const y = -outerH;
     addOpenFrame(x, y, outerW, outerH);
     addShelf(x, y + 275, outerW);
   }
@@ -547,6 +548,7 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
   if (templateId === "bookcase") {
     const outerW = 760;
     const outerH = 1280;
+    const y = -outerH;
     addOpenFrame(x, y, outerW, outerH);
     [320, 560, 800, 1040].forEach((shelfY) => addShelf(x, y + shelfY, outerW));
     addBackPanel(x, y, outerW, outerH);
@@ -555,6 +557,7 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
   if (templateId === "base-cabinet") {
     const outerW = 820;
     const outerH = 720;
+    const y = -outerH;
     const dividerX = x + outerW / 2 - t / 2;
     const shelfY = y + 360;
     addOpenFrame(x, y, outerW, outerH);
@@ -567,6 +570,7 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
   if (templateId === "wall-cabinet") {
     const outerW = 720;
     const outerH = 640;
+    const y = -outerH;
     addOpenFrame(x, y, outerW, outerH);
     addShelf(x, y + 315, outerW);
     addBackPanel(x, y, outerW, outerH);
@@ -575,6 +579,7 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
   if (templateId === "simple-box") {
     const outerW = 520;
     const outerH = 360;
+    const y = -outerH;
     addOpenFrame(x, y, outerW, outerH);
   }
 
@@ -634,9 +639,7 @@ function createBlankProject(recordHistory = true): void {
   state.previewMeasurementAnchor = null;
   state.gridOriginX = 0;
   state.gridOriginY = 0;
-  state.scale = 0.62;
-  state.panX = 160;
-  state.panY = 110;
+  setOriginBottomLeftView();
   state.lastSnap = recordHistory ? "New project" : "Ready";
   refresh();
 }
@@ -1356,11 +1359,20 @@ function fitToView(): void {
   const rect = canvas.getBoundingClientRect();
   if (!bounds || rect.width < 1 || rect.height < 1) return;
   const padding = 70;
-  state.scale = Math.min((rect.width - padding * 2) / bounds.w, (rect.height - padding * 2) / bounds.h);
+  const availableWidth = Math.max(1, rect.width - padding - originViewMargin);
+  const availableHeight = Math.max(1, rect.height - padding - originViewMargin);
+  state.scale = Math.min(availableWidth / bounds.w, availableHeight / bounds.h);
   state.scale = Math.max(minFitScale, Math.min(maxFitScale, state.scale));
-  state.panX = (rect.width - bounds.w * state.scale) / 2 - bounds.left * state.scale;
-  state.panY = (rect.height - bounds.h * state.scale) / 2 - bounds.top * state.scale;
+  state.panX = originViewMargin - bounds.left * state.scale;
+  state.panY = rect.height - originViewMargin - bounds.bottom * state.scale;
   refresh();
+}
+
+function setOriginBottomLeftView(): void {
+  const rect = canvas.getBoundingClientRect();
+  state.scale = 0.62;
+  state.panX = originViewMargin;
+  state.panY = rect.height > 1 ? rect.height - originViewMargin : 420;
 }
 
 function applyThicknessChange(newThickness: number): void {
