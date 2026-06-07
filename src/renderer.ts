@@ -40,6 +40,7 @@ export class SketchRenderer {
     this.ctx.clearRect(0, 0, rect.width, rect.height);
     this.drawGrid(rect.width, rect.height);
     displayOrderedBoards(this.state.boards).forEach((board) => this.drawBoard(board));
+    this.drawLayoutGuides();
     this.drawLayoutAnchors();
     this.drawOverlaps();
     this.drawSelectionBox();
@@ -234,7 +235,6 @@ export class SketchRenderer {
 
       if (anchor.axis === "x") {
         const x = board.x + anchor.offset;
-        if (anchor.offset < 0 || anchor.offset > board.w) return;
         const a = worldToScreen(this.state, x, board.y);
         const b = worldToScreen(this.state, x, board.y + board.h);
         this.line(a.x, a.y, b.x, b.y);
@@ -243,11 +243,46 @@ export class SketchRenderer {
       }
 
       const y = board.y + anchor.offset;
-      if (anchor.offset < 0 || anchor.offset > board.h) return;
       const a = worldToScreen(this.state, board.x, y);
       const b = worldToScreen(this.state, board.x + board.w, y);
       this.line(a.x, a.y, b.x, b.y);
       this.drawLayoutAnchorDot((a.x + b.x) / 2, a.y, color);
+    });
+    this.ctx.restore();
+  }
+
+  private drawLayoutGuides(): void {
+    if (!this.state.layoutGuides.length) return;
+    const selectedIds = new Set(this.state.selectedIds);
+    if (this.state.selectedId !== null) selectedIds.add(this.state.selectedId);
+
+    this.ctx.save();
+    this.state.layoutGuides.forEach((guide) => {
+      const board = this.state.boards.find((candidate) => candidate.id === guide.boardId);
+      if (!board) return;
+      const selected = selectedIds.has(board.id);
+      const color = selected ? "#6e4d83" : "rgba(110, 77, 131, 0.52)";
+      this.ctx.strokeStyle = color;
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.lineWidth = selected ? 2.4 : 1.6;
+      this.ctx.setLineDash([]);
+
+      if (guide.axis === "x") {
+        const y = board.y + board.h / 2;
+        const a = worldToScreen(this.state, board.x + guide.startOffset, y);
+        const b = worldToScreen(this.state, board.x + guide.endOffset, y);
+        this.line(a.x, a.y, b.x, b.y);
+        this.drawLayoutGuideHandle(a.x, a.y, color);
+        this.drawLayoutGuideHandle(b.x, b.y, color);
+        return;
+      }
+
+      const x = board.x + board.w / 2;
+      const a = worldToScreen(this.state, x, board.y + guide.startOffset);
+      const b = worldToScreen(this.state, x, board.y + guide.endOffset);
+      this.line(a.x, a.y, b.x, b.y);
+      this.drawLayoutGuideHandle(a.x, a.y, color);
+      this.drawLayoutGuideHandle(b.x, b.y, color);
     });
     this.ctx.restore();
   }
@@ -517,6 +552,18 @@ export class SketchRenderer {
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  private drawLayoutGuideHandle(x: number, y: number, stroke: string): void {
+    this.ctx.save();
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.strokeStyle = stroke;
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, 6, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.stroke();
     this.ctx.restore();

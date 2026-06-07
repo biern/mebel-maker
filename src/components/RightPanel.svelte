@@ -80,18 +80,12 @@
         </label>
         <div class="layout-anchor-balance-grid">
           <label class="field compact-field">
-            <span id="layoutAnchorStartLabel">Left edge</span>
-            <select id="layoutAnchorStartInput">
-              <option value="outside">Outside</option>
-              <option value="inside">Inside</option>
-            </select>
+            <span id="layoutAnchorStartLabel">Start (mm)</span>
+            <input id="layoutAnchorStartInput" type="number" step="1">
           </label>
           <label class="field compact-field">
-            <span id="layoutAnchorEndLabel">Right edge</span>
-            <select id="layoutAnchorEndInput">
-              <option value="outside">Outside</option>
-              <option value="inside">Inside</option>
-            </select>
+            <span id="layoutAnchorEndLabel">End (mm)</span>
+            <input id="layoutAnchorEndInput" type="number" step="1">
           </label>
           <label class="field compact-field full-row">
             <span>Piece thickness (mm)</span>

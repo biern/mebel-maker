@@ -26,7 +26,7 @@ import {
   snapValueToGrid,
   worldToScreen
 } from "./geometry";
-import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, Point, Rect, ResizeHandle, SketchState } from "./types";
+import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, BoardLayoutGuide, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, Point, Rect, ResizeHandle, SketchState } from "./types";
 
 declare global {
   interface Window {
@@ -78,8 +78,8 @@ const ui = {
   layoutAnchorAxisInput: query<HTMLSelectElement>("#layoutAnchorAxisInput"),
   layoutAnchorCountInput: query<HTMLInputElement>("#layoutAnchorCountInput"),
   layoutAnchorBalanceInput: query<HTMLInputElement>("#layoutAnchorBalanceInput"),
-  layoutAnchorStartInput: query<HTMLSelectElement>("#layoutAnchorStartInput"),
-  layoutAnchorEndInput: query<HTMLSelectElement>("#layoutAnchorEndInput"),
+  layoutAnchorStartInput: query<HTMLInputElement>("#layoutAnchorStartInput"),
+  layoutAnchorEndInput: query<HTMLInputElement>("#layoutAnchorEndInput"),
   layoutAnchorStartLabel: query<HTMLElement>("#layoutAnchorStartLabel"),
   layoutAnchorEndLabel: query<HTMLElement>("#layoutAnchorEndLabel"),
   layoutAnchorThicknessInput: query<HTMLInputElement>("#layoutAnchorThicknessInput"),
@@ -112,6 +112,7 @@ const state: SketchState = {
   boards: [],
   anchors: [],
   layoutAnchors: [],
+  layoutGuides: [],
   measurements: [],
   materials: defaultMaterials(),
   selectedId: null,
@@ -120,6 +121,7 @@ const state: SketchState = {
   nextId: 1,
   nextAnchorId: 1,
   nextLayoutAnchorId: 1,
+  nextLayoutGuideId: 1,
   nextMeasurementId: 1,
   thickness: 18,
   depth: 560,
@@ -165,6 +167,7 @@ interface SavedProject {
   boards: Board[];
   anchors?: BoardAnchor[];
   layoutAnchors?: BoardLayoutAnchor[];
+  layoutGuides?: BoardLayoutGuide[];
   measurements: SketchState["measurements"];
   materials?: Material[];
   selectedId: number | null;
@@ -173,6 +176,7 @@ interface SavedProject {
   nextId: number;
   nextAnchorId?: number;
   nextLayoutAnchorId?: number;
+  nextLayoutGuideId?: number;
   nextMeasurementId: number;
   thickness: number;
   grid: number;
@@ -264,20 +268,41 @@ function normalizedLayoutAnchors(layoutAnchors?: BoardLayoutAnchor[]): BoardLayo
   const boardIds = new Set(state.boards.map((board) => board.id));
   const seen = new Set<string>();
   return layoutAnchors.filter((anchor) => {
-    const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
     const offset = Number(anchor.offset);
-    const span = anchor.axis === "x" ? board?.w : board?.h;
     const key = `${anchor.boardId}:${anchor.axis}:${Math.round(offset * 1000)}`;
     const ok = boardIds.has(anchor.boardId) &&
       (anchor.axis === "x" || anchor.axis === "y") &&
       Number.isFinite(offset) &&
-      offset >= 0 &&
-      span !== undefined &&
-      offset <= span &&
       !seen.has(key);
     if (ok) seen.add(key);
     return ok;
   }).map((anchor) => ({ ...anchor, offset: Math.round(anchor.offset) }));
+}
+
+function normalizedLayoutGuides(layoutGuides?: BoardLayoutGuide[]): BoardLayoutGuide[] {
+  if (!layoutGuides?.length) return [];
+  const boardIds = new Set(state.boards.map((board) => board.id));
+  const seen = new Set<string>();
+  return layoutGuides.filter((guide) => {
+    const startOffset = Number(guide.startOffset);
+    const endOffset = Number(guide.endOffset);
+    const thickness = Number(guide.thickness);
+    const key = `${guide.boardId}:${guide.axis}`;
+    const ok = boardIds.has(guide.boardId) &&
+      (guide.axis === "x" || guide.axis === "y") &&
+      Number.isFinite(startOffset) &&
+      Number.isFinite(endOffset) &&
+      Number.isFinite(thickness) &&
+      thickness > 0 &&
+      !seen.has(key);
+    if (ok) seen.add(key);
+    return ok;
+  }).map((guide) => ({
+    ...guide,
+    startOffset: Math.round(guide.startOffset),
+    endOffset: Math.round(guide.endOffset),
+    thickness: Math.round(guide.thickness)
+  }));
 }
 
 function defaultLaminate(): LaminateEdges {
@@ -368,6 +393,10 @@ function nextAnchorId(anchors = state.anchors): number {
 
 function nextLayoutAnchorId(layoutAnchors = state.layoutAnchors): number {
   return Math.max(0, ...layoutAnchors.map((anchor) => anchor.id)) + 1;
+}
+
+function nextLayoutGuideId(layoutGuides = state.layoutGuides): number {
+  return Math.max(0, ...layoutGuides.map((guide) => guide.id)) + 1;
 }
 
 function laminateKey(laminate: LaminateEdges): string {
@@ -478,10 +507,12 @@ function beginTemplate(recordHistory: boolean, x: number, y: number): void {
   state.boards = [];
   state.anchors = [];
   state.layoutAnchors = [];
+  state.layoutGuides = [];
   state.measurements = [];
   state.nextId = 1;
   state.nextAnchorId = 1;
   state.nextLayoutAnchorId = 1;
+  state.nextLayoutGuideId = 1;
   state.nextMeasurementId = 1;
   state.selectedMeasurementId = null;
   state.pendingMeasurementAnchor = null;
@@ -638,6 +669,7 @@ function serializeProject(): SavedProject {
     boards: state.boards,
     anchors: state.anchors,
     layoutAnchors: state.layoutAnchors,
+    layoutGuides: state.layoutGuides,
     measurements: state.measurements,
     materials: state.materials,
     selectedId: state.selectedId,
@@ -646,6 +678,7 @@ function serializeProject(): SavedProject {
     nextId: state.nextId,
     nextAnchorId: state.nextAnchorId,
     nextLayoutAnchorId: state.nextLayoutAnchorId,
+    nextLayoutGuideId: state.nextLayoutGuideId,
     nextMeasurementId: state.nextMeasurementId,
     thickness: state.thickness,
     depth: state.depth,
@@ -667,6 +700,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.boards = (project.boards ?? []).map(withDefaults);
   state.anchors = normalizedAnchors(project.anchors);
   state.layoutAnchors = normalizedLayoutAnchors(project.layoutAnchors);
+  state.layoutGuides = normalizedLayoutGuides(project.layoutGuides);
   state.measurements = (project.measurements ?? []).map((measurement, index) => ({
     ...measurement,
     name: normalizedMeasureName(measurement.name, measurement.id),
@@ -679,6 +713,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.nextId = project.nextId ?? nextBoardId(state.boards);
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
   state.nextLayoutAnchorId = project.nextLayoutAnchorId ?? nextLayoutAnchorId(state.layoutAnchors);
+  state.nextLayoutGuideId = project.nextLayoutGuideId ?? nextLayoutGuideId(state.layoutGuides);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
   state.thickness = normalizePositiveNumber(project.thickness, state.thickness);
   state.depth = normalizePositiveNumber(project.depth, state.depth);
@@ -826,6 +861,32 @@ function layoutAnchorsForBoard(boardId: number, axis?: LayoutAnchorAxis): BoardL
     .sort((a, b) => a.offset - b.offset);
 }
 
+function layoutGuideForBoard(boardId: number, axis: LayoutAnchorAxis): BoardLayoutGuide | null {
+  return state.layoutGuides.find((guide) => guide.boardId === boardId && guide.axis === axis) ?? null;
+}
+
+function defaultLayoutGuide(board: Board, axis: LayoutAnchorAxis): Omit<BoardLayoutGuide, "id"> {
+  return {
+    boardId: board.id,
+    axis,
+    startOffset: 0,
+    endOffset: axis === "x" ? board.w : board.h,
+    thickness: state.thickness
+  };
+}
+
+function ensureLayoutGuide(board: Board, axis: LayoutAnchorAxis): BoardLayoutGuide {
+  const existing = layoutGuideForBoard(board.id, axis);
+  if (existing) return existing;
+  const guide = {
+    id: state.nextLayoutGuideId,
+    ...defaultLayoutGuide(board, axis)
+  };
+  state.nextLayoutGuideId += 1;
+  state.layoutGuides.push(guide);
+  return guide;
+}
+
 function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
   if (board.autoThickness === "width") return "y";
   return "x";
@@ -833,15 +894,15 @@ function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
 
 function updateLayoutAnchorAxisLabels(): void {
   const axis = selectedLayoutAnchorAxis();
-  ui.layoutAnchorStartLabel.textContent = axis === "x" ? "Left edge" : "Top edge";
-  ui.layoutAnchorEndLabel.textContent = axis === "x" ? "Right edge" : "Bottom edge";
+  ui.layoutAnchorStartLabel.textContent = axis === "x" ? "Left guide (mm)" : "Top guide (mm)";
+  ui.layoutAnchorEndLabel.textContent = axis === "x" ? "Right guide (mm)" : "Bottom guide (mm)";
 }
 
 function updateLayoutBalanceControls(): void {
-  const disabled = ui.layoutAnchorBalanceInput.disabled || !ui.layoutAnchorBalanceInput.checked;
-  ui.layoutAnchorStartInput.disabled = disabled;
-  ui.layoutAnchorEndInput.disabled = disabled;
-  ui.layoutAnchorThicknessInput.disabled = disabled;
+  const rangeDisabled = ui.layoutAnchorAxisInput.disabled;
+  ui.layoutAnchorStartInput.disabled = rangeDisabled;
+  ui.layoutAnchorEndInput.disabled = rangeDisabled;
+  ui.layoutAnchorThicknessInput.disabled = rangeDisabled || !ui.layoutAnchorBalanceInput.checked;
 }
 
 function setInputValue(input: HTMLInputElement, value: string | null, placeholder = "Mixed"): void {
@@ -890,8 +951,10 @@ function updateInspector(): void {
   ui.layoutAnchorAxisInput.disabled = !board || multi;
   ui.layoutAnchorCountInput.disabled = !board || multi;
   ui.layoutAnchorBalanceInput.disabled = !board || multi;
+  ui.layoutAnchorStartInput.disabled = !board || multi;
+  ui.layoutAnchorEndInput.disabled = !board || multi;
   ui.layoutAnchorApplyBtn.disabled = !board || multi;
-  ui.layoutAnchorClearBtn.disabled = !board || multi || layoutAnchorsForBoard(board.id).length === 0;
+  ui.layoutAnchorClearBtn.disabled = !board || multi || (layoutAnchorsForBoard(board.id).length === 0 && !state.layoutGuides.some((guide) => guide.boardId === board.id));
   if (!board || multi) ui.layoutAnchorSummary.textContent = "No layout anchors";
   ui.materialLabelSwatch.style.background = board && !multi ? materialColor(board.materialId) : "transparent";
   if (!hasSelection) {
@@ -911,6 +974,7 @@ function updateInspector(): void {
   } else if (board) {
     const axis = layoutAnchorsForBoard(board.id).at(0)?.axis ?? defaultLayoutAnchorAxis(board);
     const anchors = layoutAnchorsForBoard(board.id, axis);
+    const guide = layoutGuideForBoard(board.id, axis) ?? defaultLayoutGuide(board, axis);
     ui.nameInput.value = board.name;
     ui.nameInput.placeholder = "";
     ui.xInput.value = String(Math.round(board.x));
@@ -922,7 +986,9 @@ function updateInspector(): void {
     ui.layoutAnchorAxisInput.value = axis;
     updateLayoutAnchorAxisLabels();
     if (anchors.length) ui.layoutAnchorCountInput.value = String(anchors.length);
-    if (!ui.layoutAnchorThicknessInput.value) ui.layoutAnchorThicknessInput.value = String(state.thickness);
+    ui.layoutAnchorStartInput.value = String(Math.round(guide.startOffset));
+    ui.layoutAnchorEndInput.value = String(Math.round(guide.endOffset));
+    ui.layoutAnchorThicknessInput.value = String(Math.round(guide.thickness));
     ui.layoutAnchorSummary.textContent = anchors.length
       ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
       : "No layout anchors";
@@ -1267,6 +1333,9 @@ function applyThicknessChange(newThickness: number): void {
   if (normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, oldThickness) === oldThickness) {
     ui.layoutAnchorThicknessInput.value = String(newThickness);
   }
+  state.layoutGuides.forEach((guide) => {
+    if (guide.thickness === oldThickness) guide.thickness = newThickness;
+  });
   state.boards.forEach((board) => {
     if (board.autoThickness === "width") {
       if (board.x > 160) board.x += oldThickness - newThickness;
@@ -1504,43 +1573,37 @@ function updateLayoutAnchorSummary(): void {
   if (!board) return;
   updateLayoutAnchorAxisLabels();
   const axis = selectedLayoutAnchorAxis();
+  const guide = layoutGuideForBoard(board.id, axis) ?? defaultLayoutGuide(board, axis);
   const anchors = layoutAnchorsForBoard(board.id, axis);
   ui.layoutAnchorCountInput.value = anchors.length ? String(anchors.length) : ui.layoutAnchorCountInput.value;
+  ui.layoutAnchorStartInput.value = String(Math.round(guide.startOffset));
+  ui.layoutAnchorEndInput.value = String(Math.round(guide.endOffset));
+  ui.layoutAnchorThicknessInput.value = String(Math.round(guide.thickness));
   ui.layoutAnchorSummary.textContent = anchors.length
     ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
     : "No layout anchors";
+  updateLayoutBalanceControls();
 }
 
-function layoutAnchorOffsets(board: Board, axis: LayoutAnchorAxis, count: number): number[] | null {
-  const span = axis === "x" ? board.w : board.h;
+function layoutAnchorOffsets(guide: BoardLayoutGuide, count: number): number[] | null {
+  const start = guide.startOffset;
+  const end = guide.endOffset;
+  const span = end - start;
+  if (span <= 0) return null;
   if (!ui.layoutAnchorBalanceInput.checked) {
-    return Array.from({ length: count }, (_, index) => Math.round((span * (index + 1)) / (count + 1)));
+    return Array.from({ length: count }, (_, index) => Math.round(start + (span * (index + 1)) / (count + 1)));
   }
 
-  const pieceThickness = Math.max(1, normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, state.thickness));
-  const startInset = ui.layoutAnchorStartInput.value === "inside" ? pieceThickness : 0;
-  const endInset = ui.layoutAnchorEndInput.value === "inside" ? pieceThickness : 0;
-  const clearSpan = span - startInset - endInset;
-  const openGap = (clearSpan - count * pieceThickness) / (count + 1);
+  const pieceThickness = Math.max(1, guide.thickness);
+  const openGap = (span - count * pieceThickness) / (count + 1);
   if (openGap < 0) return null;
 
   return Array.from({ length: count }, (_, index) =>
-    Math.round(startInset + openGap * (index + 1) + pieceThickness * index + pieceThickness / 2)
+    Math.round(start + openGap * (index + 1) + pieceThickness * index + pieceThickness / 2)
   );
 }
 
-function distributeLayoutAnchors(): void {
-  const board = selectedBoard(state);
-  if (!board || selectedBoards(state).length > 1) return;
-  const axis = selectedLayoutAnchorAxis();
-  const count = Math.max(1, Math.min(20, normalizePositiveNumber(ui.layoutAnchorCountInput.value, 4)));
-  const offsets = layoutAnchorOffsets(board, axis, count);
-  if (!offsets) {
-    state.lastSnap = "Not enough span for balanced anchors";
-    updateInspector();
-    return;
-  }
-  remember();
+function updateGeneratedLayoutAnchors(board: Board, axis: LayoutAnchorAxis, offsets: number[]): void {
   state.layoutAnchors = state.layoutAnchors.filter((anchor) => !(anchor.boardId === board.id && anchor.axis === axis));
   offsets.forEach((offset) => {
     state.layoutAnchors.push({
@@ -1551,16 +1614,70 @@ function distributeLayoutAnchors(): void {
     });
     state.nextLayoutAnchorId += 1;
   });
+}
+
+function updateLayoutGuideFromInspector(event?: Event): void {
+  const board = selectedBoard(state);
+  if (!board || selectedBoards(state).length > 1) return;
+  const target = event?.target;
+  if (target instanceof HTMLInputElement && target.type === "number" && target.value === "") return;
+  const axis = selectedLayoutAnchorAxis();
+  const guideValues: Omit<BoardLayoutGuide, "id"> = {
+    boardId: board.id,
+    axis,
+    startOffset: Math.round(Number(ui.layoutAnchorStartInput.value) || 0),
+    endOffset: Math.round(Number(ui.layoutAnchorEndInput.value) || 0),
+    thickness: Math.max(1, normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, state.thickness))
+  };
+  const existingAnchorCount = layoutAnchorsForBoard(board.id, axis).length;
+  const count = existingAnchorCount || Math.max(1, Math.min(20, normalizePositiveNumber(ui.layoutAnchorCountInput.value, 4)));
+  const offsets = layoutAnchorOffsets({ id: 0, ...guideValues }, count);
+
+  remember();
+  const guide = ensureLayoutGuide(board, axis);
+  guide.startOffset = guideValues.startOffset;
+  guide.endOffset = guideValues.endOffset;
+  guide.thickness = guideValues.thickness;
+  if (existingAnchorCount && offsets) updateGeneratedLayoutAnchors(board, axis, offsets);
+  state.lastSnap = offsets ? "Spacing guide updated" : "Guide span is too short";
+  refresh();
+}
+
+function distributeLayoutAnchors(): void {
+  const board = selectedBoard(state);
+  if (!board || selectedBoards(state).length > 1) return;
+  const axis = selectedLayoutAnchorAxis();
+  const count = Math.max(1, Math.min(20, normalizePositiveNumber(ui.layoutAnchorCountInput.value, 4)));
+  const guideValues: Omit<BoardLayoutGuide, "id"> = {
+    boardId: board.id,
+    axis,
+    startOffset: Math.round(Number(ui.layoutAnchorStartInput.value) || 0),
+    endOffset: Math.round(Number(ui.layoutAnchorEndInput.value) || 0),
+    thickness: Math.max(1, normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, state.thickness))
+  };
+  const offsets = layoutAnchorOffsets({ id: 0, ...guideValues }, count);
+  if (!offsets) {
+    state.lastSnap = "Guide span is too short";
+    updateInspector();
+    return;
+  }
+  remember();
+  const guide = ensureLayoutGuide(board, axis);
+  guide.startOffset = guideValues.startOffset;
+  guide.endOffset = guideValues.endOffset;
+  guide.thickness = guideValues.thickness;
+  updateGeneratedLayoutAnchors(board, axis, offsets);
   state.lastSnap = ui.layoutAnchorBalanceInput.checked ? `${count} balanced anchors added` : `${count} layout anchors added`;
   refresh();
 }
 
 function clearLayoutAnchors(): void {
   const board = selectedBoard(state);
-  if (!board || !layoutAnchorsForBoard(board.id).length) return;
+  if (!board || (!layoutAnchorsForBoard(board.id).length && !state.layoutGuides.some((guide) => guide.boardId === board.id))) return;
   remember();
   state.layoutAnchors = state.layoutAnchors.filter((anchor) => anchor.boardId !== board.id);
-  state.lastSnap = "Layout anchors cleared";
+  state.layoutGuides = state.layoutGuides.filter((guide) => guide.boardId !== board.id);
+  state.lastSnap = "Spacing guide cleared";
   refresh();
 }
 
@@ -1663,6 +1780,7 @@ function deleteSelectedBoards(): void {
   state.boards = state.boards.filter((board) => !ids.has(board.id));
   state.anchors = state.anchors.filter((anchor) => !ids.has(anchor.boardId) && !ids.has(anchor.targetBoardId));
   state.layoutAnchors = state.layoutAnchors.filter((anchor) => !ids.has(anchor.boardId));
+  state.layoutGuides = state.layoutGuides.filter((guide) => !ids.has(guide.boardId));
   state.measurements = state.measurements.filter((measurement) =>
     ![measurement.a, measurement.b].some((anchor) => anchor.kind === "board-edge" && ids.has(anchor.boardId))
   );
@@ -1739,6 +1857,18 @@ function duplicateSelectedBoards(): void {
       });
       state.nextLayoutAnchorId += 1;
     });
+  state.layoutGuides
+    .filter((guide) => selectedOriginalIds.has(guide.boardId))
+    .forEach((guide) => {
+      const boardId = idMap.get(guide.boardId);
+      if (!boardId) return;
+      state.layoutGuides.push({
+        ...guide,
+        id: state.nextLayoutGuideId,
+        boardId
+      });
+      state.nextLayoutGuideId += 1;
+    });
   setSelection(copies.map((board) => board.id), copies[0]?.id ?? null);
   state.lastSnap = copies.length > 1 ? `${copies.length} boards duplicated` : "Board duplicated";
   refresh();
@@ -1776,6 +1906,11 @@ function rotateSelectedBoards(): void {
       .filter((anchor) => anchor.boardId === board.id)
       .forEach((anchor) => {
         anchor.axis = anchor.axis === "x" ? "y" : "x";
+      });
+    state.layoutGuides
+      .filter((guide) => guide.boardId === board.id)
+      .forEach((guide) => {
+        guide.axis = guide.axis === "x" ? "y" : "x";
       });
   });
   state.anchors = state.anchors.filter((anchor) => !rotatedIds.has(anchor.boardId) && !rotatedIds.has(anchor.targetBoardId));
@@ -2187,7 +2322,12 @@ ui.frontLayerToggle.addEventListener("change", () => {
   .forEach((input) => input.addEventListener("input", updateBoardFromInspector, listenerOptions));
 ui.materialInput.addEventListener("change", updateMaterialFromInspector, listenerOptions);
 ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary, listenerOptions);
-ui.layoutAnchorBalanceInput.addEventListener("change", updateLayoutBalanceControls, listenerOptions);
+ui.layoutAnchorBalanceInput.addEventListener("change", (event) => {
+  updateLayoutBalanceControls();
+  updateLayoutGuideFromInspector(event);
+}, listenerOptions);
+[ui.layoutAnchorStartInput, ui.layoutAnchorEndInput, ui.layoutAnchorThicknessInput]
+  .forEach((input) => input.addEventListener("input", updateLayoutGuideFromInspector, listenerOptions));
 ui.layoutAnchorApplyBtn.addEventListener("click", distributeLayoutAnchors, listenerOptions);
 ui.layoutAnchorClearBtn.addEventListener("click", clearLayoutAnchors, listenerOptions);
 ui.materialForm.addEventListener("submit", (event) => {
