@@ -113,11 +113,6 @@
   </section>
 
   <section class="tool-section">
-    <h2>Anchored Measures</h2>
-    <div class="measure-list" id="customMeasureList"></div>
-  </section>
-
-  <section class="tool-section">
     <h2>Warnings</h2>
     <div class="measure-list" id="warningList"></div>
   </section>

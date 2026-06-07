@@ -357,6 +357,46 @@ select:disabled {
   position: relative;
 }
 
+.measure-rename-popover {
+  background: #ffffff;
+  border: 1px solid rgba(35, 43, 38, 0.16);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 34px rgba(35, 43, 38, 0.18);
+  display: grid;
+  gap: 8px;
+  left: 12px;
+  padding: 10px;
+  position: absolute;
+  top: 12px;
+  width: 240px;
+  z-index: 5;
+}
+
+.measure-rename-popover[hidden] {
+  display: none;
+}
+
+.measure-rename-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.measure-rename-actions .inline-action {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  margin-top: 0;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.measure-rename-actions .primary-action {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
 .topbar {
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -724,16 +764,6 @@ select:disabled {
   padding: 10px;
 }
 
-.selectable-card {
-  cursor: pointer;
-}
-
-.selectable-card.selected {
-  background: #fff7f5;
-  border-color: #b8483b;
-  box-shadow: inset 3px 0 0 #b8483b;
-}
-
 .metric-card strong,
 .cut-card strong,
 .warning-card strong {
@@ -749,21 +779,6 @@ select:disabled {
   display: block;
   font-size: 13px;
   line-height: 1.35;
-}
-
-.measure-name-field {
-  display: grid;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-
-.measure-name-field span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.measure-name-field input {
-  min-height: 34px;
 }
 
 .cut-card .count {

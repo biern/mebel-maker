@@ -77,6 +77,16 @@
   <div id="notificationToast" class="notification-toast" role="status" aria-live="polite" hidden></div>
   <div class="canvas-wrap">
     <canvas id="sketchCanvas"></canvas>
+    <form id="measureRenameForm" class="measure-rename-popover" hidden>
+      <label class="field compact-field">
+        <span>Measure name</span>
+        <input id="measureRenameInput" type="text" autocomplete="off">
+      </label>
+      <div class="measure-rename-actions">
+        <button id="measureRenameCancelBtn" class="inline-action" type="button">Cancel</button>
+        <button class="inline-action primary-action" type="submit">Rename</button>
+      </div>
+    </form>
     <div class="anchor-overlay" id="anchorOverlay" aria-label="Board anchors"></div>
     <div class="viewport-overlay" id="viewportOverlay" aria-hidden="true">
       <div class="scale-glyph">

@@ -98,14 +98,16 @@ const ui = {
   laminateBackInput: query<HTMLInputElement>("#laminateBackInput"),
   ignoreOrderInput: query<HTMLInputElement>("#ignoreOrderInput"),
   measureList: query<HTMLElement>("#measureList"),
-  customMeasureList: query<HTMLElement>("#customMeasureList"),
   warningList: query<HTMLElement>("#warningList"),
   cutList: query<HTMLElement>("#cutList"),
   materialList: query<HTMLElement>("#materialList"),
   anchorOverlay: query<HTMLElement>("#anchorOverlay"),
   overlayScaleBar: query<HTMLElement>("#overlayScaleBar"),
   overlayScaleLabel: query<HTMLElement>("#overlayScaleLabel"),
-  overlayZoomLabel: query<HTMLElement>("#overlayZoomLabel")
+  overlayZoomLabel: query<HTMLElement>("#overlayZoomLabel"),
+  measureRenameForm: query<HTMLFormElement>("#measureRenameForm"),
+  measureRenameInput: query<HTMLInputElement>("#measureRenameInput"),
+  measureRenameCancelBtn: query<HTMLButtonElement>("#measureRenameCancelBtn")
 };
 
 const state: SketchState = {
@@ -157,6 +159,7 @@ const listenerOptions = { signal: controllerEvents.signal };
 const undoStack: SavedProject[] = [];
 const redoStack: SavedProject[] = [];
 let notificationTimer: number | undefined;
+let renamingMeasurementId: number | null = null;
 
 interface SavedProject {
   schemaVersion?: 1;
@@ -588,7 +591,6 @@ function refresh(): void {
   renderMaterials();
   updateInspector();
   renderMeasurements();
-  renderCustomMeasurements();
   renderWarnings();
   renderCutList();
   autosaveProject();
@@ -1016,33 +1018,6 @@ function renderMeasurements(): void {
   ui.measureList.innerHTML = cards.join("") || `<div class="empty-state">Add boards to see measurements.</div>`;
 }
 
-function renderCustomMeasurements(): void {
-  if (!state.measurements.length) {
-    ui.customMeasureList.innerHTML = `<div class="empty-state">No anchored measures.</div>`;
-    return;
-  }
-
-  ui.customMeasureList.innerHTML = state.measurements.map((measurement, index) => {
-    const a = resolveMeasurementAnchor(state, measurement.a);
-    const b = resolveMeasurementAnchor(state, measurement.b);
-    const value = a && b ? measurementValue(measurement.axis, a, b) : "missing anchor";
-    const selected = measurement.id === state.selectedMeasurementId;
-    const offset = measurementDisplayOffset(measurement, index);
-    return `
-      <div class="metric-card selectable-card${selected ? " selected" : ""}" data-select-measure="${measurement.id}" title="Select measurement">
-        <label class="measure-name-field">
-          <span>Name</span>
-          <input data-measure-name="${measurement.id}" type="text" value="${escapeHtml(measurement.name)}" placeholder="${defaultMeasureName(measurement.id)}">
-        </label>
-        <span>${value}</span>
-        <span>Display offset: ${mm(offset)}</span>
-        <span>${anchorLabel(measurement.a)} → ${anchorLabel(measurement.b)}</span>
-        <button class="inline-action" data-delete-measure="${measurement.id}" type="button">Trash measure</button>
-      </div>
-    `;
-  }).join("");
-}
-
 function renderWarnings(): void {
   const overlaps = computeOverlaps(state.boards);
   if (!overlaps.length) {
@@ -1082,16 +1057,6 @@ function renderCutList(): void {
       </div>
     `;
   }).join("") || `<div class="empty-state">No boards in the sketch yet.</div>`;
-}
-
-function measurementValue(axis: MeasurementAxis, a: Point, b: Point): string {
-  return axis === "horizontal" ? mm(Math.abs(b.x - a.x)) : mm(Math.abs(b.y - a.y));
-}
-
-function anchorLabel(anchor: MeasurementAnchor): string {
-  if (anchor.kind === "grid") return `Grid ${mm(anchor.x)}, ${mm(displayY(anchor.y))}`;
-  const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
-  return `${board?.name ?? defaultPieceName(anchor.boardId)} ${anchor.edge}`;
 }
 
 function renderAnchorOverlay(): void {
@@ -1680,7 +1645,59 @@ function deleteMeasurement(id: number): void {
   remember();
   state.measurements = state.measurements.filter((measurement) => measurement.id !== id);
   if (state.selectedMeasurementId === id) state.selectedMeasurementId = null;
+  if (renamingMeasurementId === id) closeMeasurementRename();
   state.lastSnap = "Measurement deleted";
+  refresh();
+}
+
+function closeMeasurementRename(): void {
+  renamingMeasurementId = null;
+  ui.measureRenameForm.hidden = true;
+}
+
+function positionMeasurementRenameForm(event: MouseEvent): void {
+  const parent = ui.measureRenameForm.parentElement;
+  if (!parent) return;
+  const rect = parent.getBoundingClientRect();
+  const formWidth = 240;
+  const formHeight = 108;
+  const left = Math.max(8, Math.min(event.clientX - rect.left - formWidth / 2, rect.width - formWidth - 8));
+  const top = Math.max(8, Math.min(event.clientY - rect.top - formHeight - 10, rect.height - formHeight - 8));
+  ui.measureRenameForm.style.left = `${left}px`;
+  ui.measureRenameForm.style.top = `${top}px`;
+}
+
+function openMeasurementRename(id: number, event: MouseEvent): void {
+  const measurement = state.measurements.find((item) => item.id === id);
+  if (!measurement) return;
+  renamingMeasurementId = measurement.id;
+  setMeasurementSelection(measurement.id);
+  positionMeasurementRenameForm(event);
+  ui.measureRenameInput.value = measurement.name;
+  ui.measureRenameForm.hidden = false;
+  state.lastSnap = "Rename measurement";
+  refresh();
+  window.requestAnimationFrame(() => {
+    ui.measureRenameInput.focus();
+    ui.measureRenameInput.select();
+  });
+}
+
+function submitMeasurementRename(): void {
+  if (renamingMeasurementId === null) return;
+  const measurement = state.measurements.find((item) => item.id === renamingMeasurementId);
+  if (!measurement) {
+    closeMeasurementRename();
+    return;
+  }
+  const nextName = ui.measureRenameInput.value.trim();
+  const normalizedName = nextName || defaultMeasureName(measurement.id);
+  closeMeasurementRename();
+  if (measurement.name === normalizedName) return;
+  remember();
+  measurement.name = normalizedName;
+  setMeasurementSelection(measurement.id);
+  state.lastSnap = nextName ? "Measurement named" : "Measurement reset";
   refresh();
 }
 
@@ -1970,6 +1987,16 @@ canvas.addEventListener("pointerdown", (event) => {
   refresh();
 }, listenerOptions);
 
+canvas.addEventListener("dblclick", (event) => {
+  if (state.tool === "measure") return;
+  const rect = canvas.getBoundingClientRect();
+  const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
+  const measurement = hitTestMeasurement(state, point);
+  if (!measurement) return;
+  event.preventDefault();
+  openMeasurementRename(measurement.id, event);
+}, listenerOptions);
+
 canvas.addEventListener("pointermove", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
@@ -2197,32 +2224,17 @@ ui.materialForm.addEventListener("submit", (event) => {
 [ui.laminateLeftInput, ui.laminateRightInput, ui.laminateFrontInput, ui.laminateBackInput]
   .forEach((input) => input.addEventListener("change", updateLaminateFromInspector, listenerOptions));
 ui.ignoreOrderInput.addEventListener("change", updateOrderInclusionFromInspector, listenerOptions);
-ui.customMeasureList.addEventListener("click", (event) => {
-  const deleteTarget = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-delete-measure]");
-  if (deleteTarget) {
-    deleteMeasurement(Number(deleteTarget.dataset.deleteMeasure));
-    return;
-  }
-  if ((event.target as HTMLElement).closest("input, button, select, textarea")) return;
-  const selectTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-select-measure]");
-  if (!selectTarget) return;
-  setMeasurementSelection(Number(selectTarget.dataset.selectMeasure));
-  state.lastSnap = "Measurement selected";
-  refresh();
+ui.measureRenameForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitMeasurementRename();
 }, listenerOptions);
-ui.customMeasureList.addEventListener("change", (event) => {
-  const target = (event.target as HTMLElement).closest<HTMLInputElement>("[data-measure-name]");
-  if (!target) return;
-  const id = Number(target.dataset.measureName);
-  const measurement = state.measurements.find((item) => item.id === id);
-  if (!measurement) return;
-  const name = target.value.trim();
-  const nextName = name || defaultMeasureName(measurement.id);
-  if (measurement.name === nextName) return;
-  remember();
-  measurement.name = nextName;
-  state.lastSnap = name ? "Measurement named" : "Measurement reset";
-  refresh();
+ui.measureRenameCancelBtn.addEventListener("click", closeMeasurementRename, listenerOptions);
+ui.measureRenameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMeasurementRename();
+  if (event.key === "Enter") {
+    event.preventDefault();
+    submitMeasurementRename();
+  }
 }, listenerOptions);
 document.addEventListener("keydown", (event) => {
   if (isEditableTarget(event.target)) return;
