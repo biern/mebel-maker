@@ -36,6 +36,7 @@ function starterState(): SketchState {
   return {
     boards,
     anchors: [],
+    layoutAnchors: [],
     measurements: [],
     materials: [{ id: materialId, name: "Birch plywood", color: "#d9b77e" }],
     selectedId: 1,
@@ -43,6 +44,7 @@ function starterState(): SketchState {
     selectedMeasurementId: null,
     nextId: 6,
     nextAnchorId: 1,
+    nextLayoutAnchorId: 1,
     nextMeasurementId: 1,
     thickness,
     depth,
@@ -86,6 +88,13 @@ assert(inner?.innerW === 784 && inner.innerH === 524, "inner dimensions should a
 const shelf = state.boards.find((board) => board.name === "Middle shelf");
 assert(shelf, "middle shelf exists");
 assert(snapBoard(state, shelf, 178, 120).guides.length > 0, "moving a shelf near another shelf should expose snap guides");
+state.layoutAnchors.push({ id: state.nextLayoutAnchorId, boardId: shelf.id, axis: "x", offset: shelf.w / 2 });
+state.nextLayoutAnchorId += 1;
+const divider: Board = { id: 6, name: "Divider preview", x: 400, y: 138, w: state.thickness, h: 524, kind: "upright", autoThickness: "width", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 };
+const anchorX = shelf.x + shelf.w / 2;
+const dividerSnap = snapBoard(state, divider, anchorX - divider.w / 2 + 6, divider.y);
+assert(dividerSnap.x === anchorX - divider.w / 2, "upright divider center should snap to a shelf layout anchor");
+assert(dividerSnap.guides.some((guide) => guide.orientation === "vertical"), "layout anchor snap should expose a vertical guide");
 
 const shelfResize = resizeBoard(state, shelf, "e", rectFromBoard(shelf), { x: shelf.x + shelf.w, y: shelf.y + shelf.h / 2 }, { x: shelf.x + shelf.w + 90, y: shelf.y + 120 });
 assert(shelfResize.rect.h === state.thickness, "shelf resize should keep thickness locked");

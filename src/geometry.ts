@@ -1,6 +1,7 @@
 import type {
   Board,
   BoardEdge,
+  BoardLayoutAnchor,
   Bounds,
   InnerDimensions,
   Measurement,
@@ -218,6 +219,27 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
         guides[1] = { orientation: "horizontal", position: to, label: note };
       }
     });
+  });
+
+  layoutAnchorTargets(state, ignoreIds).forEach(({ anchor, board: source, position }) => {
+    if (anchor.axis === "x") {
+      const delta = position - me.centerX;
+      if (Math.abs(delta) < bestX) {
+        snapped.x = targetX + delta;
+        bestX = Math.abs(delta);
+        label = `${source.name} layout anchor`;
+        guides[0] = { orientation: "vertical", position, label };
+      }
+      return;
+    }
+
+    const delta = position - me.centerY;
+    if (Math.abs(delta) < bestY) {
+      snapped.y = targetY + delta;
+      bestY = Math.abs(delta);
+      label = `${source.name} layout anchor`;
+      guides[1] = { orientation: "horizontal", position, label };
+    }
   });
 
   return { ...snapped, label, guides: guides.filter(Boolean) };
@@ -464,12 +486,42 @@ function snapRect(state: SketchState, board: Board, rect: Rect, movingEdges: Boa
       });
     });
 
+    layoutAnchorTargets(state, new Set([board.id])).forEach(({ anchor, board: source, position }) => {
+      const edgeIsVertical = edge === "left" || edge === "right";
+      if ((edgeIsVertical && anchor.axis !== "x") || (!edgeIsVertical && anchor.axis !== "y")) return;
+      const delta = position - currentValue;
+      if (Math.abs(delta) < bestDelta) {
+        bestDelta = Math.abs(delta);
+        nextDelta = delta;
+        bestLabel = `${source.name} layout anchor`;
+        bestGuide = {
+          orientation: edgeIsVertical ? "vertical" : "horizontal",
+          position,
+          label: bestLabel
+        };
+      }
+    });
+
     applyEdgeDelta(snapped, edge, nextDelta, state.thickness);
     label = bestLabel;
     if (bestGuide) guides.push(bestGuide);
   });
 
   return { rect: snapped, label, guides };
+}
+
+function layoutAnchorTargets(
+  state: SketchState,
+  ignoreIds: Set<number>
+): Array<{ anchor: BoardLayoutAnchor; board: Board; position: number }> {
+  return state.layoutAnchors.flatMap((anchor) => {
+    if (ignoreIds.has(anchor.boardId)) return [];
+    const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
+    if (!board) return [];
+    const span = anchor.axis === "x" ? board.w : board.h;
+    if (anchor.offset < 0 || anchor.offset > span) return [];
+    return [{ anchor, board, position: (anchor.axis === "x" ? board.x : board.y) + anchor.offset }];
+  });
 }
 
 function movingEdgesForHandle(handle: ResizeHandle): BoardEdge[] {

@@ -2,6 +2,7 @@ export type BoardKind = "upright" | "shelf" | "panel" | "back" | "front";
 export type AutoThicknessAxis = "width" | "height" | "none";
 export type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 export type BoardEdge = "left" | "right" | "top" | "bottom";
+export type LayoutAnchorAxis = "x" | "y";
 export type MeasurementAxis = "horizontal" | "vertical";
 
 export interface Board {
@@ -51,6 +52,7 @@ export interface InnerDimensions {
 export interface SketchState {
   boards: Board[];
   anchors: BoardAnchor[];
+  layoutAnchors: BoardLayoutAnchor[];
   measurements: Measurement[];
   materials: Material[];
   selectedId: number | null;
@@ -58,6 +60,7 @@ export interface SketchState {
   selectedMeasurementId: number | null;
   nextId: number;
   nextAnchorId: number;
+  nextLayoutAnchorId: number;
   nextMeasurementId: number;
   thickness: number;
   depth: number;
@@ -90,6 +93,13 @@ export interface BoardAnchor {
   edge: BoardEdge;
   targetBoardId: number;
   targetEdge: BoardEdge;
+}
+
+export interface BoardLayoutAnchor {
+  id: number;
+  boardId: number;
+  axis: LayoutAnchorAxis;
+  offset: number;
 }
 
 export interface DragState {

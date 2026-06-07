@@ -59,6 +59,27 @@
         <input id="ignoreOrderInput" type="checkbox">
         <span>Ignore in wood order</span>
       </label>
+      <fieldset class="layout-anchor-fieldset">
+        <legend>Layout anchors</legend>
+        <div class="layout-anchor-controls">
+          <label class="field compact-field">
+            <span>Axis</span>
+            <select id="layoutAnchorAxisInput">
+              <option value="x">Width</option>
+              <option value="y">Height</option>
+            </select>
+          </label>
+          <label class="field compact-field">
+            <span>Count</span>
+            <input id="layoutAnchorCountInput" type="number" min="1" max="20" step="1" value="4">
+          </label>
+        </div>
+        <div class="layout-anchor-actions">
+          <button id="layoutAnchorApplyBtn" class="inline-action" type="button">Distribute</button>
+          <button id="layoutAnchorClearBtn" class="inline-action" type="button">Clear</button>
+        </div>
+        <div id="layoutAnchorSummary" class="anchor-summary"></div>
+      </fieldset>
     </form>
   </section>
 

@@ -668,6 +668,39 @@ input:disabled {
   margin-top: 10px;
 }
 
+.layout-anchor-fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px;
+}
+
+.layout-anchor-fieldset legend {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.layout-anchor-controls,
+.layout-anchor-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.compact-field {
+  margin-bottom: 0;
+}
+
+.anchor-summary {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .measure-list,
 .cut-list,
 .material-list {

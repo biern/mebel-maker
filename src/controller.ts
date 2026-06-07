@@ -26,7 +26,7 @@ import {
   snapValueToGrid,
   worldToScreen
 } from "./geometry";
-import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, LaminateEdges, Material, MeasurementAnchor, MeasurementAxis, Point, Rect, ResizeHandle, SketchState } from "./types";
+import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, Point, Rect, ResizeHandle, SketchState } from "./types";
 
 declare global {
   interface Window {
@@ -75,6 +75,11 @@ const ui = {
   wInput: query<HTMLInputElement>("#wInput"),
   hInput: query<HTMLInputElement>("#hInput"),
   depthOverrideInput: query<HTMLInputElement>("#depthOverrideInput"),
+  layoutAnchorAxisInput: query<HTMLSelectElement>("#layoutAnchorAxisInput"),
+  layoutAnchorCountInput: query<HTMLInputElement>("#layoutAnchorCountInput"),
+  layoutAnchorApplyBtn: query<HTMLButtonElement>("#layoutAnchorApplyBtn"),
+  layoutAnchorClearBtn: query<HTMLButtonElement>("#layoutAnchorClearBtn"),
+  layoutAnchorSummary: query<HTMLElement>("#layoutAnchorSummary"),
   materialInput: query<HTMLSelectElement>("#materialInput"),
   materialLabelSwatch: query<HTMLElement>("#materialLabelSwatch"),
   materialForm: query<HTMLFormElement>("#materialForm"),
@@ -100,6 +105,7 @@ const ui = {
 const state: SketchState = {
   boards: [],
   anchors: [],
+  layoutAnchors: [],
   measurements: [],
   materials: defaultMaterials(),
   selectedId: null,
@@ -107,6 +113,7 @@ const state: SketchState = {
   selectedMeasurementId: null,
   nextId: 1,
   nextAnchorId: 1,
+  nextLayoutAnchorId: 1,
   nextMeasurementId: 1,
   thickness: 18,
   depth: 560,
@@ -139,6 +146,8 @@ const minFitScale = 0.125;
 const minWheelScale = 0.09;
 const maxFitScale = 1.3;
 const maxWheelScale = 2;
+const controllerEvents = new AbortController();
+const listenerOptions = { signal: controllerEvents.signal };
 const undoStack: SavedProject[] = [];
 const redoStack: SavedProject[] = [];
 let notificationTimer: number | undefined;
@@ -149,6 +158,7 @@ interface SavedProject {
   appVersion?: string;
   boards: Board[];
   anchors?: BoardAnchor[];
+  layoutAnchors?: BoardLayoutAnchor[];
   measurements: SketchState["measurements"];
   materials?: Material[];
   selectedId: number | null;
@@ -156,6 +166,7 @@ interface SavedProject {
   selectedMeasurementId?: number | null;
   nextId: number;
   nextAnchorId?: number;
+  nextLayoutAnchorId?: number;
   nextMeasurementId: number;
   thickness: number;
   grid: number;
@@ -242,6 +253,27 @@ function normalizedAnchors(anchors?: BoardAnchor[]): BoardAnchor[] {
   });
 }
 
+function normalizedLayoutAnchors(layoutAnchors?: BoardLayoutAnchor[]): BoardLayoutAnchor[] {
+  if (!layoutAnchors?.length) return [];
+  const boardIds = new Set(state.boards.map((board) => board.id));
+  const seen = new Set<string>();
+  return layoutAnchors.filter((anchor) => {
+    const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
+    const offset = Number(anchor.offset);
+    const span = anchor.axis === "x" ? board?.w : board?.h;
+    const key = `${anchor.boardId}:${anchor.axis}:${Math.round(offset * 1000)}`;
+    const ok = boardIds.has(anchor.boardId) &&
+      (anchor.axis === "x" || anchor.axis === "y") &&
+      Number.isFinite(offset) &&
+      offset >= 0 &&
+      span !== undefined &&
+      offset <= span &&
+      !seen.has(key);
+    if (ok) seen.add(key);
+    return ok;
+  }).map((anchor) => ({ ...anchor, offset: Math.round(anchor.offset) }));
+}
+
 function defaultLaminate(): LaminateEdges {
   return { left: false, right: false, front: false, back: false };
 }
@@ -326,6 +358,10 @@ function nextMeasureId(measurements = state.measurements): number {
 
 function nextAnchorId(anchors = state.anchors): number {
   return Math.max(0, ...anchors.map((anchor) => anchor.id)) + 1;
+}
+
+function nextLayoutAnchorId(layoutAnchors = state.layoutAnchors): number {
+  return Math.max(0, ...layoutAnchors.map((anchor) => anchor.id)) + 1;
 }
 
 function laminateKey(laminate: LaminateEdges): string {
@@ -435,9 +471,11 @@ function beginTemplate(recordHistory: boolean, x: number, y: number): void {
   if (recordHistory) remember();
   state.boards = [];
   state.anchors = [];
+  state.layoutAnchors = [];
   state.measurements = [];
   state.nextId = 1;
   state.nextAnchorId = 1;
+  state.nextLayoutAnchorId = 1;
   state.nextMeasurementId = 1;
   state.selectedMeasurementId = null;
   state.pendingMeasurementAnchor = null;
@@ -593,6 +631,7 @@ function serializeProject(): SavedProject {
     appVersion,
     boards: state.boards,
     anchors: state.anchors,
+    layoutAnchors: state.layoutAnchors,
     measurements: state.measurements,
     materials: state.materials,
     selectedId: state.selectedId,
@@ -600,6 +639,7 @@ function serializeProject(): SavedProject {
     selectedMeasurementId: state.selectedMeasurementId,
     nextId: state.nextId,
     nextAnchorId: state.nextAnchorId,
+    nextLayoutAnchorId: state.nextLayoutAnchorId,
     nextMeasurementId: state.nextMeasurementId,
     thickness: state.thickness,
     depth: state.depth,
@@ -620,6 +660,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.materials = normalizedMaterials(project.materials);
   state.boards = (project.boards ?? []).map(withDefaults);
   state.anchors = normalizedAnchors(project.anchors);
+  state.layoutAnchors = normalizedLayoutAnchors(project.layoutAnchors);
   state.measurements = (project.measurements ?? []).map((measurement, index) => ({
     ...measurement,
     name: normalizedMeasureName(measurement.name, measurement.id),
@@ -631,6 +672,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   if (!savedSelection.length) setMeasurementSelection(project.selectedMeasurementId ?? null);
   state.nextId = project.nextId ?? nextBoardId(state.boards);
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
+  state.nextLayoutAnchorId = project.nextLayoutAnchorId ?? nextLayoutAnchorId(state.layoutAnchors);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
   state.thickness = normalizePositiveNumber(project.thickness, state.thickness);
   state.depth = normalizePositiveNumber(project.depth, state.depth);
@@ -759,6 +801,17 @@ function commonValue<T>(items: T[], read: (item: T) => string): string | null {
   return items.every((item) => read(item) === first) ? first : null;
 }
 
+function layoutAnchorsForBoard(boardId: number, axis?: LayoutAnchorAxis): BoardLayoutAnchor[] {
+  return state.layoutAnchors
+    .filter((anchor) => anchor.boardId === boardId && (!axis || anchor.axis === axis))
+    .sort((a, b) => a.offset - b.offset);
+}
+
+function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
+  if (board.autoThickness === "width") return "y";
+  return "x";
+}
+
 function setInputValue(input: HTMLInputElement, value: string | null, placeholder = "Mixed"): void {
   input.value = value ?? "";
   input.placeholder = value === null ? placeholder : "";
@@ -802,6 +855,11 @@ function updateInspector(): void {
   ui.wInput.disabled = false;
   ui.hInput.disabled = false;
   ui.nameInput.disabled = false;
+  ui.layoutAnchorAxisInput.disabled = !board || multi;
+  ui.layoutAnchorCountInput.disabled = !board || multi;
+  ui.layoutAnchorApplyBtn.disabled = !board || multi;
+  ui.layoutAnchorClearBtn.disabled = !board || multi || layoutAnchorsForBoard(board.id).length === 0;
+  if (!board || multi) ui.layoutAnchorSummary.textContent = "No layout anchors";
   ui.materialLabelSwatch.style.background = board && !multi ? materialColor(board.materialId) : "transparent";
   if (!hasSelection) return;
 
@@ -815,6 +873,8 @@ function updateInspector(): void {
     ui.wInput.disabled = true;
     ui.hInput.disabled = true;
   } else if (board) {
+    const axis = layoutAnchorsForBoard(board.id).at(0)?.axis ?? defaultLayoutAnchorAxis(board);
+    const anchors = layoutAnchorsForBoard(board.id, axis);
     ui.nameInput.value = board.name;
     ui.nameInput.placeholder = "";
     ui.xInput.value = String(Math.round(board.x));
@@ -823,6 +883,11 @@ function updateInspector(): void {
     ui.hInput.value = String(Math.round(board.h));
     ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
     ui.materialInput.value = board.materialId;
+    ui.layoutAnchorAxisInput.value = axis;
+    if (anchors.length) ui.layoutAnchorCountInput.value = String(anchors.length);
+    ui.layoutAnchorSummary.textContent = anchors.length
+      ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
+      : "No layout anchors";
     ui.wInput.disabled = board.autoThickness === "width";
     ui.hInput.disabled = board.autoThickness === "height";
   }
@@ -1388,6 +1453,51 @@ function updateOrderInclusionFromInspector(): void {
   refresh();
 }
 
+function selectedLayoutAnchorAxis(): LayoutAnchorAxis {
+  return ui.layoutAnchorAxisInput.value === "y" ? "y" : "x";
+}
+
+function updateLayoutAnchorSummary(): void {
+  const board = selectedBoard(state);
+  if (!board) return;
+  const axis = selectedLayoutAnchorAxis();
+  const anchors = layoutAnchorsForBoard(board.id, axis);
+  ui.layoutAnchorCountInput.value = anchors.length ? String(anchors.length) : ui.layoutAnchorCountInput.value;
+  ui.layoutAnchorSummary.textContent = anchors.length
+    ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
+    : "No layout anchors";
+}
+
+function distributeLayoutAnchors(): void {
+  const board = selectedBoard(state);
+  if (!board || selectedBoards(state).length > 1) return;
+  const axis = selectedLayoutAnchorAxis();
+  const count = Math.max(1, Math.min(20, normalizePositiveNumber(ui.layoutAnchorCountInput.value, 4)));
+  const span = axis === "x" ? board.w : board.h;
+  remember();
+  state.layoutAnchors = state.layoutAnchors.filter((anchor) => !(anchor.boardId === board.id && anchor.axis === axis));
+  for (let index = 1; index <= count; index += 1) {
+    state.layoutAnchors.push({
+      id: state.nextLayoutAnchorId,
+      boardId: board.id,
+      axis,
+      offset: Math.round((span * index) / (count + 1))
+    });
+    state.nextLayoutAnchorId += 1;
+  }
+  state.lastSnap = `${count} layout anchors added`;
+  refresh();
+}
+
+function clearLayoutAnchors(): void {
+  const board = selectedBoard(state);
+  if (!board || !layoutAnchorsForBoard(board.id).length) return;
+  remember();
+  state.layoutAnchors = state.layoutAnchors.filter((anchor) => anchor.boardId !== board.id);
+  state.lastSnap = "Layout anchors cleared";
+  refresh();
+}
+
 function createPresetAt(presetId: string, point?: Point): void {
   const preset = presets[presetId];
   if (!preset) return;
@@ -1486,6 +1596,7 @@ function deleteSelectedBoards(): void {
   remember();
   state.boards = state.boards.filter((board) => !ids.has(board.id));
   state.anchors = state.anchors.filter((anchor) => !ids.has(anchor.boardId) && !ids.has(anchor.targetBoardId));
+  state.layoutAnchors = state.layoutAnchors.filter((anchor) => !ids.has(anchor.boardId));
   state.measurements = state.measurements.filter((measurement) =>
     ![measurement.a, measurement.b].some((anchor) => anchor.kind === "board-edge" && ids.has(anchor.boardId))
   );
@@ -1550,6 +1661,18 @@ function duplicateSelectedBoards(): void {
       });
       state.nextAnchorId += 1;
     });
+  state.layoutAnchors
+    .filter((anchor) => selectedOriginalIds.has(anchor.boardId))
+    .forEach((anchor) => {
+      const boardId = idMap.get(anchor.boardId);
+      if (!boardId) return;
+      state.layoutAnchors.push({
+        ...anchor,
+        id: state.nextLayoutAnchorId,
+        boardId
+      });
+      state.nextLayoutAnchorId += 1;
+    });
   setSelection(copies.map((board) => board.id), copies[0]?.id ?? null);
   state.lastSnap = copies.length > 1 ? `${copies.length} boards duplicated` : "Board duplicated";
   refresh();
@@ -1583,6 +1706,11 @@ function rotateSelectedBoards(): void {
     board.h = Math.round(nextH);
     board.autoThickness = rotateAutoThickness(board.autoThickness);
     board.kind = rotateBoardKind(board.kind);
+    state.layoutAnchors
+      .filter((anchor) => anchor.boardId === board.id)
+      .forEach((anchor) => {
+        anchor.axis = anchor.axis === "x" ? "y" : "x";
+      });
   });
   state.anchors = state.anchors.filter((anchor) => !rotatedIds.has(anchor.boardId) && !rotatedIds.has(anchor.targetBoardId));
   state.lastSnap = boards.length > 1 ? `${boards.length} boards rotated` : "Rotated 90 deg";
@@ -1991,6 +2119,9 @@ ui.frontLayerToggle.addEventListener("change", () => {
 });
 [ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput].forEach((input) => input.addEventListener("input", updateBoardFromInspector));
 ui.materialInput.addEventListener("change", updateMaterialFromInspector);
+ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary);
+ui.layoutAnchorApplyBtn.addEventListener("click", distributeLayoutAnchors);
+ui.layoutAnchorClearBtn.addEventListener("click", clearLayoutAnchors);
 ui.materialForm.addEventListener("submit", (event) => {
   event.preventDefault();
   addCustomMaterial();
