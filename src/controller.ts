@@ -2409,6 +2409,7 @@ if (import.meta.hot) {
     data.project = serializeProject();
     autosaveProject();
     controllerEvents.abort();
+    visualization3d.dispose();
     canvas.classList.remove("drop-ready");
     if (window.mebleBuilderDebug?.state === state) delete window.mebleBuilderDebug;
   });

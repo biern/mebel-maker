@@ -1,277 +1,233 @@
-import { boundsFor, displayOrderedBoards, effectiveDepth, mm } from "./geometry";
-import type { Board, Material, Point, SketchState } from "./types";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { boundsFor, displayOrderedBoards, effectiveDepth } from "./geometry";
+import type { Board, Material, SketchState } from "./types";
 
-interface Point3D {
+interface DepthRange {
+  back: number;
+  front: number;
+}
+
+interface BoardBox {
+  board: Board;
   x: number;
   y: number;
   z: number;
-}
-
-interface ProjectedPoint extends Point {
-  depth: number;
-}
-
-interface Face {
-  board: Board;
-  name: "front" | "back" | "left" | "right" | "top" | "bottom";
-  points: Point3D[];
-  fill: string;
-  alpha: number;
-}
-
-interface CameraDrag {
-  startX: number;
-  startY: number;
-  yaw: number;
-  pitch: number;
+  w: number;
+  h: number;
+  d: number;
+  opacity: number;
 }
 
 const selectedStroke = "#1f6659";
-const normalStroke = "rgba(32, 37, 34, 0.26)";
+const normalStroke = "#4d5a52";
 
 export class Visualization3DRenderer {
-  private readonly ctx: CanvasRenderingContext2D;
-  private yaw = -0.72;
-  private pitch = 0.56;
-  private zoom = 1;
-  private drag: CameraDrag | null = null;
+  private readonly renderer: THREE.WebGLRenderer;
+  private readonly scene = new THREE.Scene();
+  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50000);
+  private readonly controls: OrbitControls;
+  private readonly root = new THREE.Group();
+  private sceneSpan = 1000;
+  private cameraReady = false;
 
   constructor(private readonly canvas: HTMLCanvasElement, private readonly state: SketchState) {
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("3D canvas rendering is not available.");
-    this.ctx = context;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer.setClearColor(0xfbfcf8, 1);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.08;
+    this.controls.screenSpacePanning = true;
+    this.controls.addEventListener("change", () => this.renderFrame());
+    this.scene.add(this.root);
+    this.addLighting();
   }
 
   bindInteractions(options: AddEventListenerOptions): void {
-    this.canvas.addEventListener("pointerdown", (event) => {
-      this.drag = {
-        startX: event.clientX,
-        startY: event.clientY,
-        yaw: this.yaw,
-        pitch: this.pitch
-      };
-      this.canvas.setPointerCapture(event.pointerId);
-      this.canvas.style.cursor = "grabbing";
-    }, options);
+    void options;
+  }
 
-    this.canvas.addEventListener("pointermove", (event) => {
-      if (!this.drag) return;
-      this.yaw = this.drag.yaw + (event.clientX - this.drag.startX) * 0.008;
-      this.pitch = Math.max(0.18, Math.min(1.14, this.drag.pitch + (event.clientY - this.drag.startY) * 0.006));
-      this.draw();
-    }, options);
-
-    this.canvas.addEventListener("pointerup", (event) => {
-      this.drag = null;
-      if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId);
-      this.canvas.style.cursor = "grab";
-    }, options);
-
-    this.canvas.addEventListener("pointerleave", () => {
-      if (!this.drag) this.canvas.style.cursor = "grab";
-    }, options);
-
-    this.canvas.addEventListener("wheel", (event) => {
-      event.preventDefault();
-      this.zoom = Math.max(0.45, Math.min(2.1, this.zoom * (event.deltaY > 0 ? 0.92 : 1.08)));
-      this.draw();
-    }, { ...options, passive: false });
+  dispose(): void {
+    this.controls.dispose();
+    this.clearRoot();
+    this.renderer.dispose();
   }
 
   resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
-    this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.renderer.setPixelRatio(dpr);
+    this.renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
+    this.updateCameraFrustum(rect.width, rect.height);
     this.draw();
   }
 
   draw(): void {
-    const rect = this.canvas.getBoundingClientRect();
-    this.ctx.clearRect(0, 0, rect.width, rect.height);
-    this.ctx.fillStyle = "#fbfcf8";
-    this.ctx.fillRect(0, 0, rect.width, rect.height);
-
+    this.clearRoot();
     const bounds = boundsFor(this.state.boards);
     if (!bounds) {
-      this.ctx.fillStyle = "#69736d";
-      this.ctx.font = "13px system-ui";
-      this.ctx.fillText("No boards in the sketch.", 18, 28);
+      this.renderFrame();
       return;
     }
 
     const maxDepth = Math.max(this.state.depth, ...this.state.boards.map((board) => effectiveDepth(board, this.state.depth)));
-    const scale = this.viewScale(rect.width, rect.height, bounds.w, bounds.h, maxDepth);
-    const center = { x: rect.width / 2, y: rect.height / 2 + 10 };
-    this.drawGround(center, scale, bounds.w, maxDepth);
+    const overlayThickness = this.overlayThickness(maxDepth);
+    const sceneDepth = maxDepth + overlayThickness;
+    const centerX = bounds.left + bounds.w / 2;
+    const centerY = bounds.top + bounds.h / 2;
+    this.sceneSpan = Math.max(bounds.w, bounds.h, sceneDepth, 1) * 1.65;
+    this.updateCameraFrustum(this.canvas.clientWidth, this.canvas.clientHeight);
+    this.addGround(bounds.w, sceneDepth, bounds.h);
 
-    const faces = displayOrderedBoards(this.state.boards)
-      .flatMap((board) => this.facesForBoard(board, bounds.left + bounds.w / 2, bounds.top + bounds.h / 2, maxDepth));
+    displayOrderedBoards(this.state.boards)
+      .map((board) => this.boxForBoard(board, centerX, centerY, sceneDepth, overlayThickness))
+      .forEach((box) => this.addBoardBox(box));
 
-    faces
-      .map((face) => {
-        const points = face.points.map((point) => this.project(point, center, scale));
-        const depth = points.reduce((total, point) => total + point.depth, 0) / points.length;
-        return { ...face, screenPoints: points, depth };
-      })
-      .sort((a, b) => a.depth - b.depth)
-      .forEach((face) => this.drawFace(face));
-
-    this.drawLabels(center, scale, bounds.left + bounds.w / 2, bounds.top + bounds.h / 2, maxDepth);
+    if (!this.cameraReady) this.resetCamera();
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+    this.renderFrame();
   }
 
-  private viewScale(width: number, height: number, modelW: number, modelH: number, modelD: number): number {
-    const span = Math.max(modelW + modelD * 0.7, modelH + modelD * 0.42, 1);
-    return Math.max(0.08, Math.min(width / span, height / span) * 1.38 * this.zoom);
+  private addLighting(): void {
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.75));
+
+    const key = new THREE.DirectionalLight(0xffffff, 2.3);
+    key.position.set(800, 1100, 900);
+    this.scene.add(key);
+
+    const fill = new THREE.DirectionalLight(0xffffff, 0.75);
+    fill.position.set(-700, 500, -500);
+    this.scene.add(fill);
   }
 
-  private facesForBoard(board: Board, centerX: number, centerY: number, maxDepth: number): Face[] {
-    const material = this.materialFor(board);
-    const depth = effectiveDepth(board, this.state.depth);
-    const overlayThickness = Math.max(4, Math.min(this.state.thickness, depth, maxDepth * 0.08));
-    const z = this.zRangeForBoard(board, depth, overlayThickness);
-    const x0 = board.x - centerX;
-    const x1 = board.x + board.w - centerX;
-    const y0 = centerY - (board.y + board.h);
-    const y1 = centerY - board.y;
-    const z0 = z.front - maxDepth / 2;
-    const z1 = z.back - maxDepth / 2;
-    const alpha = board.kind === "front" && !this.state.showFrontPanels ? 0.18 : board.kind === "front" ? 0.68 : 1;
-    const colors = this.faceColors(material.color);
-
-    return [
-      { board, name: "back", points: [{ x: x0, y: y0, z: z1 }, { x: x1, y: y0, z: z1 }, { x: x1, y: y1, z: z1 }, { x: x0, y: y1, z: z1 }], fill: colors.back, alpha },
-      { board, name: "left", points: [{ x: x0, y: y0, z: z0 }, { x: x0, y: y0, z: z1 }, { x: x0, y: y1, z: z1 }, { x: x0, y: y1, z: z0 }], fill: colors.left, alpha },
-      { board, name: "right", points: [{ x: x1, y: y0, z: z0 }, { x: x1, y: y0, z: z1 }, { x: x1, y: y1, z: z1 }, { x: x1, y: y1, z: z0 }], fill: colors.right, alpha },
-      { board, name: "bottom", points: [{ x: x0, y: y0, z: z0 }, { x: x1, y: y0, z: z0 }, { x: x1, y: y0, z: z1 }, { x: x0, y: y0, z: z1 }], fill: colors.bottom, alpha },
-      { board, name: "top", points: [{ x: x0, y: y1, z: z0 }, { x: x1, y: y1, z: z0 }, { x: x1, y: y1, z: z1 }, { x: x0, y: y1, z: z1 }], fill: colors.top, alpha },
-      { board, name: "front", points: [{ x: x0, y: y0, z: z0 }, { x: x1, y: y0, z: z0 }, { x: x1, y: y1, z: z0 }, { x: x0, y: y1, z: z0 }], fill: colors.front, alpha }
-    ];
+  private updateCameraFrustum(width: number, height: number): void {
+    const aspect = Math.max(0.1, width / Math.max(1, height));
+    const span = this.sceneSpan;
+    if (aspect >= 1) {
+      this.camera.left = -span * aspect / 2;
+      this.camera.right = span * aspect / 2;
+      this.camera.top = span / 2;
+      this.camera.bottom = -span / 2;
+    } else {
+      this.camera.left = -span / 2;
+      this.camera.right = span / 2;
+      this.camera.top = span / aspect / 2;
+      this.camera.bottom = -span / aspect / 2;
+    }
+    this.camera.updateProjectionMatrix();
   }
 
-  private zRangeForBoard(board: Board, depth: number, overlayThickness: number): { front: number; back: number } {
-    if (board.kind === "front") return { front: -overlayThickness, back: 0 };
-    if (board.kind === "back") return { front: Math.max(0, depth - overlayThickness), back: depth };
-    return { front: 0, back: depth };
+  private resetCamera(): void {
+    this.camera.position.set(this.sceneSpan * 0.72, this.sceneSpan * 0.52, this.sceneSpan * 0.92);
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+    this.cameraReady = true;
   }
 
-  private drawFace(face: Face & { screenPoints: ProjectedPoint[] }): void {
-    const selected = this.state.selectedIds.includes(face.board.id) || this.state.selectedId === face.board.id;
-
-    this.ctx.save();
-    this.ctx.globalAlpha = face.alpha;
-    this.ctx.beginPath();
-    face.screenPoints.forEach((point, index) => {
-      if (index === 0) this.ctx.moveTo(point.x, point.y);
-      else this.ctx.lineTo(point.x, point.y);
-    });
-    this.ctx.closePath();
-    this.ctx.fillStyle = face.fill;
-    this.ctx.strokeStyle = selected ? selectedStroke : normalStroke;
-    this.ctx.lineWidth = selected ? 1.8 : 1;
-    this.ctx.fill();
-    this.ctx.stroke();
-    this.ctx.restore();
+  private addGround(width: number, depth: number, height: number): void {
+    const size = Math.max(width, depth, 300) * 1.25;
+    const grid = new THREE.GridHelper(size, 12, 0x9fb3a8, 0xd6ded8);
+    grid.position.y = -Math.max(60, height / 2 + 36);
+    grid.position.z = 0;
+    this.root.add(grid);
   }
 
-  private drawLabels(center: Point, scale: number, centerX: number, centerY: number, maxDepth: number): void {
-    const selectedIds = new Set(this.state.selectedIds);
-    if (this.state.selectedId !== null) selectedIds.add(this.state.selectedId);
-
-    this.ctx.save();
-    this.ctx.font = "12px system-ui";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-
-    displayOrderedBoards(this.state.boards).forEach((board) => {
-      const depth = effectiveDepth(board, this.state.depth);
-      const isSelected = selectedIds.has(board.id);
-      const visibleLabel = isSelected || board.w * scale > 42 || board.h * scale > 42;
-      if (!visibleLabel) return;
-      const z = board.kind === "front" ? -Math.min(this.state.thickness, depth) : board.kind === "back" ? depth : depth * 0.5;
-      const point = this.project({
-        x: board.x + board.w / 2 - centerX,
-        y: centerY - (board.y + board.h / 2),
-        z: z - maxDepth / 2
-      }, center, scale);
-
-      const label = isSelected ? `${board.name} ${mm(depth)}` : board.name;
-      this.ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
-      const metrics = this.ctx.measureText(label);
-      this.ctx.fillRect(point.x - metrics.width / 2 - 5, point.y - 9, metrics.width + 10, 18);
-      this.ctx.fillStyle = isSelected ? selectedStroke : "#27302b";
-      this.ctx.fillText(label, point.x, point.y);
-    });
-
-    this.ctx.restore();
-  }
-
-  private drawGround(center: Point, scale: number, width: number, depth: number): void {
-    const halfW = Math.max(width / 2, 300);
-    const halfD = Math.max(depth / 2, 240);
-    const y = -18;
-    const corners = [
-      this.project({ x: -halfW, y, z: -halfD }, center, scale),
-      this.project({ x: halfW, y, z: -halfD }, center, scale),
-      this.project({ x: halfW, y, z: halfD }, center, scale),
-      this.project({ x: -halfW, y, z: halfD }, center, scale)
-    ];
-
-    this.ctx.save();
-    this.ctx.fillStyle = "rgba(231, 238, 232, 0.52)";
-    this.ctx.strokeStyle = "rgba(31, 102, 89, 0.18)";
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
-    corners.forEach((point, index) => {
-      if (index === 0) this.ctx.moveTo(point.x, point.y);
-      else this.ctx.lineTo(point.x, point.y);
-    });
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.stroke();
-    this.ctx.restore();
-  }
-
-  private project(point: Point3D, center: Point, scale: number): ProjectedPoint {
-    const yawCos = Math.cos(this.yaw);
-    const yawSin = Math.sin(this.yaw);
-    const pitchCos = Math.cos(this.pitch);
-    const pitchSin = Math.sin(this.pitch);
-
-    const x = point.x * yawCos - point.z * yawSin;
-    const z = point.x * yawSin + point.z * yawCos;
-    const y = point.y * pitchCos - z * pitchSin;
-    const depth = point.y * pitchSin + z * pitchCos;
-
+  private boxForBoard(board: Board, centerX: number, centerY: number, sceneDepth: number, overlayThickness: number): BoardBox {
+    const range = this.zRangeForBoard(board, effectiveDepth(board, this.state.depth), overlayThickness);
+    const d = Math.max(1, range.front - range.back);
+    const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.18 : board.kind === "front" ? 0.72 : 1;
     return {
-      x: center.x + x * scale,
-      y: center.y - y * scale,
-      depth
+      board,
+      x: board.x + board.w / 2 - centerX,
+      y: centerY - (board.y + board.h / 2),
+      z: (range.back + range.front) / 2 - sceneDepth / 2,
+      w: Math.max(1, board.w),
+      h: Math.max(1, board.h),
+      d,
+      opacity
     };
+  }
+
+  private zRangeForBoard(board: Board, depth: number, overlayThickness: number): DepthRange {
+    if (board.kind === "front") {
+      const behindDepth = this.deepestOverlappingStructuralDepth(board) ?? depth;
+      return { back: behindDepth, front: behindDepth + overlayThickness };
+    }
+    if (board.kind === "back") return { back: 0, front: overlayThickness };
+    return { back: 0, front: depth };
+  }
+
+  private addBoardBox(box: BoardBox): void {
+    const material = this.materialFor(box.board);
+    const selected = this.state.selectedIds.includes(box.board.id) || this.state.selectedId === box.board.id;
+    const geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+    const meshMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(material.color),
+      opacity: box.opacity,
+      roughness: 0.78,
+      metalness: 0,
+      transparent: box.opacity < 1,
+      depthWrite: box.opacity >= 1
+    });
+    const mesh = new THREE.Mesh(geometry, meshMaterial);
+    mesh.position.set(box.x, box.y, box.z);
+    this.root.add(mesh);
+
+    const edgeGeometry = new THREE.EdgesGeometry(geometry);
+    const edgeMaterial = new THREE.LineBasicMaterial({
+      color: selected ? selectedStroke : normalStroke,
+      transparent: true,
+      opacity: selected ? 1 : 0.44
+    });
+    const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+    edges.position.copy(mesh.position);
+    this.root.add(edges);
+  }
+
+  private overlayThickness(maxDepth: number): number {
+    return Math.max(4, Math.min(this.state.thickness, maxDepth * 0.08));
+  }
+
+  private deepestOverlappingStructuralDepth(front: Board): number | null {
+    const overlaps = this.state.boards
+      .filter((board) => board.id !== front.id && board.kind !== "front" && board.kind !== "back")
+      .filter((board) => this.boardsOverlapInElevation(front, board));
+    if (!overlaps.length) return null;
+    return Math.max(...overlaps.map((board) => effectiveDepth(board, this.state.depth)));
+  }
+
+  private boardsOverlapInElevation(a: Board, b: Board): boolean {
+    return a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.y + a.h > b.y;
   }
 
   private materialFor(board: Board): Material {
     return this.state.materials.find((material) => material.id === board.materialId) ?? this.state.materials[0];
   }
 
-  private faceColors(color: string): Record<Face["name"], string> {
-    return {
-      front: this.shade(color, 1.04),
-      back: this.shade(color, 0.74),
-      left: this.shade(color, 0.78),
-      right: this.shade(color, 0.88),
-      top: this.shade(color, 1.15),
-      bottom: this.shade(color, 0.65)
-    };
+  private clearRoot(): void {
+    [...this.root.children].forEach((child) => {
+      this.root.remove(child);
+      this.disposeObject(child);
+    });
   }
 
-  private shade(color: string, factor: number): string {
-    const match = /^#([0-9a-f]{6})$/i.exec(color);
-    if (!match) return color;
-    const value = match[1];
-    const channels = [value.slice(0, 2), value.slice(2, 4), value.slice(4, 6)]
-      .map((channel) => Math.max(0, Math.min(255, Math.round(parseInt(channel, 16) * factor))));
-    return `rgb(${channels.join(", ")})`;
+  private disposeObject(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      const mesh = child as THREE.Mesh | THREE.LineSegments;
+      mesh.geometry?.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) material.forEach((item) => item.dispose());
+      else material?.dispose();
+    });
+  }
+
+  private renderFrame(): void {
+    this.renderer.render(this.scene, this.camera);
   }
 }
