@@ -57,20 +57,25 @@ export function edgesForRect(rect: Rect): RectEdges {
   };
 }
 
-export function hitTest(boards: Board[], point: Point): Board | null {
-  for (let i = boards.length - 1; i >= 0; i -= 1) {
-    const board = boards[i];
-    if (isOverlayPanel(board)) continue;
-    if (pointInBoard(board, point)) {
-      return board;
-    }
-  }
-  for (let i = boards.length - 1; i >= 0; i -= 1) {
-    const board = boards[i];
-    if (!isOverlayPanel(board)) continue;
-    if (pointInBoard(board, point)) {
-      return board;
-    }
+export function boardLayerOrder(board: Board): number {
+  if (board.kind === "back") return 0;
+  if (board.kind === "front") return 2;
+  return 1;
+}
+
+export function displayOrderedBoards(boards: Board[]): Board[] {
+  return boards
+    .map((board, index) => ({ board, index }))
+    .sort((a, b) => boardLayerOrder(a.board) - boardLayerOrder(b.board) || a.index - b.index)
+    .map(({ board }) => board);
+}
+
+export function hitTest(state: Pick<SketchState, "boards" | "showFrontPanels">, point: Point): Board | null {
+  const drawOrder = displayOrderedBoards(state.boards);
+  for (let i = drawOrder.length - 1; i >= 0; i -= 1) {
+    const board = drawOrder[i];
+    if (board.kind === "front" && !state.showFrontPanels) continue;
+    if (pointInBoard(board, point)) return board;
   }
   return null;
 }

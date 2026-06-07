@@ -63,7 +63,7 @@ function starterState(): SketchState {
 const state = starterState();
 computeGroups(state.boards);
 
-assert(hitTest(state.boards, { x: 500, y: 404 })?.name === "Middle shelf", "thin horizontal shelf should be hittable");
+assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "thin horizontal shelf should be hittable");
 assert(groupBoards(state, 1).length === 5, "starter cabinet should be one connected structural group");
 assert(computeOverlaps(state.boards).length === 0, "starter cabinet should not begin with overlaps");
 assert(snapValueToGrid(state, 171, "x") === 160, "grid snapping should use the drawing origin");
@@ -103,12 +103,15 @@ assert(afterA && afterB && Math.abs(afterB.y - afterA.y) === 610, "edge-anchored
 state.boards.push({ id: 6, name: "Back", x: 160, y: 120, w: 820, h: 560, kind: "back", autoThickness: "none", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "back panel should not create structural overlap warnings");
-assert(hitTest(state.boards, { x: 500, y: 404 })?.name === "Middle shelf", "back panel should not block selecting foreground shelf");
+assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "back panel should not block selecting foreground shelf");
 
 state.boards.push({ id: 7, name: "Front", x: 160, y: 120, w: 820, h: 560, kind: "front", autoThickness: "none", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "front panel should not create structural overlap warnings");
-assert(hitTest(state.boards, { x: 500, y: 404 })?.name === "Middle shelf", "front panel should not block selecting foreground shelf");
+assert(hitTest(state, { x: 500, y: 404 })?.name === "Front", "visible front panel should capture clicks above structural boards");
+state.showFrontPanels = false;
+assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "disabled front panels should not capture clicks");
+state.showFrontPanels = true;
 
 state.boards.push({ id: 8, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
 assert(computeOverlaps(state.boards).length > 0, "real overlapping shelves should create overlap feedback");

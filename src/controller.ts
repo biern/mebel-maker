@@ -1300,7 +1300,7 @@ function updateCanvasCursor(point: Point): void {
     }
   }
 
-  canvas.style.cursor = hitTest(state.boards, point) ? "grab" : "";
+  canvas.style.cursor = hitTest(state, point) ? "grab" : "";
 }
 
 canvas.addEventListener("pointerdown", (event) => {
@@ -1325,7 +1325,7 @@ canvas.addEventListener("pointerdown", (event) => {
     }
   }
 
-  const board = hitTest(state.boards, point);
+  const board = hitTest(state, point);
   state.selectedId = board?.id ?? null;
   if (board) {
     remember();
@@ -1566,7 +1566,7 @@ window.addEventListener("resize", () => renderer.resize());
 if (import.meta.env.DEV) {
   window.mebleBuilderDebug = {
     state,
-    hitTestWorld: (point) => hitTest(state.boards, point)?.name ?? null,
+    hitTestWorld: (point) => hitTest(state, point)?.name ?? null,
     snapPreview: (boardName, x, y) => {
       const board = state.boards.find((candidate) => candidate.name === boardName);
       return board ? snapBoard(state, board, x, y).guides.length : 0;

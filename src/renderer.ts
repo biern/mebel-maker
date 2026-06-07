@@ -1,6 +1,7 @@
 import {
   boundsFor,
   computeOverlaps,
+  displayOrderedBoards,
   groupBoards,
   innerDimensions,
   mm,
@@ -35,10 +36,7 @@ export class SketchRenderer {
     const rect = this.canvas.getBoundingClientRect();
     this.ctx.clearRect(0, 0, rect.width, rect.height);
     this.drawGrid(rect.width, rect.height);
-    this.state.boards
-      .slice()
-      .sort((a, b) => this.layerOrder(a) - this.layerOrder(b))
-      .forEach((board) => this.drawBoard(board));
+    displayOrderedBoards(this.state.boards).forEach((board) => this.drawBoard(board));
     this.drawOverlaps();
     this.drawSnapGuides(rect.width, rect.height);
     this.drawMeasurements();
@@ -82,9 +80,10 @@ export class SketchRenderer {
     const w = board.w * this.state.scale;
     const h = board.h * this.state.scale;
     const selected = board.id === this.state.selectedId;
+    const resizing = board.id === this.state.resizing?.id;
     const groupColor = colors[(board.group - 1) % colors.length] ?? colors[0];
     const material = this.materialFor(board);
-    const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.3 : 1;
+    const opacity = this.boardOpacity(board, selected || resizing);
 
     this.ctx.save();
     this.ctx.globalAlpha = opacity;
@@ -111,10 +110,10 @@ export class SketchRenderer {
     this.ctx.restore();
   }
 
-  private layerOrder(board: Board): number {
-    if (board.kind === "back") return 0;
-    if (board.kind === "front") return 2;
-    return 1;
+  private boardOpacity(board: Board, active: boolean): number {
+    if (board.kind !== "front") return 1;
+    if (active) return 0.5;
+    return this.state.showFrontPanels ? 1 : 0.3;
   }
 
   private materialFor(board: Board): Material {
