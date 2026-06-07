@@ -5,7 +5,9 @@ import {
   hitResizeHandle,
   hitTest,
   innerDimensions,
+  measurementDisplayLine,
   measurementAxis,
+  nearestMeasurementAnchor,
   rectFromBoard,
   resizeBoard,
   resolveMeasurementAnchor,
@@ -38,6 +40,7 @@ function starterState(): SketchState {
     materials: [{ id: materialId, name: "Birch plywood", color: "#d9b77e" }],
     selectedId: 1,
     selectedIds: [1],
+    selectedMeasurementId: null,
     nextId: 6,
     nextAnchorId: 1,
     nextMeasurementId: 1,
@@ -54,6 +57,7 @@ function starterState(): SketchState {
     panY: 0,
     dragging: null,
     resizing: null,
+    measurementDragging: null,
     panning: null,
     selectionBox: null,
     snapGuides: [],
@@ -103,6 +107,10 @@ const heightB: MeasurementAnchor = { kind: "board-edge", boardId: upright.id, ed
 const beforeA = resolveMeasurementAnchor(state, heightA);
 const beforeB = resolveMeasurementAnchor(state, heightB);
 assert(beforeA && beforeB && measurementAxis(beforeA, beforeB) === "vertical", "edge anchors should resolve as vertical measurement");
+const centeredAnchor = nearestMeasurementAnchor(state, { x: upright.x, y: upright.y + upright.h / 2 + 5 });
+assert(centeredAnchor.kind === "board-edge" && centeredAnchor.offset === upright.h / 2, "measurement anchors should snap to an edge midpoint");
+const displayLine = measurementDisplayLine(state, { id: 1, name: "M1", a: heightA, b: heightB, axis: "vertical", displayOffset: -24 }, 0);
+assert(displayLine?.lineStart.x === Math.max(beforeA.x, beforeB.x) - 24, "measurement display offset should move the dimension line without changing anchors");
 upright.h = 610;
 const afterA = resolveMeasurementAnchor(state, heightA);
 const afterB = resolveMeasurementAnchor(state, heightB);

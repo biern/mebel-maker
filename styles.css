@@ -30,6 +30,10 @@ body {
   color: var(--ink);
 }
 
+[hidden] {
+  display: none !important;
+}
+
 button,
 input {
   font: inherit;
@@ -679,6 +683,16 @@ input:disabled {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 10px;
+}
+
+.selectable-card {
+  cursor: pointer;
+}
+
+.selectable-card.selected {
+  background: #fff7f5;
+  border-color: #b8483b;
+  box-shadow: inset 3px 0 0 #b8483b;
 }
 
 .metric-card strong,

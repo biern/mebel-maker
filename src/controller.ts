@@ -4,10 +4,14 @@ import {
   boundsFor,
   computeGroups,
   computeOverlaps,
+  defaultMeasurementDisplayOffset,
   groupBoards,
   hitTest,
   hitResizeHandle,
+  hitTestMeasurement,
   innerDimensions,
+  measurementDisplayLine,
+  measurementDisplayOffset,
   measurementAxis,
   mm,
   nearestMeasurementAnchor,
@@ -17,6 +21,7 @@ import {
   screenToWorld,
   selectedBoard,
   selectedBoards,
+  selectedMeasurement,
   snapBoard,
   snapValueToGrid,
   worldToScreen
@@ -99,6 +104,7 @@ const state: SketchState = {
   materials: defaultMaterials(),
   selectedId: null,
   selectedIds: [],
+  selectedMeasurementId: null,
   nextId: 1,
   nextAnchorId: 1,
   nextMeasurementId: 1,
@@ -115,6 +121,7 @@ const state: SketchState = {
   panY: 110,
   dragging: null,
   resizing: null,
+  measurementDragging: null,
   panning: null,
   selectionBox: null,
   snapGuides: [],
@@ -146,6 +153,7 @@ interface SavedProject {
   materials?: Material[];
   selectedId: number | null;
   selectedIds?: number[];
+  selectedMeasurementId?: number | null;
   nextId: number;
   nextAnchorId?: number;
   nextMeasurementId: number;
@@ -267,10 +275,19 @@ function setSelection(ids: number[], primaryId: number | null = ids[0] ?? null):
   const primary = primaryId !== null && unique.includes(primaryId) ? primaryId : unique[0] ?? null;
   state.selectedId = primary;
   state.selectedIds = unique;
+  if (unique.length) state.selectedMeasurementId = null;
 }
 
 function clearSelection(): void {
   setSelection([]);
+}
+
+function setMeasurementSelection(id: number | null): void {
+  state.selectedMeasurementId = id !== null && state.measurements.some((measurement) => measurement.id === id) ? id : null;
+  if (state.selectedMeasurementId !== null) {
+    state.selectedId = null;
+    state.selectedIds = [];
+  }
 }
 
 function toggleBoardSelection(boardId: number): void {
@@ -369,6 +386,11 @@ function normalizeOptionalPositiveNumber(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
 }
 
+function normalizeMeasurementDisplayOffset(value: unknown, index: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : defaultMeasurementDisplayOffset(index);
+}
+
 function effectiveDepth(board: Board): number {
   return board.depthOverride ?? state.depth;
 }
@@ -417,6 +439,7 @@ function beginTemplate(recordHistory: boolean, x: number, y: number): void {
   state.nextId = 1;
   state.nextAnchorId = 1;
   state.nextMeasurementId = 1;
+  state.selectedMeasurementId = null;
   state.pendingMeasurementAnchor = null;
   state.previewMeasurementAnchor = null;
   state.gridOriginX = x;
@@ -574,6 +597,7 @@ function serializeProject(): SavedProject {
     materials: state.materials,
     selectedId: state.selectedId,
     selectedIds: state.selectedIds,
+    selectedMeasurementId: state.selectedMeasurementId,
     nextId: state.nextId,
     nextAnchorId: state.nextAnchorId,
     nextMeasurementId: state.nextMeasurementId,
@@ -596,12 +620,15 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.materials = normalizedMaterials(project.materials);
   state.boards = (project.boards ?? []).map(withDefaults);
   state.anchors = normalizedAnchors(project.anchors);
-  state.measurements = (project.measurements ?? []).map((measurement) => ({
+  state.measurements = (project.measurements ?? []).map((measurement, index) => ({
     ...measurement,
-    name: normalizedMeasureName(measurement.name, measurement.id)
+    name: normalizedMeasureName(measurement.name, measurement.id),
+    displayOffset: normalizeMeasurementDisplayOffset(measurement.displayOffset, index)
   }));
   const savedSelection = project.selectedIds?.length ? project.selectedIds : project.selectedId ? [project.selectedId] : [];
+  state.selectedMeasurementId = null;
   setSelection(savedSelection, project.selectedId);
+  if (!savedSelection.length) setMeasurementSelection(project.selectedMeasurementId ?? null);
   state.nextId = project.nextId ?? nextBoardId(state.boards);
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
@@ -618,6 +645,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.panY = project.panY ?? state.panY;
   state.dragging = null;
   state.resizing = null;
+  state.measurementDragging = null;
   state.panning = null;
   state.selectionBox = null;
   state.snapGuides = [];
@@ -744,7 +772,6 @@ function setCheckboxValue(input: HTMLInputElement, value: boolean | null): void 
 function setSelectionButtonsDisabled(disabled: boolean): void {
   ui.duplicateBtn.disabled = disabled;
   ui.rotateBtn.disabled = disabled;
-  ui.deleteBtn.disabled = disabled;
   ui.measureWidthBtn.disabled = disabled;
   ui.measureHeightBtn.disabled = disabled;
 }
@@ -752,6 +779,7 @@ function setSelectionButtonsDisabled(disabled: boolean): void {
 function updateInspector(): void {
   const board = selectedBoard(state);
   const boards = selectedBoards(state);
+  const measure = selectedMeasurement(state);
   const selectionBounds = boundsFor(boards);
   const hasSelection = boards.length > 0;
   const multi = boards.length > 1;
@@ -759,13 +787,16 @@ function updateInspector(): void {
   ui.inspector.hidden = !hasSelection;
   ui.selectionStatus.textContent = multi && selectionBounds
     ? `${boards.length} boards selected · ${mm(selectionBounds.w)} × ${mm(selectionBounds.h)}`
-    : board ? boardLabel(board) : "No board selected";
+    : board ? boardLabel(board) : measure ? `Measure ${measure.name}` : "No board selected";
   ui.snapStatus.textContent = state.lastSnap;
   updateViewportOverlay();
   ui.measureModeBtn.classList.toggle("active", state.tool === "measure");
   ui.undoBtn.disabled = !undoStack.length;
   ui.redoBtn.disabled = !redoStack.length;
   setSelectionButtonsDisabled(!hasSelection);
+  ui.deleteBtn.disabled = !hasSelection && !measure;
+  ui.deleteBtn.title = measure ? "Delete selected measurement" : "Delete selected boards";
+  ui.deleteBtn.setAttribute("aria-label", measure ? "Delete selected measurement" : "Delete selected boards");
   canvas.classList.toggle("measure-mode", state.tool === "measure");
   if (state.tool === "measure") canvas.style.cursor = "";
   ui.wInput.disabled = false;
@@ -887,19 +918,22 @@ function renderCustomMeasurements(): void {
     return;
   }
 
-  ui.customMeasureList.innerHTML = state.measurements.map((measurement) => {
+  ui.customMeasureList.innerHTML = state.measurements.map((measurement, index) => {
     const a = resolveMeasurementAnchor(state, measurement.a);
     const b = resolveMeasurementAnchor(state, measurement.b);
     const value = a && b ? measurementValue(measurement.axis, a, b) : "missing anchor";
+    const selected = measurement.id === state.selectedMeasurementId;
+    const offset = measurementDisplayOffset(measurement, index);
     return `
-      <div class="metric-card">
+      <div class="metric-card selectable-card${selected ? " selected" : ""}" data-select-measure="${measurement.id}" title="Select measurement">
         <label class="measure-name-field">
           <span>Name</span>
           <input data-measure-name="${measurement.id}" type="text" value="${escapeHtml(measurement.name)}" placeholder="${defaultMeasureName(measurement.id)}">
         </label>
         <span>${value}</span>
+        <span>Display offset: ${mm(offset)}</span>
         <span>${anchorLabel(measurement.a)} → ${anchorLabel(measurement.b)}</span>
-        <button class="inline-action" data-delete-measure="${measurement.id}" type="button">Delete measure</button>
+        <button class="inline-action" data-delete-measure="${measurement.id}" type="button">Trash measure</button>
       </div>
     `;
   }).join("");
@@ -1394,14 +1428,17 @@ function moveBoardsBy(boards: Board[], dx: number, dy: number): void {
 
 function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: MeasurementAxis): void {
   remember();
+  const id = state.nextMeasurementId;
   state.measurements.push({
-    id: state.nextMeasurementId,
-    name: defaultMeasureName(state.nextMeasurementId),
+    id,
+    name: defaultMeasureName(id),
     a,
     b,
-    axis
+    axis,
+    displayOffset: measurementDisplayOffset({ id, name: "", a, b, axis }, state.measurements.length)
   });
   state.nextMeasurementId += 1;
+  setMeasurementSelection(id);
   state.tool = "select";
   state.pendingMeasurementAnchor = null;
   state.previewMeasurementAnchor = null;
@@ -1414,15 +1451,15 @@ function addSelectedMeasurement(axis: MeasurementAxis): void {
   if (!board) return;
   if (axis === "horizontal") {
     addMeasurement(
-      { kind: "board-edge", boardId: board.id, edge: "left", offset: board.h + 22 },
-      { kind: "board-edge", boardId: board.id, edge: "right", offset: board.h + 22 },
+      { kind: "board-edge", boardId: board.id, edge: "left", offset: board.h / 2 },
+      { kind: "board-edge", boardId: board.id, edge: "right", offset: board.h / 2 },
       "horizontal"
     );
     return;
   }
   addMeasurement(
-    { kind: "board-edge", boardId: board.id, edge: "top", offset: board.w + 22 },
-    { kind: "board-edge", boardId: board.id, edge: "bottom", offset: board.w + 22 },
+    { kind: "board-edge", boardId: board.id, edge: "top", offset: board.w / 2 },
+    { kind: "board-edge", boardId: board.id, edge: "bottom", offset: board.w / 2 },
     "vertical"
   );
 }
@@ -1452,9 +1489,31 @@ function deleteSelectedBoards(): void {
   state.measurements = state.measurements.filter((measurement) =>
     ![measurement.a, measurement.b].some((anchor) => anchor.kind === "board-edge" && ids.has(anchor.boardId))
   );
+  if (state.selectedMeasurementId && !state.measurements.some((measurement) => measurement.id === state.selectedMeasurementId)) {
+    state.selectedMeasurementId = null;
+  }
   clearSelection();
   state.lastSnap = ids.size > 1 ? `${ids.size} boards deleted` : "Board deleted";
   refresh();
+}
+
+function deleteMeasurement(id: number): void {
+  const exists = state.measurements.some((measurement) => measurement.id === id);
+  if (!exists) return;
+  remember();
+  state.measurements = state.measurements.filter((measurement) => measurement.id !== id);
+  if (state.selectedMeasurementId === id) state.selectedMeasurementId = null;
+  state.lastSnap = "Measurement deleted";
+  refresh();
+}
+
+function deleteActiveSelection(): void {
+  const measure = selectedMeasurement(state);
+  if (measure) {
+    deleteMeasurement(measure.id);
+    return;
+  }
+  deleteSelectedBoards();
 }
 
 function duplicateSelectedBoards(): void {
@@ -1588,6 +1647,16 @@ function updateCanvasCursor(point: Point): void {
     return;
   }
 
+  if (state.measurementDragging) {
+    canvas.style.cursor = "move";
+    return;
+  }
+
+  if (hitTestMeasurement(state, point)) {
+    canvas.style.cursor = "move";
+    return;
+  }
+
   const selected = selectedBoard(state);
   if (selected) {
     const handle = hitResizeHandle(state, selected, point);
@@ -1598,6 +1667,28 @@ function updateCanvasCursor(point: Point): void {
   }
 
   canvas.style.cursor = hitTest(state, point) ? "grab" : "crosshair";
+}
+
+function updateMeasurementDrag(point: Point): void {
+  const drag = state.measurementDragging;
+  if (!drag) return;
+  const measurement = state.measurements.find((item) => item.id === drag.id);
+  const index = state.measurements.findIndex((item) => item.id === drag.id);
+  if (!measurement || index < 0) return;
+  const layout = measurementDisplayLine(state, measurement, index);
+  if (!layout) return;
+  const dx = point.x - drag.startPoint.x;
+  const dy = point.y - drag.startPoint.y;
+  const movedPx = Math.hypot(dx * state.scale, dy * state.scale);
+  if (!drag.changed && movedPx > 3) {
+    remember();
+    drag.changed = true;
+  }
+  if (!drag.changed) return;
+  measurement.displayOffset = Math.round(layout.axis === "horizontal" ? drag.startOffset - dy : drag.startOffset + dx);
+  state.lastSnap = "Measurement display moved";
+  canvas.style.cursor = "move";
+  refresh();
 }
 
 function updateMeasurementPreview(point: Point): void {
@@ -1633,6 +1724,23 @@ canvas.addEventListener("pointerdown", (event) => {
       refresh();
       return;
     }
+  }
+
+  const measurement = hitTestMeasurement(state, point);
+  if (measurement) {
+    const index = state.measurements.findIndex((item) => item.id === measurement.id);
+    setMeasurementSelection(measurement.id);
+    state.measurementDragging = {
+      id: measurement.id,
+      startPoint: point,
+      startOffset: measurementDisplayOffset(measurement, index),
+      changed: false
+    };
+    state.lastSnap = "Measurement selected";
+    canvas.style.cursor = "move";
+    canvas.setPointerCapture(event.pointerId);
+    refresh();
+    return;
   }
 
   const board = hitTest(state, point);
@@ -1701,6 +1809,11 @@ canvas.addEventListener("pointermove", (event) => {
     return;
   }
 
+  if (state.measurementDragging) {
+    updateMeasurementDrag(point);
+    return;
+  }
+
   if (state.selectionBox) {
     state.selectionBox.current = point;
     state.snapGuides = [];
@@ -1739,6 +1852,7 @@ canvas.addEventListener("pointerup", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
   const finishedBoardIds = state.dragging?.ids ?? (state.resizing ? [state.resizing.id] : []);
+  const finishedMeasurementDrag = state.measurementDragging;
   const selectionBox = state.selectionBox;
   if (selectionBox) {
     const selectionRect = rectFromPoints(selectionBox.start, selectionBox.current);
@@ -1753,22 +1867,25 @@ canvas.addEventListener("pointerup", (event) => {
       state.lastSnap = rectSelection.length ? `${selectedIdSet().size} boards selected` : "No boards in selection";
     } else if (!selectionBox.additive) {
       clearSelection();
+      state.selectedMeasurementId = null;
       state.lastSnap = "No board selected";
     }
   }
   state.dragging = null;
   state.resizing = null;
+  state.measurementDragging = null;
   state.panning = null;
   state.selectionBox = null;
   state.snapGuides = [];
   finishedBoardIds.forEach((id) => anchorTouchedBoard(id));
+  if (finishedMeasurementDrag?.changed) state.lastSnap = "Measurement display moved";
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   updateCanvasCursor(point);
   refresh();
 });
 
 canvas.addEventListener("pointerleave", () => {
-  if (!state.dragging && !state.resizing && !state.panning && !state.selectionBox) canvas.style.cursor = "";
+  if (!state.dragging && !state.resizing && !state.measurementDragging && !state.panning && !state.selectionBox) canvas.style.cursor = "";
 });
 
 canvas.addEventListener("wheel", (event) => {
@@ -1844,7 +1961,7 @@ ui.projectFileInput.addEventListener("change", () => {
   const file = ui.projectFileInput.files?.[0];
   if (file) importProjectFile(file);
 });
-ui.deleteBtn.addEventListener("click", deleteSelectedBoards);
+ui.deleteBtn.addEventListener("click", deleteActiveSelection);
 ui.fitBtn.addEventListener("click", fitToView);
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv());
 ui.exportBtn.addEventListener("click", exportCutListCsv);
@@ -1882,12 +1999,16 @@ ui.materialForm.addEventListener("submit", (event) => {
   .forEach((input) => input.addEventListener("change", updateLaminateFromInspector));
 ui.ignoreOrderInput.addEventListener("change", updateOrderInclusionFromInspector);
 ui.customMeasureList.addEventListener("click", (event) => {
-  const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-delete-measure]");
-  if (!target) return;
-  const id = Number(target.dataset.deleteMeasure);
-  remember();
-  state.measurements = state.measurements.filter((measurement) => measurement.id !== id);
-  state.lastSnap = "Measurement deleted";
+  const deleteTarget = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-delete-measure]");
+  if (deleteTarget) {
+    deleteMeasurement(Number(deleteTarget.dataset.deleteMeasure));
+    return;
+  }
+  if ((event.target as HTMLElement).closest("input, button, select, textarea")) return;
+  const selectTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-select-measure]");
+  if (!selectTarget) return;
+  setMeasurementSelection(Number(selectTarget.dataset.selectMeasure));
+  state.lastSnap = "Measurement selected";
   refresh();
 });
 ui.customMeasureList.addEventListener("change", (event) => {
@@ -1931,7 +2052,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "Delete" || event.key === "Backspace") {
     event.preventDefault();
-    deleteSelectedBoards();
+    deleteActiveSelection();
   }
 });
 window.addEventListener("resize", () => renderer.resize());

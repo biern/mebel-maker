@@ -4,6 +4,7 @@ import {
   displayOrderedBoards,
   groupBoards,
   innerDimensions,
+  measurementDisplayLine,
   measurementAxis,
   mm,
   resizeHandlesForBoard,
@@ -258,13 +259,13 @@ export class SketchRenderer {
 
   private drawMeasurements(): void {
     this.state.measurements.forEach((measurement, index) => {
-      const a = resolveMeasurementAnchor(this.state, measurement.a);
-      const b = resolveMeasurementAnchor(this.state, measurement.b);
-      if (!a || !b) return;
-      const offset = 46 + index * 14;
-      this.drawMeasurement(a, b, measurement.axis, offset, "#4152a3", measurement.name);
-      this.drawAnchorDot(a.x, a.y);
-      this.drawAnchorDot(b.x, b.y);
+      const layout = measurementDisplayLine(this.state, measurement, index);
+      if (!layout) return;
+      const selected = measurement.id === this.state.selectedMeasurementId;
+      const color = selected ? "#b8483b" : "#4152a3";
+      this.drawMeasurementLine(layout.a, layout.b, layout.lineStart, layout.lineEnd, measurement.axis, color, measurement.name, selected);
+      this.drawAnchorDot(layout.a.x, layout.a.y, selected ? "#fff7f5" : "#ffffff", color);
+      this.drawAnchorDot(layout.b.x, layout.b.y, selected ? "#fff7f5" : "#ffffff", color);
     });
 
     if (this.state.pendingMeasurementAnchor) {
@@ -303,6 +304,13 @@ export class SketchRenderer {
     this.drawDimensionLine(x, a.y, x, b.y, this.measurementLabel(name, mm(Math.abs(b.y - a.y))), 0, color);
     this.drawExtension(a.x, a.y, x, a.y, color);
     this.drawExtension(b.x, b.y, x, b.y, color);
+  }
+
+  private drawMeasurementLine(a: Point, b: Point, lineStart: Point, lineEnd: Point, axis: MeasurementAxis, color: string, name: string, selected: boolean): void {
+    const value = axis === "horizontal" ? mm(Math.abs(b.x - a.x)) : mm(Math.abs(b.y - a.y));
+    this.drawDimensionLine(lineStart.x, lineStart.y, lineEnd.x, lineEnd.y, this.measurementLabel(name, value), 0, color, selected ? 2.4 : 1.5);
+    this.drawExtension(a.x, a.y, lineStart.x, lineStart.y, color);
+    this.drawExtension(b.x, b.y, lineEnd.x, lineEnd.y, color);
   }
 
   private drawDimensions(): void {
@@ -383,14 +391,14 @@ export class SketchRenderer {
     this.ctx.restore();
   }
 
-  private drawDimensionLine(x1: number, y1: number, x2: number, y2: number, label: string, offset = 0, color = "#2c6159"): void {
+  private drawDimensionLine(x1: number, y1: number, x2: number, y2: number, label: string, offset = 0, color = "#2c6159", lineWidth = 1.5): void {
     const a = worldToScreen(this.state, x1, y1);
     const b = worldToScreen(this.state, x2, y2);
     const horizontal = Math.abs(y1 - y2) < 0.01;
     this.ctx.save();
     this.ctx.strokeStyle = color;
     this.ctx.fillStyle = color;
-    this.ctx.lineWidth = 1.5;
+    this.ctx.lineWidth = lineWidth;
     this.ctx.font = "12px system-ui";
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
@@ -451,11 +459,11 @@ export class SketchRenderer {
     this.ctx.restore();
   }
 
-  private drawAnchorDot(x: number, y: number, color = "#ffffff"): void {
+  private drawAnchorDot(x: number, y: number, color = "#ffffff", stroke = "#4152a3"): void {
     const point = worldToScreen(this.state, x, y);
     this.ctx.save();
     this.ctx.fillStyle = color;
-    this.ctx.strokeStyle = "#4152a3";
+    this.ctx.strokeStyle = stroke;
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     this.ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);

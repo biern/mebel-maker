@@ -3,6 +3,7 @@ import type {
   BoardEdge,
   Bounds,
   InnerDimensions,
+  Measurement,
   MeasurementAnchor,
   MeasurementAxis,
   OverlapRegion,
@@ -32,6 +33,10 @@ export function selectedBoards(state: SketchState): Board[] {
   const selected = new Set(state.selectedIds);
   if (state.selectedId !== null) selected.add(state.selectedId);
   return state.boards.filter((board) => selected.has(board.id));
+}
+
+export function selectedMeasurement(state: SketchState): Measurement | null {
+  return state.measurements.find((measurement) => measurement.id === state.selectedMeasurementId) ?? null;
 }
 
 export function screenToWorld(state: SketchState, x: number, y: number): Point {
@@ -281,6 +286,7 @@ export function resizeHandlesForBoard(board: Board): ResizeHandle[] {
 
 export function nearestMeasurementAnchor(state: SketchState, point: Point): MeasurementAnchor {
   const threshold = Math.max(10, 12 / state.scale);
+  const centerThreshold = Math.max(10, 16 / state.scale);
   let bestAnchor: MeasurementAnchor | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -300,7 +306,9 @@ export function nearestMeasurementAnchor(state: SketchState, point: Point): Meas
         point.x >= board.x - threshold && point.x <= board.x + board.w + threshold;
       if (!(onVerticalEdge || onHorizontalEdge) || candidate.distance > threshold) return;
       if (candidate.distance < bestDistance) {
-        bestAnchor = { kind: "board-edge", boardId: board.id, edge: candidate.edge, offset: candidate.offset };
+        const center = candidate.edge === "left" || candidate.edge === "right" ? board.h / 2 : board.w / 2;
+        const offset = Math.abs(candidate.offset - center) <= centerThreshold ? center : candidate.offset;
+        bestAnchor = { kind: "board-edge", boardId: board.id, edge: candidate.edge, offset };
         bestDistance = candidate.distance;
       }
     });
@@ -332,6 +340,71 @@ export function resolveMeasurementAnchor(state: SketchState, anchor: Measurement
 
 export function measurementAxis(a: Point, b: Point): MeasurementAxis {
   return Math.abs(a.x - b.x) >= Math.abs(a.y - b.y) ? "horizontal" : "vertical";
+}
+
+export function defaultMeasurementDisplayOffset(index: number): number {
+  return 46 + index * 14;
+}
+
+export function measurementDisplayOffset(measurement: Measurement, index: number): number {
+  return measurement.displayOffset ?? defaultMeasurementDisplayOffset(index);
+}
+
+export function measurementDisplayLine(
+  state: SketchState,
+  measurement: Measurement,
+  index: number
+): { a: Point; b: Point; axis: MeasurementAxis; offset: number; lineStart: Point; lineEnd: Point; labelPoint: Point } | null {
+  const a = resolveMeasurementAnchor(state, measurement.a);
+  const b = resolveMeasurementAnchor(state, measurement.b);
+  if (!a || !b) return null;
+  const offset = measurementDisplayOffset(measurement, index);
+
+  if (measurement.axis === "horizontal") {
+    const y = Math.min(a.y, b.y) - offset;
+    return {
+      a,
+      b,
+      axis: measurement.axis,
+      offset,
+      lineStart: { x: a.x, y },
+      lineEnd: { x: b.x, y },
+      labelPoint: { x: (a.x + b.x) / 2, y: y - 13 / state.scale }
+    };
+  }
+
+  const x = Math.max(a.x, b.x) + offset;
+  return {
+    a,
+    b,
+    axis: measurement.axis,
+    offset,
+    lineStart: { x, y: a.y },
+    lineEnd: { x, y: b.y },
+    labelPoint: { x: x - 16 / state.scale, y: (a.y + b.y) / 2 }
+  };
+}
+
+export function hitTestMeasurement(state: SketchState, point: Point): Measurement | null {
+  const lineThreshold = Math.max(8, 10 / state.scale);
+  const labelHalfWidth = 42 / state.scale;
+  const labelHalfHeight = 18 / state.scale;
+
+  for (let index = state.measurements.length - 1; index >= 0; index -= 1) {
+    const measurement = state.measurements[index];
+    const layout = measurementDisplayLine(state, measurement, index);
+    if (!layout) continue;
+    const minX = Math.min(layout.lineStart.x, layout.lineEnd.x) - lineThreshold;
+    const maxX = Math.max(layout.lineStart.x, layout.lineEnd.x) + lineThreshold;
+    const minY = Math.min(layout.lineStart.y, layout.lineEnd.y) - lineThreshold;
+    const maxY = Math.max(layout.lineStart.y, layout.lineEnd.y) + lineThreshold;
+    const onLine = point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+    const onLabel = Math.abs(point.x - layout.labelPoint.x) <= labelHalfWidth &&
+      Math.abs(point.y - layout.labelPoint.y) <= labelHalfHeight;
+    if (onLine || onLabel) return measurement;
+  }
+
+  return null;
 }
 
 export function computeOverlaps(boards: Board[]): OverlapRegion[] {
