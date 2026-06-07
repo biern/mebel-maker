@@ -74,6 +74,7 @@ export interface SketchState {
   snapGuides: SnapGuide[];
   tool: SketchTool;
   pendingMeasurementAnchor: MeasurementAnchor | null;
+  previewMeasurementAnchor: MeasurementAnchor | null;
   lastSnap: string;
 }
 

@@ -117,6 +117,7 @@ const state: SketchState = {
   snapGuides: [],
   tool: "select",
   pendingMeasurementAnchor: null,
+  previewMeasurementAnchor: null,
   lastSnap: "Ready"
 };
 
@@ -356,6 +357,8 @@ function beginTemplate(recordHistory: boolean, x: number, y: number): void {
   state.nextId = 1;
   state.nextAnchorId = 1;
   state.nextMeasurementId = 1;
+  state.pendingMeasurementAnchor = null;
+  state.previewMeasurementAnchor = null;
   state.gridOriginX = x;
   state.gridOriginY = y;
 }
@@ -554,6 +557,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.snapGuides = [];
   state.tool = "select";
   state.pendingMeasurementAnchor = null;
+  state.previewMeasurementAnchor = null;
   syncSettingsInputs();
   refresh();
 }
@@ -1239,6 +1243,7 @@ function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: Measur
   state.nextMeasurementId += 1;
   state.tool = "select";
   state.pendingMeasurementAnchor = null;
+  state.previewMeasurementAnchor = null;
   state.lastSnap = "Measurement added";
   refresh();
 }
@@ -1265,7 +1270,8 @@ function handleMeasurementClick(point: Point): void {
   const anchor = nearestMeasurementAnchor(state, point);
   if (!state.pendingMeasurementAnchor) {
     state.pendingMeasurementAnchor = anchor;
-    state.lastSnap = anchor.kind === "grid" ? "Grid anchor set" : "Edge anchor set";
+    state.previewMeasurementAnchor = null;
+    state.lastSnap = anchor.kind === "grid" ? "Grid anchor set, pick second anchor" : "Edge anchor set, pick second anchor";
     refresh();
     return;
   }
@@ -1371,6 +1377,12 @@ function updateCanvasCursor(point: Point): void {
   canvas.style.cursor = hitTest(state, point) ? "grab" : "";
 }
 
+function updateMeasurementPreview(point: Point): void {
+  if (state.tool !== "measure" || !state.pendingMeasurementAnchor) return;
+  state.previewMeasurementAnchor = nearestMeasurementAnchor(state, point);
+  refresh();
+}
+
 canvas.addEventListener("pointerdown", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
@@ -1411,6 +1423,12 @@ canvas.addEventListener("pointerdown", (event) => {
 canvas.addEventListener("pointermove", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
+
+  if (state.tool === "measure") {
+    updateMeasurementPreview(point);
+    updateCanvasCursor(point);
+    return;
+  }
 
   if (state.resizing) {
     const board = state.boards.find((candidate) => candidate.id === state.resizing?.id);
@@ -1500,6 +1518,7 @@ ui.templateList.addEventListener("click", (event) => {
 ui.measureModeBtn.addEventListener("click", () => {
   state.tool = state.tool === "measure" ? "select" : "measure";
   state.pendingMeasurementAnchor = null;
+  state.previewMeasurementAnchor = null;
   state.lastSnap = state.tool === "measure" ? "Pick first anchor" : "Select mode";
   refresh();
 });

@@ -4,13 +4,14 @@ import {
   displayOrderedBoards,
   groupBoards,
   innerDimensions,
+  measurementAxis,
   mm,
   resizeHandlesForBoard,
   resolveMeasurementAnchor,
   selectedBoard,
   worldToScreen
 } from "./geometry";
-import type { Board, Material, SketchState } from "./types";
+import type { Board, Material, MeasurementAxis, Point, SketchState } from "./types";
 
 const colors = ["#5c8d89", "#d19041", "#725d9f", "#538052", "#bb5d50", "#3f75a3"];
 
@@ -201,17 +202,7 @@ export class SketchRenderer {
       const b = resolveMeasurementAnchor(this.state, measurement.b);
       if (!a || !b) return;
       const offset = 46 + index * 14;
-      if (measurement.axis === "horizontal") {
-        const y = Math.min(a.y, b.y) - offset;
-        this.drawDimensionLine(a.x, y, b.x, y, this.measurementLabel(measurement.name, mm(Math.abs(b.x - a.x))), 0, "#4152a3");
-        this.drawExtension(a.x, a.y, a.x, y, "#4152a3");
-        this.drawExtension(b.x, b.y, b.x, y, "#4152a3");
-      } else {
-        const x = Math.max(a.x, b.x) + offset;
-        this.drawDimensionLine(x, a.y, x, b.y, this.measurementLabel(measurement.name, mm(Math.abs(b.y - a.y))), 0, "#4152a3");
-        this.drawExtension(a.x, a.y, x, a.y, "#4152a3");
-        this.drawExtension(b.x, b.y, x, b.y, "#4152a3");
-      }
+      this.drawMeasurement(a, b, measurement.axis, offset, "#4152a3", measurement.name);
       this.drawAnchorDot(a.x, a.y);
       this.drawAnchorDot(b.x, b.y);
     });
@@ -220,11 +211,38 @@ export class SketchRenderer {
       const anchor = resolveMeasurementAnchor(this.state, this.state.pendingMeasurementAnchor);
       if (anchor) this.drawAnchorDot(anchor.x, anchor.y, "#4152a3");
     }
+
+    if (this.state.pendingMeasurementAnchor && this.state.previewMeasurementAnchor) {
+      const a = resolveMeasurementAnchor(this.state, this.state.pendingMeasurementAnchor);
+      const b = resolveMeasurementAnchor(this.state, this.state.previewMeasurementAnchor);
+      if (!a || !b) return;
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.82;
+      this.drawMeasurement(a, b, measurementAxis(a, b), 46 + this.state.measurements.length * 14, "#2398b6");
+      this.ctx.restore();
+      this.drawAnchorDot(a.x, a.y, "#4152a3");
+      this.drawAnchorDot(b.x, b.y, "#2398b6");
+    }
   }
 
   private measurementLabel(name: string, value: string): string {
     const trimmed = name.trim();
     return trimmed ? `${trimmed} ${value}` : value;
+  }
+
+  private drawMeasurement(a: Point, b: Point, axis: MeasurementAxis, offset: number, color: string, name = ""): void {
+    if (axis === "horizontal") {
+      const y = Math.min(a.y, b.y) - offset;
+      this.drawDimensionLine(a.x, y, b.x, y, this.measurementLabel(name, mm(Math.abs(b.x - a.x))), 0, color);
+      this.drawExtension(a.x, a.y, a.x, y, color);
+      this.drawExtension(b.x, b.y, b.x, y, color);
+      return;
+    }
+
+    const x = Math.max(a.x, b.x) + offset;
+    this.drawDimensionLine(x, a.y, x, b.y, this.measurementLabel(name, mm(Math.abs(b.y - a.y))), 0, color);
+    this.drawExtension(a.x, a.y, x, a.y, color);
+    this.drawExtension(b.x, b.y, x, b.y, color);
   }
 
   private drawDimensions(): void {

@@ -56,6 +56,7 @@ function starterState(): SketchState {
     snapGuides: [],
     tool: "select",
     pendingMeasurementAnchor: null,
+    previewMeasurementAnchor: null,
     lastSnap: "Ready"
   };
 }
