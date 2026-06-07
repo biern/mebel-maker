@@ -50,6 +50,7 @@ export interface InnerDimensions {
 }
 
 export interface SketchState {
+  projectName: string;
   boards: Board[];
   anchors: BoardAnchor[];
   layoutAnchors: BoardLayoutAnchor[];

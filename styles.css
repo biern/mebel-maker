@@ -66,7 +66,7 @@ input {
   align-items: center;
   display: flex;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .mark {
@@ -98,6 +98,20 @@ h1 {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.project-name-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.project-name-field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .tool-section {

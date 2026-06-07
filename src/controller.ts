@@ -42,6 +42,7 @@ declare global {
 
 const canvas = query<HTMLCanvasElement>("#sketchCanvas");
 const ui = {
+  projectNameInput: query<HTMLInputElement>("#projectNameInput"),
   templateList: query<HTMLElement>("#templateList"),
   measureModeBtn: query<HTMLButtonElement>("#measureModeBtn"),
   presetList: query<HTMLElement>("#presetList"),
@@ -111,6 +112,7 @@ const ui = {
 };
 
 const state: SketchState = {
+  projectName: "",
   boards: [],
   anchors: [],
   layoutAnchors: [],
@@ -165,6 +167,7 @@ interface SavedProject {
   schemaVersion?: 1;
   version: 1 | string;
   appVersion?: string;
+  projectName?: string;
   boards: Board[];
   anchors?: BoardAnchor[];
   layoutAnchors?: BoardLayoutAnchor[];
@@ -637,6 +640,7 @@ function serializeProject(): SavedProject {
     schemaVersion: 1,
     version: appVersion,
     appVersion,
+    projectName: state.projectName,
     boards: state.boards,
     anchors: state.anchors,
     layoutAnchors: state.layoutAnchors,
@@ -665,6 +669,7 @@ function serializeProject(): SavedProject {
 
 function applyProject(project: SavedProject, recordHistory = true): void {
   if (recordHistory) remember();
+  state.projectName = normalizeProjectName(project.projectName);
   state.materials = normalizedMaterials(project.materials);
   state.boards = (project.boards ?? []).map(withDefaults);
   state.anchors = normalizedAnchors(project.anchors);
@@ -749,10 +754,28 @@ function loadInitialProject(): void {
 
 function exportProjectFile(): void {
   const json = JSON.stringify(serializeProject(), null, 2);
-  downloadTextFile(json, "application/json", `mebel-maker-${new Date().toISOString().slice(0, 10)}.mebel`);
+  downloadTextFile(json, "application/json", `${projectFilenameBase()}-${filenameTimestamp()}.mebel`);
   state.lastSnap = "Project exported";
   notify("Saved .mebel project");
   updateInspector();
+}
+
+function normalizeProjectName(value: unknown): string {
+  return typeof value === "string" ? value.trim().slice(0, 80) : "";
+}
+
+function filenameTimestamp(date = new Date()): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z").replace(/:/g, "-");
+}
+
+function projectFilenameBase(): string {
+  const safeName = state.projectName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return safeName || "mebel-maker";
 }
 
 function downloadTextFile(content: string, type: string, filename: string): void {
@@ -807,6 +830,7 @@ function notify(message: string): void {
 }
 
 function syncSettingsInputs(): void {
+  ui.projectNameInput.value = state.projectName;
   ui.thicknessInput.value = String(state.thickness);
   ui.layoutAnchorThicknessInput.value = String(state.thickness);
   ui.depthInput.value = String(state.depth);
@@ -1276,7 +1300,7 @@ function exportCutListCsv(): void {
   downloadTextFile(
     csv,
     "text/csv;charset=utf-8",
-    `mebel-maker-pieces-${new Date().toISOString().slice(0, 10)}.csv`
+    `${projectFilenameBase()}-pieces-${filenameTimestamp()}.csv`
   );
   state.lastSnap = "Piece list CSV exported";
   notify("Saved piece list CSV");
@@ -2186,6 +2210,15 @@ ui.deleteBtn.addEventListener("click", deleteActiveSelection, listenerOptions);
 ui.fitBtn.addEventListener("click", fitToView, listenerOptions);
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv(), listenerOptions);
 ui.exportBtn.addEventListener("click", exportCutListCsv, listenerOptions);
+ui.projectNameInput.addEventListener("change", () => {
+  const nextName = normalizeProjectName(ui.projectNameInput.value);
+  ui.projectNameInput.value = nextName;
+  if (nextName === state.projectName) return;
+  remember();
+  state.projectName = nextName;
+  state.lastSnap = nextName ? "Project named" : "Project name cleared";
+  refresh();
+}, listenerOptions);
 ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)), listenerOptions);
 ui.depthInput.addEventListener("change", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)), listenerOptions);
 ui.gridInput.addEventListener("input", () => {

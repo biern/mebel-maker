@@ -7,6 +7,11 @@
     </div>
   </div>
 
+  <label class="project-name-field">
+    <span>Project name</span>
+    <input id="projectNameInput" type="text" maxlength="80" placeholder="Untitled project" autocomplete="off">
+  </label>
+
   <details class="tool-section collapsible-section" open>
     <summary>Templates</summary>
     <div class="button-grid compact" id="templateList">
