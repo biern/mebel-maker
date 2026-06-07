@@ -1,7 +1,7 @@
 <aside class="sidebar right-panel" aria-label="Measurements and properties">
   <section class="tool-section">
     <h2>Selection</h2>
-    <div id="emptySelection" class="empty-state">Select a board to edit dimensions.</div>
+    <div id="emptySelection" class="empty-state">Select boards to edit dimensions and properties.</div>
     <form id="inspector" class="inspector" hidden>
       <label class="field">
         <span>Name</span>

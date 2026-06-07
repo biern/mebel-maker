@@ -16,6 +16,7 @@ import {
   resolveMeasurementAnchor,
   screenToWorld,
   selectedBoard,
+  selectedBoards,
   snapBoard,
   snapValueToGrid,
   worldToScreen
@@ -97,6 +98,7 @@ const state: SketchState = {
   measurements: [],
   materials: defaultMaterials(),
   selectedId: null,
+  selectedIds: [],
   nextId: 1,
   nextAnchorId: 1,
   nextMeasurementId: 1,
@@ -114,6 +116,7 @@ const state: SketchState = {
   dragging: null,
   resizing: null,
   panning: null,
+  selectionBox: null,
   snapGuides: [],
   tool: "select",
   pendingMeasurementAnchor: null,
@@ -142,6 +145,7 @@ interface SavedProject {
   measurements: SketchState["measurements"];
   materials?: Material[];
   selectedId: number | null;
+  selectedIds?: number[];
   nextId: number;
   nextAnchorId?: number;
   nextMeasurementId: number;
@@ -249,6 +253,31 @@ function isLegacyDefaultPieceName(name: string): boolean {
 function normalizedPieceName(name: string | undefined, id: number): string {
   const trimmed = name?.trim() ?? "";
   return !trimmed || isLegacyDefaultPieceName(trimmed) ? defaultPieceName(id) : trimmed;
+}
+
+function selectedIdSet(): Set<number> {
+  const ids = new Set(state.selectedIds);
+  if (state.selectedId !== null) ids.add(state.selectedId);
+  return ids;
+}
+
+function setSelection(ids: number[], primaryId: number | null = ids[0] ?? null): void {
+  const boardIds = new Set(state.boards.map((board) => board.id));
+  const unique = [...new Set(ids)].filter((id) => boardIds.has(id));
+  const primary = primaryId !== null && unique.includes(primaryId) ? primaryId : unique[0] ?? null;
+  state.selectedId = primary;
+  state.selectedIds = unique;
+}
+
+function clearSelection(): void {
+  setSelection([]);
+}
+
+function toggleBoardSelection(boardId: number): void {
+  const ids = selectedIdSet();
+  if (ids.has(boardId)) ids.delete(boardId);
+  else ids.add(boardId);
+  setSelection([...ids], ids.has(boardId) ? boardId : [...ids][0] ?? null);
 }
 
 function normalizedMeasureName(name: string | undefined, id: number): string {
@@ -371,7 +400,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
   };
   state.nextId += 1;
   state.boards.push(board);
-  state.selectedId = board.id;
+  setSelection([board.id], board.id);
   anchorTouchedBoard(board.id);
   refresh();
 }
@@ -465,7 +494,7 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
     addOpenFrame(x, y, outerW, outerH);
   }
 
-  state.selectedId = 1;
+  setSelection([1], 1);
   state.lastSnap = templateLabel(templateId);
   fitToView();
 }
@@ -544,6 +573,7 @@ function serializeProject(): SavedProject {
     measurements: state.measurements,
     materials: state.materials,
     selectedId: state.selectedId,
+    selectedIds: state.selectedIds,
     nextId: state.nextId,
     nextAnchorId: state.nextAnchorId,
     nextMeasurementId: state.nextMeasurementId,
@@ -570,7 +600,8 @@ function applyProject(project: SavedProject, recordHistory = true): void {
     ...measurement,
     name: normalizedMeasureName(measurement.name, measurement.id)
   }));
-  state.selectedId = state.boards.some((board) => board.id === project.selectedId) ? project.selectedId : null;
+  const savedSelection = project.selectedIds?.length ? project.selectedIds : project.selectedId ? [project.selectedId] : [];
+  setSelection(savedSelection, project.selectedId);
   state.nextId = project.nextId ?? nextBoardId(state.boards);
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
@@ -588,6 +619,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.dragging = null;
   state.resizing = null;
   state.panning = null;
+  state.selectionBox = null;
   state.snapGuides = [];
   state.tool = "select";
   state.pendingMeasurementAnchor = null;
@@ -693,36 +725,87 @@ function syncSettingsInputs(): void {
   ui.frontLayerToggle.checked = state.showFrontPanels;
 }
 
+function commonValue<T>(items: T[], read: (item: T) => string): string | null {
+  if (!items.length) return null;
+  const first = read(items[0]);
+  return items.every((item) => read(item) === first) ? first : null;
+}
+
+function setInputValue(input: HTMLInputElement, value: string | null, placeholder = "Mixed"): void {
+  input.value = value ?? "";
+  input.placeholder = value === null ? placeholder : "";
+}
+
+function setCheckboxValue(input: HTMLInputElement, value: boolean | null): void {
+  input.checked = value ?? false;
+  input.indeterminate = value === null;
+}
+
+function setSelectionButtonsDisabled(disabled: boolean): void {
+  ui.duplicateBtn.disabled = disabled;
+  ui.rotateBtn.disabled = disabled;
+  ui.deleteBtn.disabled = disabled;
+  ui.measureWidthBtn.disabled = disabled;
+  ui.measureHeightBtn.disabled = disabled;
+}
+
 function updateInspector(): void {
   const board = selectedBoard(state);
-  ui.emptySelection.hidden = Boolean(board);
-  ui.inspector.hidden = !board;
-  ui.selectionStatus.textContent = board ? boardLabel(board) : "No board selected";
+  const boards = selectedBoards(state);
+  const selectionBounds = boundsFor(boards);
+  const hasSelection = boards.length > 0;
+  const multi = boards.length > 1;
+  ui.emptySelection.hidden = hasSelection;
+  ui.inspector.hidden = !hasSelection;
+  ui.selectionStatus.textContent = multi && selectionBounds
+    ? `${boards.length} boards selected · ${mm(selectionBounds.w)} × ${mm(selectionBounds.h)}`
+    : board ? boardLabel(board) : "No board selected";
   ui.snapStatus.textContent = state.lastSnap;
   updateViewportOverlay();
   ui.measureModeBtn.classList.toggle("active", state.tool === "measure");
   ui.undoBtn.disabled = !undoStack.length;
   ui.redoBtn.disabled = !redoStack.length;
+  setSelectionButtonsDisabled(!hasSelection);
   canvas.classList.toggle("measure-mode", state.tool === "measure");
   if (state.tool === "measure") canvas.style.cursor = "";
   ui.wInput.disabled = false;
   ui.hInput.disabled = false;
-  ui.materialLabelSwatch.style.background = board ? materialColor(board.materialId) : "transparent";
-  if (!board) return;
-  ui.nameInput.value = board.name;
-  ui.xInput.value = String(Math.round(board.x));
-  ui.yInput.value = String(Math.round(displayY(board.y)));
-  ui.wInput.value = String(Math.round(board.w));
-  ui.hInput.value = String(Math.round(board.h));
-  ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
-  ui.materialInput.value = board.materialId;
-  ui.laminateLeftInput.checked = board.laminate.left;
-  ui.laminateRightInput.checked = board.laminate.right;
-  ui.laminateFrontInput.checked = board.laminate.front;
-  ui.laminateBackInput.checked = board.laminate.back;
-  ui.ignoreOrderInput.checked = board.ignoreInOrder;
-  ui.wInput.disabled = board.autoThickness === "width";
-  ui.hInput.disabled = board.autoThickness === "height";
+  ui.nameInput.disabled = false;
+  ui.materialLabelSwatch.style.background = board && !multi ? materialColor(board.materialId) : "transparent";
+  if (!hasSelection) return;
+
+  if (multi) {
+    ui.nameInput.disabled = true;
+    setInputValue(ui.nameInput, null, `${boards.length} boards`);
+    setInputValue(ui.xInput, selectionBounds ? String(Math.round(selectionBounds.left)) : null);
+    setInputValue(ui.yInput, selectionBounds ? String(Math.round(displayY(selectionBounds.top))) : null);
+    setInputValue(ui.wInput, null);
+    setInputValue(ui.hInput, null);
+    ui.wInput.disabled = true;
+    ui.hInput.disabled = true;
+  } else if (board) {
+    ui.nameInput.value = board.name;
+    ui.nameInput.placeholder = "";
+    ui.xInput.value = String(Math.round(board.x));
+    ui.yInput.value = String(Math.round(displayY(board.y)));
+    ui.wInput.value = String(Math.round(board.w));
+    ui.hInput.value = String(Math.round(board.h));
+    ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
+    ui.materialInput.value = board.materialId;
+    ui.wInput.disabled = board.autoThickness === "width";
+    ui.hInput.disabled = board.autoThickness === "height";
+  }
+
+  const materialId = commonValue(boards, (item) => item.materialId);
+  const depthOverride = commonValue(boards, (item) => item.depthOverride === null ? "" : String(item.depthOverride));
+  ui.materialInput.value = materialId ?? "";
+  setInputValue(ui.depthOverrideInput, depthOverride, "Mixed");
+  ui.materialLabelSwatch.style.background = materialId ? materialColor(materialId) : "transparent";
+  setCheckboxValue(ui.laminateLeftInput, commonValue(boards, (item) => String(item.laminate.left)) === null ? null : boards[0].laminate.left);
+  setCheckboxValue(ui.laminateRightInput, commonValue(boards, (item) => String(item.laminate.right)) === null ? null : boards[0].laminate.right);
+  setCheckboxValue(ui.laminateFrontInput, commonValue(boards, (item) => String(item.laminate.front)) === null ? null : boards[0].laminate.front);
+  setCheckboxValue(ui.laminateBackInput, commonValue(boards, (item) => String(item.laminate.back)) === null ? null : boards[0].laminate.back);
+  setCheckboxValue(ui.ignoreOrderInput, commonValue(boards, (item) => String(item.ignoreInOrder)) === null ? null : boards[0].ignoreInOrder);
 }
 
 function updateViewportOverlay(): void {
@@ -743,7 +826,9 @@ function niceScaleLength(targetMm: number): number {
 }
 
 function renderMaterials(): void {
-  ui.materialInput.innerHTML = state.materials.map((material) => `
+  ui.materialInput.innerHTML = `
+    <option value="">Mixed materials</option>
+  ` + state.materials.map((material) => `
     <option value="${escapeHtml(material.id)}">${escapeHtml(material.name)}</option>
   `).join("");
 
@@ -757,12 +842,21 @@ function renderMaterials(): void {
 
 function renderMeasurements(): void {
   const selected = selectedBoard(state);
-  const boards = selected ? groupBoards(state, selected.group) : state.boards;
+  const selectedSet = selectedBoards(state);
+  const boards = selectedSet.length > 1 ? selectedSet : selected ? groupBoards(state, selected.group) : state.boards;
   const bounds = boundsFor(boards);
   const inner = innerDimensions(boards, state.thickness);
   const cards: string[] = [];
 
-  if (selected) {
+  if (selectedSet.length > 1 && bounds) {
+    cards.push(`
+      <div class="metric-card">
+        <strong>${selectedSet.length} selected boards</strong>
+        <span>Selection: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
+        <span>Position: X ${mm(bounds.left)}, Y ${mm(bounds.top)}</span>
+      </div>
+    `);
+  } else if (selected) {
     cards.push(`
       <div class="metric-card">
         <strong>${selected.name}</strong>
@@ -775,7 +869,7 @@ function renderMeasurements(): void {
   if (bounds) {
     cards.push(`
       <div class="metric-card">
-        <strong>${selected ? `Connected group ${selected.group}` : "Whole sketch"}</strong>
+        <strong>${selectedSet.length > 1 ? "Selected boards" : selected ? `Connected group ${selected.group}` : "Whole sketch"}</strong>
         <span>Outer: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
         <span>Inner: ${inner?.hasFrame ? `${mm(inner.innerW)} × ${mm(inner.innerH)}` : "needs opposing frame boards"}</span>
         <span>Thickness model: ${mm(state.thickness)}</span>
@@ -1161,33 +1255,54 @@ function csvCell(value: string): string {
 
 function updateBoardFromInspector(event?: Event): void {
   const board = selectedBoard(state);
-  if (!board) return;
+  const boards = selectedBoards(state);
+  if (!board || !boards.length) return;
   const target = event?.target;
   if (target === ui.depthOverrideInput && ui.depthOverrideInput.value === "") {
     remember();
-    board.depthOverride = null;
+    boards.forEach((item) => {
+      item.depthOverride = null;
+    });
     state.lastSnap = `Depth uses global ${mm(state.depth)}`;
     refresh();
     return;
   }
   if (target instanceof HTMLInputElement && target.type === "number" && target.value === "") return;
   remember();
-  board.name = ui.nameInput.value.trim() || board.name;
-  board.x = Number(ui.xInput.value) || 0;
-  board.y = modelY(Number(ui.yInput.value) || 0);
-  board.w = Math.max(1, Number(ui.wInput.value) || 1);
-  board.h = Math.max(1, Number(ui.hInput.value) || 1);
-  board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board));
-  propagateAnchorsFrom(board.id);
+  if (boards.length > 1) {
+    const selectionBounds = boundsFor(boards);
+    if (selectionBounds && (target === ui.xInput || target === ui.yInput)) {
+      const nextX = target === ui.xInput ? Number(ui.xInput.value) : selectionBounds.left;
+      const nextY = target === ui.yInput ? modelY(Number(ui.yInput.value)) : selectionBounds.top;
+      moveBoardsBy(boards, (Number.isFinite(nextX) ? nextX : selectionBounds.left) - selectionBounds.left, (Number.isFinite(nextY) ? nextY : selectionBounds.top) - selectionBounds.top);
+      state.lastSnap = "Selection moved";
+    }
+    if (target === ui.depthOverrideInput) {
+      boards.forEach((item) => {
+        item.depthOverride = normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(item));
+      });
+      state.lastSnap = `Depth set on ${boards.length} boards`;
+    }
+  } else {
+    board.name = ui.nameInput.value.trim() || board.name;
+    board.x = Number(ui.xInput.value) || 0;
+    board.y = modelY(Number(ui.yInput.value) || 0);
+    board.w = Math.max(1, Number(ui.wInput.value) || 1);
+    board.h = Math.max(1, Number(ui.hInput.value) || 1);
+    board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board));
+    propagateAnchorsFrom(board.id);
+  }
   refresh();
 }
 
 function updateMaterialFromInspector(): void {
-  const board = selectedBoard(state);
-  if (!board || board.materialId === ui.materialInput.value) return;
+  const boards = selectedBoards(state);
+  if (!boards.length || !ui.materialInput.value || boards.every((board) => board.materialId === ui.materialInput.value)) return;
   remember();
-  board.materialId = ui.materialInput.value;
-  state.lastSnap = `Material: ${materialName(board.materialId)}`;
+  boards.forEach((board) => {
+    board.materialId = ui.materialInput.value;
+  });
+  state.lastSnap = boards.length > 1 ? `Material set on ${boards.length} boards` : `Material: ${materialName(boards[0].materialId)}`;
   refresh();
 }
 
@@ -1213,24 +1328,29 @@ function addCustomMaterial(): void {
 }
 
 function updateLaminateFromInspector(): void {
-  const board = selectedBoard(state);
-  if (!board) return;
+  const boards = selectedBoards(state);
+  if (!boards.length) return;
   remember();
-  board.laminate = {
-    left: ui.laminateLeftInput.checked,
-    right: ui.laminateRightInput.checked,
-    front: ui.laminateFrontInput.checked,
-    back: ui.laminateBackInput.checked
-  };
+  boards.forEach((board) => {
+    board.laminate = {
+      left: ui.laminateLeftInput.checked,
+      right: ui.laminateRightInput.checked,
+      front: ui.laminateFrontInput.checked,
+      back: ui.laminateBackInput.checked
+    };
+  });
+  state.lastSnap = boards.length > 1 ? `Laminate set on ${boards.length} boards` : "Laminate updated";
   refresh();
 }
 
 function updateOrderInclusionFromInspector(): void {
-  const board = selectedBoard(state);
-  if (!board) return;
+  const boards = selectedBoards(state);
+  if (!boards.length) return;
   remember();
-  board.ignoreInOrder = ui.ignoreOrderInput.checked;
-  state.lastSnap = board.ignoreInOrder ? "Removed from wood order" : "Added to wood order";
+  boards.forEach((board) => {
+    board.ignoreInOrder = ui.ignoreOrderInput.checked;
+  });
+  state.lastSnap = ui.ignoreOrderInput.checked ? "Removed from wood order" : "Added to wood order";
   refresh();
 }
 
@@ -1262,6 +1382,14 @@ function applyBoardRect(board: Board, rect: { x: number; y: number; w: number; h
   board.y = Math.round(rect.y);
   board.w = Math.round(rect.w);
   board.h = Math.round(rect.h);
+}
+
+function moveBoardsBy(boards: Board[], dx: number, dy: number): void {
+  boards.forEach((board) => {
+    board.x = Math.round(board.x + dx);
+    board.y = Math.round(board.y + dy);
+  });
+  boards.forEach((board) => propagateAnchorsFrom(board.id));
 }
 
 function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: MeasurementAxis): void {
@@ -1315,26 +1443,57 @@ function handleMeasurementClick(point: Point): void {
   addMeasurement(state.pendingMeasurementAnchor, anchor, measurementAxis(first, second));
 }
 
-function deleteSelectedBoard(): void {
-  if (!state.selectedId) return;
+function deleteSelectedBoards(): void {
+  const ids = selectedIdSet();
+  if (!ids.size) return;
   remember();
-  const deletedId = state.selectedId;
-  state.boards = state.boards.filter((board) => board.id !== deletedId);
-  state.anchors = state.anchors.filter((anchor) => anchor.boardId !== deletedId && anchor.targetBoardId !== deletedId);
+  state.boards = state.boards.filter((board) => !ids.has(board.id));
+  state.anchors = state.anchors.filter((anchor) => !ids.has(anchor.boardId) && !ids.has(anchor.targetBoardId));
   state.measurements = state.measurements.filter((measurement) =>
-    ![measurement.a, measurement.b].some((anchor) => anchor.kind === "board-edge" && anchor.boardId === deletedId)
+    ![measurement.a, measurement.b].some((anchor) => anchor.kind === "board-edge" && ids.has(anchor.boardId))
   );
-  state.selectedId = null;
-  state.lastSnap = "Board deleted";
+  clearSelection();
+  state.lastSnap = ids.size > 1 ? `${ids.size} boards deleted` : "Board deleted";
   refresh();
 }
 
-function duplicateSelectedBoard(): void {
-  const board = selectedBoard(state);
-  if (!board) return;
-  addBoard({ ...board, name: defaultPieceName(state.nextId), x: board.x + 35, y: board.y + 35 });
-  state.lastSnap = "Board duplicated";
-  updateInspector();
+function duplicateSelectedBoards(): void {
+  const boards = selectedBoards(state);
+  if (!boards.length) return;
+  remember();
+  const selectedOriginalIds = new Set(boards.map((board) => board.id));
+  const idMap = new Map<number, number>();
+  const copies = boards.map((board) => {
+    const id = state.nextId;
+    state.nextId += 1;
+    idMap.set(board.id, id);
+    return {
+      ...board,
+      id,
+      name: defaultPieceName(id),
+      x: board.x + 35,
+      y: board.y + 35,
+      group: 0
+    };
+  });
+  state.boards.push(...copies);
+  state.anchors
+    .filter((anchor) => selectedOriginalIds.has(anchor.boardId) && selectedOriginalIds.has(anchor.targetBoardId))
+    .forEach((anchor) => {
+      const boardId = idMap.get(anchor.boardId);
+      const targetBoardId = idMap.get(anchor.targetBoardId);
+      if (!boardId || !targetBoardId) return;
+      state.anchors.push({
+        ...anchor,
+        id: state.nextAnchorId,
+        boardId,
+        targetBoardId
+      });
+      state.nextAnchorId += 1;
+    });
+  setSelection(copies.map((board) => board.id), copies[0]?.id ?? null);
+  state.lastSnap = copies.length > 1 ? `${copies.length} boards duplicated` : "Board duplicated";
+  refresh();
 }
 
 function rotateAutoThickness(axis: AutoThicknessAxis): AutoThicknessAxis {
@@ -1349,22 +1508,25 @@ function rotateBoardKind(kind: BoardKind): BoardKind {
   return kind;
 }
 
-function rotateSelectedBoard(): void {
-  const board = selectedBoard(state);
-  if (!board) return;
+function rotateSelectedBoards(): void {
+  const boards = selectedBoards(state);
+  if (!boards.length) return;
   remember();
-  const centerX = board.x + board.w / 2;
-  const centerY = board.y + board.h / 2;
-  const nextW = board.h;
-  const nextH = board.w;
-  board.x = Math.round(centerX - nextW / 2);
-  board.y = Math.round(centerY - nextH / 2);
-  board.w = Math.round(nextW);
-  board.h = Math.round(nextH);
-  board.autoThickness = rotateAutoThickness(board.autoThickness);
-  board.kind = rotateBoardKind(board.kind);
-  state.anchors = state.anchors.filter((anchor) => anchor.boardId !== board.id && anchor.targetBoardId !== board.id);
-  state.lastSnap = "Rotated 90 deg";
+  const rotatedIds = new Set(boards.map((board) => board.id));
+  boards.forEach((board) => {
+    const centerX = board.x + board.w / 2;
+    const centerY = board.y + board.h / 2;
+    const nextW = board.h;
+    const nextH = board.w;
+    board.x = Math.round(centerX - nextW / 2);
+    board.y = Math.round(centerY - nextH / 2);
+    board.w = Math.round(nextW);
+    board.h = Math.round(nextH);
+    board.autoThickness = rotateAutoThickness(board.autoThickness);
+    board.kind = rotateBoardKind(board.kind);
+  });
+  state.anchors = state.anchors.filter((anchor) => !rotatedIds.has(anchor.boardId) && !rotatedIds.has(anchor.targetBoardId));
+  state.lastSnap = boards.length > 1 ? `${boards.length} boards rotated` : "Rotated 90 deg";
   refresh();
 }
 
@@ -1392,6 +1554,34 @@ function cursorForResizeHandle(handle: ResizeHandle): string {
   return cursors[handle];
 }
 
+function isAdditiveSelection(event: PointerEvent): boolean {
+  return event.shiftKey || event.metaKey || event.ctrlKey;
+}
+
+function shouldPan(event: PointerEvent): boolean {
+  return event.button === 1 || event.altKey;
+}
+
+function rectFromPoints(a: Point, b: Point): Rect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return { x, y, w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+}
+
+function rectsIntersect(a: Rect, b: Rect): boolean {
+  return a.x <= b.x + b.w &&
+    a.x + a.w >= b.x &&
+    a.y <= b.y + b.h &&
+    a.y + a.h >= b.y;
+}
+
+function boardsInRect(rect: Rect): Board[] {
+  return state.boards.filter((board) => {
+    if (board.kind === "front" && !state.showFrontPanels) return false;
+    return rectsIntersect(rect, rectFromBoard(board));
+  });
+}
+
 function updateCanvasCursor(point: Point): void {
   if (state.tool === "measure") {
     canvas.style.cursor = "";
@@ -1407,7 +1597,7 @@ function updateCanvasCursor(point: Point): void {
     }
   }
 
-  canvas.style.cursor = hitTest(state, point) ? "grab" : "";
+  canvas.style.cursor = hitTest(state, point) ? "grab" : "crosshair";
 }
 
 function updateMeasurementPreview(point: Point): void {
@@ -1424,10 +1614,17 @@ canvas.addEventListener("pointerdown", (event) => {
     return;
   }
 
+  if (shouldPan(event)) {
+    state.panning = { startX: event.clientX, startY: event.clientY, panX: state.panX, panY: state.panY };
+    canvas.style.cursor = "grabbing";
+    canvas.setPointerCapture(event.pointerId);
+    return;
+  }
+
   const selected = selectedBoard(state);
   if (selected) {
     const handle = hitResizeHandle(state, selected, point);
-    if (handle) {
+    if (handle && selectedBoards(state).length <= 1) {
       remember();
       state.resizing = { id: selected.id, handle, startPoint: point, startRect: rectFromBoard(selected) };
       state.lastSnap = "Resizing";
@@ -1439,15 +1636,33 @@ canvas.addEventListener("pointerdown", (event) => {
   }
 
   const board = hitTest(state, point);
-  state.selectedId = board?.id ?? null;
   if (board) {
+    if (isAdditiveSelection(event)) {
+      toggleBoardSelection(board.id);
+      state.lastSnap = selectedIdSet().size > 1 ? `${selectedIdSet().size} boards selected` : "Selection updated";
+      refresh();
+      return;
+    }
+
+    const currentSelection = selectedIdSet();
+    const dragIds = currentSelection.has(board.id)
+      ? [board.id, ...[...currentSelection].filter((id) => id !== board.id)]
+      : [board.id];
+    setSelection(dragIds, board.id);
     remember();
-    state.dragging = { id: board.id, offsetX: point.x - board.x, offsetY: point.y - board.y };
+    state.dragging = {
+      ids: dragIds,
+      startPoint: point,
+      startRects: dragIds.flatMap((id) => {
+        const item = state.boards.find((candidate) => candidate.id === id);
+        return item ? [{ id, ...rectFromBoard(item) }] : [];
+      })
+    };
     canvas.style.cursor = "grabbing";
     canvas.setPointerCapture(event.pointerId);
   } else {
-    state.panning = { startX: event.clientX, startY: event.clientY, panX: state.panX, panY: state.panY };
-    canvas.style.cursor = "grabbing";
+    state.selectionBox = { start: point, current: point, additive: isAdditiveSelection(event) };
+    canvas.style.cursor = "crosshair";
     canvas.setPointerCapture(event.pointerId);
   }
   refresh();
@@ -1486,16 +1701,34 @@ canvas.addEventListener("pointermove", (event) => {
     return;
   }
 
+  if (state.selectionBox) {
+    state.selectionBox.current = point;
+    state.snapGuides = [];
+    state.lastSnap = "Selecting boards";
+    canvas.style.cursor = "crosshair";
+    refresh();
+    return;
+  }
+
   if (!state.dragging) {
     updateCanvasCursor(point);
     return;
   }
-  const board = selectedBoard(state);
+  const board = state.boards.find((candidate) => candidate.id === state.dragging?.ids[0]);
   if (!board) return;
-  const snapped = snapBoard(state, board, point.x - state.dragging.offsetX, point.y - state.dragging.offsetY);
-  board.x = snapped.x;
-  board.y = snapped.y;
-  propagateAnchorsFrom(board.id);
+  const primaryStartRect = state.dragging.startRects.find((startRect) => startRect.id === board.id);
+  if (!primaryStartRect) return;
+  const dx = point.x - state.dragging.startPoint.x;
+  const dy = point.y - state.dragging.startPoint.y;
+  const ignoreIds = new Set(state.dragging.ids);
+  const snapped = snapBoard(state, board, primaryStartRect.x + dx, primaryStartRect.y + dy, ignoreIds);
+  const snappedDx = snapped.x - primaryStartRect.x;
+  const snappedDy = snapped.y - primaryStartRect.y;
+  state.dragging.startRects.forEach((startRect) => {
+    const item = state.boards.find((candidate) => candidate.id === startRect.id);
+    if (item) applyBoardRect(item, { ...startRect, x: startRect.x + snappedDx, y: startRect.y + snappedDy });
+  });
+  state.dragging.ids.forEach((id) => propagateAnchorsFrom(id));
   state.snapGuides = snapped.guides;
   state.lastSnap = snapped.label;
   canvas.style.cursor = "grabbing";
@@ -1505,19 +1738,37 @@ canvas.addEventListener("pointermove", (event) => {
 canvas.addEventListener("pointerup", (event) => {
   const rect = canvas.getBoundingClientRect();
   const point = screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top);
-  const finishedBoardId = state.dragging?.id ?? state.resizing?.id ?? null;
+  const finishedBoardIds = state.dragging?.ids ?? (state.resizing ? [state.resizing.id] : []);
+  const selectionBox = state.selectionBox;
+  if (selectionBox) {
+    const selectionRect = rectFromPoints(selectionBox.start, selectionBox.current);
+    const movedPx = Math.hypot(
+      (selectionBox.current.x - selectionBox.start.x) * state.scale,
+      (selectionBox.current.y - selectionBox.start.y) * state.scale
+    );
+    if (movedPx > 4) {
+      const rectSelection = boardsInRect(selectionRect).map((board) => board.id);
+      const nextIds = selectionBox.additive ? [...selectedIdSet(), ...rectSelection] : rectSelection;
+      setSelection(nextIds, rectSelection[0] ?? (selectionBox.additive ? state.selectedId : null));
+      state.lastSnap = rectSelection.length ? `${selectedIdSet().size} boards selected` : "No boards in selection";
+    } else if (!selectionBox.additive) {
+      clearSelection();
+      state.lastSnap = "No board selected";
+    }
+  }
   state.dragging = null;
   state.resizing = null;
   state.panning = null;
+  state.selectionBox = null;
   state.snapGuides = [];
-  if (finishedBoardId) anchorTouchedBoard(finishedBoardId);
+  finishedBoardIds.forEach((id) => anchorTouchedBoard(id));
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   updateCanvasCursor(point);
   refresh();
 });
 
 canvas.addEventListener("pointerleave", () => {
-  if (!state.dragging && !state.resizing && !state.panning) canvas.style.cursor = "";
+  if (!state.dragging && !state.resizing && !state.panning && !state.selectionBox) canvas.style.cursor = "";
 });
 
 canvas.addEventListener("wheel", (event) => {
@@ -1581,8 +1832,8 @@ canvas.addEventListener("drop", (event) => {
   const rect = canvas.getBoundingClientRect();
   createPresetAt(presetId, screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top));
 });
-ui.duplicateBtn.addEventListener("click", duplicateSelectedBoard);
-ui.rotateBtn.addEventListener("click", rotateSelectedBoard);
+ui.duplicateBtn.addEventListener("click", duplicateSelectedBoards);
+ui.rotateBtn.addEventListener("click", rotateSelectedBoards);
 ui.undoBtn.addEventListener("click", undo);
 ui.redoBtn.addEventListener("click", redo);
 ui.measureWidthBtn.addEventListener("click", () => addSelectedMeasurement("horizontal"));
@@ -1593,7 +1844,7 @@ ui.projectFileInput.addEventListener("change", () => {
   const file = ui.projectFileInput.files?.[0];
   if (file) importProjectFile(file);
 });
-ui.deleteBtn.addEventListener("click", deleteSelectedBoard);
+ui.deleteBtn.addEventListener("click", deleteSelectedBoards);
 ui.fitBtn.addEventListener("click", fitToView);
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv());
 ui.exportBtn.addEventListener("click", exportCutListCsv);
@@ -1670,17 +1921,17 @@ document.addEventListener("keydown", (event) => {
   }
   if (command && key === "d") {
     event.preventDefault();
-    duplicateSelectedBoard();
+    duplicateSelectedBoards();
     return;
   }
   if (!command && key === "r") {
     event.preventDefault();
-    rotateSelectedBoard();
+    rotateSelectedBoards();
     return;
   }
   if (event.key === "Delete" || event.key === "Backspace") {
     event.preventDefault();
-    deleteSelectedBoard();
+    deleteSelectedBoards();
   }
 });
 window.addEventListener("resize", () => renderer.resize());

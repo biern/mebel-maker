@@ -9,6 +9,7 @@ import {
   resizeHandlesForBoard,
   resolveMeasurementAnchor,
   selectedBoard,
+  selectedBoards,
   worldToScreen
 } from "./geometry";
 import type { Board, Material, MeasurementAxis, Point, SketchState } from "./types";
@@ -39,6 +40,7 @@ export class SketchRenderer {
     this.drawGrid(rect.width, rect.height);
     displayOrderedBoards(this.state.boards).forEach((board) => this.drawBoard(board));
     this.drawOverlaps();
+    this.drawSelectionBox();
     this.drawSnapGuides(rect.width, rect.height);
     this.drawMeasurements();
     this.drawDimensions();
@@ -117,7 +119,8 @@ export class SketchRenderer {
     const point = worldToScreen(this.state, board.x, board.y);
     const w = board.w * this.state.scale;
     const h = board.h * this.state.scale;
-    const selected = board.id === this.state.selectedId;
+    const selected = this.state.selectedIds.includes(board.id) || board.id === this.state.selectedId;
+    const primary = board.id === this.state.selectedId;
     const resizing = board.id === this.state.resizing?.id;
     const groupColor = colors[(board.group - 1) % colors.length] ?? colors[0];
     const material = this.materialFor(board);
@@ -126,8 +129,8 @@ export class SketchRenderer {
     this.ctx.save();
     this.ctx.globalAlpha = opacity;
     this.ctx.fillStyle = board.kind === "back" ? this.withAlpha(material.color, 0.36) : material.color;
-    this.ctx.strokeStyle = selected ? "#1f6659" : groupColor;
-    this.ctx.lineWidth = board.kind === "back" ? 1.5 : selected ? 3 : 2;
+    this.ctx.strokeStyle = primary ? "#1f6659" : selected ? "#2f78b7" : groupColor;
+    this.ctx.lineWidth = board.kind === "back" ? 1.5 : primary ? 3 : selected ? 2.5 : 2;
     this.ctx.fillRect(point.x, point.y, w, h);
     this.ctx.strokeRect(point.x, point.y, w, h);
     this.drawLaminateEdges(board, point.x, point.y, w, h);
@@ -211,6 +214,26 @@ export class SketchRenderer {
     this.ctx.restore();
   }
 
+  private drawSelectionBox(): void {
+    const box = this.state.selectionBox;
+    if (!box) return;
+    const a = worldToScreen(this.state, box.start.x, box.start.y);
+    const b = worldToScreen(this.state, box.current.x, box.current.y);
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    const w = Math.abs(a.x - b.x);
+    const h = Math.abs(a.y - b.y);
+
+    this.ctx.save();
+    this.ctx.fillStyle = "rgba(47, 120, 183, 0.12)";
+    this.ctx.strokeStyle = "#2f78b7";
+    this.ctx.lineWidth = 1.5;
+    this.ctx.setLineDash([6, 4]);
+    this.ctx.fillRect(x, y, w, h);
+    this.ctx.strokeRect(x, y, w, h);
+    this.ctx.restore();
+  }
+
   private drawSnapGuides(width: number, height: number): void {
     if (!this.state.snapGuides.length) return;
     this.ctx.save();
@@ -285,7 +308,8 @@ export class SketchRenderer {
   private drawDimensions(): void {
     if (!this.state.showDimensions) return;
     const selected = selectedBoard(this.state);
-    const boards = selected ? groupBoards(this.state, selected.group) : this.state.boards;
+    const selectedSet = selectedBoards(this.state);
+    const boards = selectedSet.length > 1 ? selectedSet : selected ? groupBoards(this.state, selected.group) : this.state.boards;
     const bounds = boundsFor(boards);
     if (!bounds) return;
 
@@ -298,13 +322,14 @@ export class SketchRenderer {
       this.drawDimensionLine(bounds.left, bounds.top + this.state.thickness, bounds.left, bounds.bottom - this.state.thickness, `Inner ${mm(inner.innerH)}`, -30, "#a45f1b");
     }
 
-    if (selected) {
+    if (selected && selectedSet.length <= 1) {
       this.drawDimensionLine(selected.x, selected.y + selected.h, selected.x + selected.w, selected.y + selected.h, mm(selected.w), 18, "#6e4d83");
       this.drawDimensionLine(selected.x + selected.w, selected.y, selected.x + selected.w, selected.y + selected.h, mm(selected.h), 18, "#6e4d83");
     }
   }
 
   private drawResizeHandles(): void {
+    if (selectedBoards(this.state).length > 1) return;
     const selected = selectedBoard(this.state);
     if (!selected) return;
     const point = worldToScreen(this.state, selected.x, selected.y);

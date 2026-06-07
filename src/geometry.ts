@@ -28,6 +28,12 @@ export function selectedBoard(state: SketchState): Board | null {
   return state.boards.find((board) => board.id === state.selectedId) ?? null;
 }
 
+export function selectedBoards(state: SketchState): Board[] {
+  const selected = new Set(state.selectedIds);
+  if (state.selectedId !== null) selected.add(state.selectedId);
+  return state.boards.filter((board) => selected.has(board.id));
+}
+
 export function screenToWorld(state: SketchState, x: number, y: number): Point {
   return {
     x: (x - state.panX) / state.scale,
@@ -156,7 +162,7 @@ export function innerDimensions(boards: Board[], thickness: number): InnerDimens
   return { innerW, innerH, hasFrame: Boolean(leftPanel || rightPanel || topPanel || bottomPanel) };
 }
 
-export function snapBoard(state: SketchState, board: Board, targetX: number, targetY: number): SnapResult {
+export function snapBoard(state: SketchState, board: Board, targetX: number, targetY: number, ignoreIds = new Set([board.id])): SnapResult {
   if (!state.snap) return { x: targetX, y: targetY, label: "Snap off", guides: [] };
   const threshold = 14 / state.scale;
   const snapped = {
@@ -171,7 +177,7 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
   const me = rectEdges(moving);
 
   state.boards.forEach((other) => {
-    if (other.id === board.id) return;
+    if (ignoreIds.has(other.id)) return;
     const oe = rectEdges(other);
     const xPairs: Array<[number, number, string]> = [
       [me.left, oe.left, "left aligned"],
