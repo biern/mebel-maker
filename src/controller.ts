@@ -727,6 +727,18 @@ function loadAutosavedProject(): boolean {
   }
 }
 
+function loadInitialProject(): void {
+  const hotProject = import.meta.hot?.data.project as SavedProject | undefined;
+  if (hotProject && isSupportedProject(hotProject)) {
+    applyProject(hotProject, false);
+    state.lastSnap = "Restored hot reload";
+    updateInspector();
+    return;
+  }
+
+  if (!loadAutosavedProject()) createStarter(false);
+}
+
 function exportProjectFile(): void {
   const json = JSON.stringify(serializeProject(), null, 2);
   downloadTextFile(json, "application/json", `mebel-maker-${new Date().toISOString().slice(0, 10)}.mebel`);
@@ -1902,7 +1914,7 @@ canvas.addEventListener("pointerdown", (event) => {
     canvas.setPointerCapture(event.pointerId);
   }
   refresh();
-});
+}, listenerOptions);
 
 canvas.addEventListener("pointermove", (event) => {
   const rect = canvas.getBoundingClientRect();
@@ -1974,7 +1986,7 @@ canvas.addEventListener("pointermove", (event) => {
   state.lastSnap = snapped.label;
   canvas.style.cursor = "grabbing";
   refresh();
-});
+}, listenerOptions);
 
 canvas.addEventListener("pointerup", (event) => {
   const rect = canvas.getBoundingClientRect();
@@ -2010,11 +2022,11 @@ canvas.addEventListener("pointerup", (event) => {
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   updateCanvasCursor(point);
   refresh();
-});
+}, listenerOptions);
 
 canvas.addEventListener("pointerleave", () => {
   if (!state.dragging && !state.resizing && !state.measurementDragging && !state.panning && !state.selectionBox) canvas.style.cursor = "";
-});
+}, listenerOptions);
 
 canvas.addEventListener("wheel", (event) => {
   event.preventDefault();
@@ -2026,7 +2038,7 @@ canvas.addEventListener("wheel", (event) => {
   state.panX += (after.x - before.x) * state.scale;
   state.panY += (after.y - before.y) * state.scale;
   refresh();
-}, { passive: false });
+}, { passive: false, signal: controllerEvents.signal });
 
 ui.anchorOverlay.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-anchor]");
@@ -2036,39 +2048,39 @@ ui.anchorOverlay.addEventListener("click", (event) => {
   state.anchors = state.anchors.filter((anchor) => anchor.id !== id);
   state.lastSnap = "Anchor removed";
   refresh();
-});
+}, listenerOptions);
 
 ui.templateList.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-template]");
   const templateId = target?.dataset.template as TemplateId | undefined;
   if (!templateId) return;
   createTemplate(templateId);
-});
+}, listenerOptions);
 ui.measureModeBtn.addEventListener("click", () => {
   state.tool = state.tool === "measure" ? "select" : "measure";
   state.pendingMeasurementAnchor = null;
   state.previewMeasurementAnchor = null;
   state.lastSnap = state.tool === "measure" ? "Pick first anchor" : "Select mode";
   refresh();
-});
+}, listenerOptions);
 ui.presetList.addEventListener("click", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-preset]");
   if (!target) return;
   createPresetAt(target.dataset.preset ?? "");
-});
+}, listenerOptions);
 ui.presetList.addEventListener("dragstart", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-preset]");
   if (!target || !event.dataTransfer) return;
   event.dataTransfer.setData("text/plain", target.dataset.preset ?? "");
   event.dataTransfer.effectAllowed = "copy";
-});
+}, listenerOptions);
 canvas.addEventListener("dragover", (event) => {
   event.preventDefault();
   canvas.classList.add("drop-ready");
-});
+}, listenerOptions);
 canvas.addEventListener("dragleave", () => {
   canvas.classList.remove("drop-ready");
-});
+}, listenerOptions);
 canvas.addEventListener("drop", (event) => {
   event.preventDefault();
   canvas.classList.remove("drop-ready");
@@ -2076,59 +2088,60 @@ canvas.addEventListener("drop", (event) => {
   if (!presetId) return;
   const rect = canvas.getBoundingClientRect();
   createPresetAt(presetId, screenToWorld(state, event.clientX - rect.left, event.clientY - rect.top));
-});
-ui.duplicateBtn.addEventListener("click", duplicateSelectedBoards);
-ui.rotateBtn.addEventListener("click", rotateSelectedBoards);
-ui.undoBtn.addEventListener("click", undo);
-ui.redoBtn.addEventListener("click", redo);
-ui.measureWidthBtn.addEventListener("click", () => addSelectedMeasurement("horizontal"));
-ui.measureHeightBtn.addEventListener("click", () => addSelectedMeasurement("vertical"));
-ui.saveBtn.addEventListener("click", exportProjectFile);
-ui.loadBtn.addEventListener("click", openProjectFilePicker);
+}, listenerOptions);
+ui.duplicateBtn.addEventListener("click", duplicateSelectedBoards, listenerOptions);
+ui.rotateBtn.addEventListener("click", rotateSelectedBoards, listenerOptions);
+ui.undoBtn.addEventListener("click", undo, listenerOptions);
+ui.redoBtn.addEventListener("click", redo, listenerOptions);
+ui.measureWidthBtn.addEventListener("click", () => addSelectedMeasurement("horizontal"), listenerOptions);
+ui.measureHeightBtn.addEventListener("click", () => addSelectedMeasurement("vertical"), listenerOptions);
+ui.saveBtn.addEventListener("click", exportProjectFile, listenerOptions);
+ui.loadBtn.addEventListener("click", openProjectFilePicker, listenerOptions);
 ui.projectFileInput.addEventListener("change", () => {
   const file = ui.projectFileInput.files?.[0];
   if (file) importProjectFile(file);
-});
-ui.deleteBtn.addEventListener("click", deleteActiveSelection);
-ui.fitBtn.addEventListener("click", fitToView);
-ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv());
-ui.exportBtn.addEventListener("click", exportCutListCsv);
-ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
-ui.depthInput.addEventListener("change", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)));
+}, listenerOptions);
+ui.deleteBtn.addEventListener("click", deleteActiveSelection, listenerOptions);
+ui.fitBtn.addEventListener("click", fitToView, listenerOptions);
+ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv(), listenerOptions);
+ui.exportBtn.addEventListener("click", exportCutListCsv, listenerOptions);
+ui.thicknessInput.addEventListener("input", () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)), listenerOptions);
+ui.depthInput.addEventListener("change", () => applyDepthChange(normalizePositiveNumber(ui.depthInput.value, state.depth)), listenerOptions);
 ui.gridInput.addEventListener("input", () => {
   remember();
   state.grid = Math.max(1, Number(ui.gridInput.value) || 25);
   refresh();
-});
+}, listenerOptions);
 ui.snapToggle.addEventListener("change", () => {
   remember();
   state.snap = ui.snapToggle.checked;
   state.lastSnap = state.snap ? "Snap on" : "Snap off";
   refresh();
-});
+}, listenerOptions);
 ui.dimToggle.addEventListener("change", () => {
   remember();
   state.showDimensions = ui.dimToggle.checked;
   refresh();
-});
+}, listenerOptions);
 ui.frontLayerToggle.addEventListener("change", () => {
   remember();
   state.showFrontPanels = ui.frontLayerToggle.checked;
   state.lastSnap = state.showFrontPanels ? "Front panels shown" : "Front panels ghosted";
   refresh();
-});
-[ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput].forEach((input) => input.addEventListener("input", updateBoardFromInspector));
-ui.materialInput.addEventListener("change", updateMaterialFromInspector);
-ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary);
-ui.layoutAnchorApplyBtn.addEventListener("click", distributeLayoutAnchors);
-ui.layoutAnchorClearBtn.addEventListener("click", clearLayoutAnchors);
+}, listenerOptions);
+[ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput]
+  .forEach((input) => input.addEventListener("input", updateBoardFromInspector, listenerOptions));
+ui.materialInput.addEventListener("change", updateMaterialFromInspector, listenerOptions);
+ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary, listenerOptions);
+ui.layoutAnchorApplyBtn.addEventListener("click", distributeLayoutAnchors, listenerOptions);
+ui.layoutAnchorClearBtn.addEventListener("click", clearLayoutAnchors, listenerOptions);
 ui.materialForm.addEventListener("submit", (event) => {
   event.preventDefault();
   addCustomMaterial();
-});
+}, listenerOptions);
 [ui.laminateLeftInput, ui.laminateRightInput, ui.laminateFrontInput, ui.laminateBackInput]
-  .forEach((input) => input.addEventListener("change", updateLaminateFromInspector));
-ui.ignoreOrderInput.addEventListener("change", updateOrderInclusionFromInspector);
+  .forEach((input) => input.addEventListener("change", updateLaminateFromInspector, listenerOptions));
+ui.ignoreOrderInput.addEventListener("change", updateOrderInclusionFromInspector, listenerOptions);
 ui.customMeasureList.addEventListener("click", (event) => {
   const deleteTarget = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-delete-measure]");
   if (deleteTarget) {
@@ -2141,7 +2154,7 @@ ui.customMeasureList.addEventListener("click", (event) => {
   setMeasurementSelection(Number(selectTarget.dataset.selectMeasure));
   state.lastSnap = "Measurement selected";
   refresh();
-});
+}, listenerOptions);
 ui.customMeasureList.addEventListener("change", (event) => {
   const target = (event.target as HTMLElement).closest<HTMLInputElement>("[data-measure-name]");
   if (!target) return;
@@ -2155,7 +2168,7 @@ ui.customMeasureList.addEventListener("change", (event) => {
   measurement.name = nextName;
   state.lastSnap = name ? "Measurement named" : "Measurement reset";
   refresh();
-});
+}, listenerOptions);
 document.addEventListener("keydown", (event) => {
   if (isEditableTarget(event.target)) return;
   const key = event.key.toLowerCase();
@@ -2185,8 +2198,8 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     deleteActiveSelection();
   }
-});
-window.addEventListener("resize", () => renderer.resize());
+}, listenerOptions);
+window.addEventListener("resize", () => renderer.resize(), listenerOptions);
 
 if (import.meta.env.DEV) {
   window.mebleBuilderDebug = {
@@ -2202,5 +2215,15 @@ if (import.meta.env.DEV) {
 }
 
 syncSettingsInputs();
-if (!loadAutosavedProject()) createStarter(false);
+loadInitialProject();
 renderer.resize();
+
+if (import.meta.hot) {
+  import.meta.hot.dispose((data) => {
+    data.project = serializeProject();
+    autosaveProject();
+    controllerEvents.abort();
+    canvas.classList.remove("drop-ready");
+    if (window.mebleBuilderDebug?.state === state) delete window.mebleBuilderDebug;
+  });
+}
