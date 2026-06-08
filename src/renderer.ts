@@ -182,8 +182,8 @@ export class SketchRenderer {
     const edges: Array<[boolean, number, number, number, number]> = [
       [board.laminate.left, x, y, x, y + h],
       [board.laminate.right, x + w, y, x + w, y + h],
-      [board.laminate.front, x, y + h, x + w, y + h],
-      [board.laminate.back, x, y, x + w, y]
+      [board.laminate.top || board.laminate.back, x, y, x + w, y],
+      [board.laminate.bottom || board.laminate.front, x, y + h, x + w, y + h]
     ];
     if (!edges.some(([enabled]) => enabled)) return;
 

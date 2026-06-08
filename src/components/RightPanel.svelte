@@ -59,6 +59,14 @@
             <span>{$_("inspector.right")}</span>
           </label>
           <label class="check-chip">
+            <input id="laminateTopInput" type="checkbox">
+            <span>{$_("inspector.top")}</span>
+          </label>
+          <label class="check-chip">
+            <input id="laminateBottomInput" type="checkbox">
+            <span>{$_("inspector.bottom")}</span>
+          </label>
+          <label class="check-chip">
             <input id="laminateFrontInput" type="checkbox">
             <span>{$_("inspector.front")}</span>
           </label>

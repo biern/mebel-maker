@@ -110,6 +110,8 @@ const ui = {
   addMaterialBtn: query<HTMLButtonElement>("#addMaterialBtn"),
   laminateLeftInput: query<HTMLInputElement>("#laminateLeftInput"),
   laminateRightInput: query<HTMLInputElement>("#laminateRightInput"),
+  laminateTopInput: query<HTMLInputElement>("#laminateTopInput"),
+  laminateBottomInput: query<HTMLInputElement>("#laminateBottomInput"),
   laminateFrontInput: query<HTMLInputElement>("#laminateFrontInput"),
   laminateBackInput: query<HTMLInputElement>("#laminateBackInput"),
   ignoreOrderInput: query<HTMLInputElement>("#ignoreOrderInput"),
@@ -167,6 +169,8 @@ const state: SketchState = {
   previewMeasurementAnchor: null,
   lastSnap: t("common.ready")
 };
+
+const laminateEdgeOrder: Array<keyof LaminateEdges> = ["left", "right", "top", "bottom", "front", "back"];
 
 const renderer = new SketchRenderer(canvas, state);
 const visualization3d = new Visualization3DRenderer(view3dCanvas, state);
@@ -336,7 +340,14 @@ function normalizedLayoutAnchors(layoutAnchors?: BoardLayoutAnchor[]): BoardLayo
 }
 
 function defaultLaminate(): LaminateEdges {
-  return { left: false, right: false, front: false, back: false };
+  return { left: false, right: false, top: false, bottom: false, front: false, back: false };
+}
+
+function normalizeLaminate(laminate: Partial<LaminateEdges> | undefined): LaminateEdges {
+  return {
+    ...defaultLaminate(),
+    ...laminate
+  };
 }
 
 function defaultPieceName(id: number): string {
@@ -405,7 +416,7 @@ function withDefaults(board: Board): Board {
     materialId,
     thicknessOverride: normalizeOptionalPositiveNumber(board.thicknessOverride),
     depthOverride: normalizeOptionalPositiveNumber(board.depthOverride),
-    laminate: board.laminate ?? defaultLaminate(),
+    laminate: normalizeLaminate(board.laminate),
     ignoreInOrder: board.ignoreInOrder ?? false
   };
 }
@@ -427,33 +438,33 @@ function nextLayoutAnchorId(layoutAnchors = state.layoutAnchors): number {
 }
 
 function laminateKey(laminate: LaminateEdges): string {
-  return ["left", "right", "front", "back"]
-    .filter((edge) => laminate[edge as keyof LaminateEdges])
+  return laminateEdgeOrder
+    .filter((edge) => laminate[edge])
     .join(",") || "none";
 }
 
 function laminateLabel(laminate: LaminateEdges): string {
-  const edges = ["left", "right", "front", "back"]
-    .filter((edge) => laminate[edge as keyof LaminateEdges]);
-  return edges.length ? edges.map((edge) => edgeLabel(edge as BoardEdge | "front" | "back")).join(", ") : t("metrics.none");
+  const edges = laminateEdgeOrder.filter((edge) => laminate[edge]);
+  return edges.length ? edges.map((edge) => edgeLabel(edge)).join(", ") : t("metrics.none");
 }
 
-function laminateLengthLabel(board: Board): string {
+function laminateOrderLabel(board: Board): string {
   const edgeLengths: Array<[keyof LaminateEdges, number]> = [
     ["left", board.h],
     ["right", board.h],
+    ["top", board.w],
+    ["bottom", board.w],
     ["front", board.w],
     ["back", board.w]
   ];
-  const shortest = Math.min(board.w, board.h);
   const labels = edgeLengths
     .filter(([edge]) => board.laminate[edge])
-    .map(([, length]) => length === shortest ? t("metrics.short") : t("metrics.long"));
-  return labels.length ? labels.join(",") : t("metrics.none");
+    .map(([edge, length]) => `${edgeLabel(edge)} ${mm(length)}`);
+  return labels.length ? labels.join(", ") : t("metrics.none");
 }
 
-function edgeLabel(edge: BoardEdge | "front" | "back"): string {
-  const labels: Record<BoardEdge | "front" | "back", string> = {
+function edgeLabel(edge: keyof LaminateEdges | BoardEdge): string {
+  const labels: Record<keyof LaminateEdges | BoardEdge, string> = {
     left: t("inspector.left"),
     right: t("inspector.right"),
     top: t("inspector.top"),
@@ -542,7 +553,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
     materialId: partial.materialId ?? defaultMaterialId,
     thicknessOverride: normalizeOptionalPositiveNumber(partial.thicknessOverride),
     depthOverride: normalizeOptionalPositiveNumber(partial.depthOverride),
-    laminate: partial.laminate ?? defaultLaminate(),
+    laminate: normalizeLaminate(partial.laminate),
     ignoreInOrder: partial.ignoreInOrder ?? false,
     group: 0
   };
@@ -1161,6 +1172,8 @@ function updateInspector(): void {
   ui.materialLabelSwatch.style.background = materialId ? materialColor(materialId) : "transparent";
   setCheckboxValue(ui.laminateLeftInput, commonValue(boards, (item) => String(item.laminate.left)) === null ? null : boards[0].laminate.left);
   setCheckboxValue(ui.laminateRightInput, commonValue(boards, (item) => String(item.laminate.right)) === null ? null : boards[0].laminate.right);
+  setCheckboxValue(ui.laminateTopInput, commonValue(boards, (item) => String(item.laminate.top)) === null ? null : boards[0].laminate.top);
+  setCheckboxValue(ui.laminateBottomInput, commonValue(boards, (item) => String(item.laminate.bottom)) === null ? null : boards[0].laminate.bottom);
   setCheckboxValue(ui.laminateFrontInput, commonValue(boards, (item) => String(item.laminate.front)) === null ? null : boards[0].laminate.front);
   setCheckboxValue(ui.laminateBackInput, commonValue(boards, (item) => String(item.laminate.back)) === null ? null : boards[0].laminate.back);
   setCheckboxValue(ui.ignoreOrderInput, commonValue(boards, (item) => String(item.ignoreInOrder)) === null ? null : boards[0].ignoreInOrder);
@@ -1331,7 +1344,7 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
 
   return [...grouped.entries()].map(([key, boards]) => {
     const [w, h, d, , materialId] = key.split("×");
-    const laminate = laminateLengthLabel(boards[0]);
+    const laminate = laminateOrderLabel(boards[0]);
     return `
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${w} × ${h} × ${d} mm</strong>
@@ -1791,6 +1804,8 @@ function updateLaminateFromInspector(): void {
     board.laminate = {
       left: ui.laminateLeftInput.checked,
       right: ui.laminateRightInput.checked,
+      top: ui.laminateTopInput.checked,
+      bottom: ui.laminateBottomInput.checked,
       front: ui.laminateFrontInput.checked,
       back: ui.laminateBackInput.checked
     };
@@ -2614,7 +2629,7 @@ ui.materialForm.addEventListener("submit", (event) => {
   event.preventDefault();
   addCustomMaterial();
 }, listenerOptions);
-[ui.laminateLeftInput, ui.laminateRightInput, ui.laminateFrontInput, ui.laminateBackInput]
+[ui.laminateLeftInput, ui.laminateRightInput, ui.laminateTopInput, ui.laminateBottomInput, ui.laminateFrontInput, ui.laminateBackInput]
   .forEach((input) => input.addEventListener("change", updateLaminateFromInspector, listenerOptions));
 ui.ignoreOrderInput.addEventListener("change", updateOrderInclusionFromInspector, listenerOptions);
 ui.measureRenameForm.addEventListener("submit", (event) => {

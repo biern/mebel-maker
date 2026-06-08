@@ -21,10 +21,13 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+function laminate() {
+  return { left: false, right: false, top: false, bottom: false, front: false, back: false };
+}
+
 function starterState(): SketchState {
   const thickness = 18;
   const depth = 560;
-  const laminate = () => ({ left: false, right: false, front: false, back: false });
   const materialId = "birch-plywood";
   const boards: Board[] = [
     { id: 1, name: "Left side", x: 160, y: 120, w: thickness, h: 560, kind: "upright", autoThickness: "width", materialId, thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 },
@@ -90,7 +93,7 @@ assert(shelf, "middle shelf exists");
 assert(snapBoard(state, shelf, 178, 120).guides.length > 0, "moving a shelf near another shelf should expose snap guides");
 state.layoutAnchors.push({ id: state.nextLayoutAnchorId, boardId: shelf.id, axis: "x", offset: shelf.w / 2 });
 state.nextLayoutAnchorId += 1;
-const divider: Board = { id: 6, name: "Divider preview", x: 400, y: 138, w: state.thickness, h: 524, kind: "upright", autoThickness: "width", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 };
+const divider: Board = { id: 6, name: "Divider preview", x: 400, y: 138, w: state.thickness, h: 524, kind: "upright", autoThickness: "width", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 };
 const anchorX = shelf.x + shelf.w / 2;
 const dividerSnap = snapBoard(state, divider, anchorX - divider.w / 2 + 6, divider.y);
 assert(dividerSnap.x === anchorX - divider.w / 2, "upright divider center should snap to a shelf layout anchor");
@@ -136,12 +139,12 @@ const afterA = resolveMeasurementAnchor(state, heightA);
 const afterB = resolveMeasurementAnchor(state, heightB);
 assert(afterA && afterB && Math.abs(afterB.y - afterA.y) === 610, "edge-anchored measurement should update after resize");
 
-state.boards.push({ id: 6, name: "Back", x: 160, y: 120, w: 820, h: 560, kind: "back", autoThickness: "none", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+state.boards.push({ id: 6, name: "Back", x: 160, y: 120, w: 820, h: 560, kind: "back", autoThickness: "none", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 });
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "back panel should not create structural overlap warnings");
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "back panel should not block selecting foreground shelf");
 
-state.boards.push({ id: 7, name: "Front", x: 160, y: 120, w: 820, h: 560, kind: "front", autoThickness: "none", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+state.boards.push({ id: 7, name: "Front", x: 160, y: 120, w: 820, h: 560, kind: "front", autoThickness: "none", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 });
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "front panel should not create structural overlap warnings");
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Front", "visible front panel should capture clicks above structural boards");
@@ -149,7 +152,7 @@ state.showFrontPanels = false;
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "disabled front panels should not capture clicks");
 state.showFrontPanels = true;
 
-state.boards.push({ id: 8, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: { left: false, right: false, front: false, back: false }, ignoreInOrder: false, group: 0 });
+state.boards.push({ id: 8, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 });
 assert(computeOverlaps(state.boards).length > 0, "real overlapping shelves should create overlap feedback");
 
 console.log("geometry smoke checks passed");

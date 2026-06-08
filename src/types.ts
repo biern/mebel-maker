@@ -31,6 +31,8 @@ export interface Material {
 export interface LaminateEdges {
   left: boolean;
   right: boolean;
+  top: boolean;
+  bottom: boolean;
   front: boolean;
   back: boolean;
 }

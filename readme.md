@@ -63,7 +63,7 @@ Boards carry ordering details, not just drawing geometry:
 - Add custom materials with a name and color.
 - Use global thickness and depth defaults for fast setup.
 - Override depth per board when one piece needs different ordering depth.
-- Mark laminate edges individually: left, right, front, and back.
+- Mark laminate edges individually: left, right, top, bottom, front, and back.
 - Exclude specific boards from the wood order when needed.
 
 ## 📦 Wood Order Output
