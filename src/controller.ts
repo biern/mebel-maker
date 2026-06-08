@@ -249,18 +249,39 @@ function t(id: string, values?: Record<string, string | number | boolean | Date 
 
 function defaultMaterials(): Material[] {
   return [
-    { id: "birch-plywood", name: t("materials.birchPlywood"), color: "#d9b77e" },
-    { id: "oak", name: t("materials.oak"), color: "#c99756" },
-    { id: "walnut", name: t("materials.walnut"), color: "#7a4f34" },
-    { id: "pine", name: t("materials.pine"), color: "#e1c889" },
-    { id: "white-melamine", name: t("materials.whiteMelamine"), color: "#f5f3ec" },
-    { id: "black", name: t("materials.black"), color: "#252525" },
-    { id: "white", name: t("materials.white"), color: "#ffffff" },
-    { id: "gray", name: t("materials.gray"), color: "#9aa0a6" },
-    { id: "red", name: t("materials.red"), color: "#b8483b" },
-    { id: "blue", name: t("materials.blue"), color: "#3f75a3" },
-    { id: "green", name: t("materials.green"), color: "#538052" }
+    { id: "birch-plywood", name: defaultMaterialName("birch-plywood"), color: "#d9b77e" },
+    { id: "oak", name: defaultMaterialName("oak"), color: "#c99756" },
+    { id: "walnut", name: defaultMaterialName("walnut"), color: "#7a4f34" },
+    { id: "pine", name: defaultMaterialName("pine"), color: "#e1c889" },
+    { id: "white-melamine", name: defaultMaterialName("white-melamine"), color: "#f5f3ec" },
+    { id: "black", name: defaultMaterialName("black"), color: "#252525" },
+    { id: "white", name: defaultMaterialName("white"), color: "#ffffff" },
+    { id: "gray", name: defaultMaterialName("gray"), color: "#9aa0a6" },
+    { id: "red", name: defaultMaterialName("red"), color: "#b8483b" },
+    { id: "blue", name: defaultMaterialName("blue"), color: "#3f75a3" },
+    { id: "green", name: defaultMaterialName("green"), color: "#538052" }
   ];
+}
+
+function defaultMaterialName(materialId: string): string {
+  const names: Record<string, string> = {
+    "birch-plywood": t("materials.birchPlywood"),
+    oak: t("materials.oak"),
+    walnut: t("materials.walnut"),
+    pine: t("materials.pine"),
+    "white-melamine": t("materials.whiteMelamine"),
+    black: t("materials.black"),
+    white: t("materials.white"),
+    gray: t("materials.gray"),
+    red: t("materials.red"),
+    blue: t("materials.blue"),
+    green: t("materials.green")
+  };
+  return names[materialId] ?? "";
+}
+
+function displayMaterialName(material: Material): string {
+  return defaultMaterialName(material.id) || material.name;
 }
 
 function normalizedMaterials(materials?: Material[]): Material[] {
@@ -454,7 +475,8 @@ function escapeHtml(value: string): string {
 }
 
 function materialName(materialId: string): string {
-  return state.materials.find((material) => material.id === materialId)?.name ?? t("inspector.unknownMaterial");
+  const material = state.materials.find((item) => item.id === materialId);
+  return material ? displayMaterialName(material) : t("inspector.unknownMaterial");
 }
 
 function materialColor(materialId: string): string {
@@ -1169,7 +1191,7 @@ function closeMaterialSelect(): void {
 
 function syncMaterialSelect(): void {
   const material = ui.materialInput.value ? materialById(ui.materialInput.value) : null;
-  ui.materialSelectText.textContent = material ? `${material.name} (${material.color.toUpperCase()})` : t("inspector.mixedMaterials");
+  ui.materialSelectText.textContent = material ? `${displayMaterialName(material)} (${material.color.toUpperCase()})` : t("inspector.mixedMaterials");
   ui.materialSelectSwatch.style.background = material ? material.color : "linear-gradient(135deg, #d9b77e 0 50%, #7a4f34 50% 100%)";
   ui.materialSelectSwatch.classList.toggle("mixed", !material);
   ui.materialSelectList.querySelectorAll<HTMLElement>("[data-material-id]").forEach((option) => {
@@ -1206,7 +1228,7 @@ function renderMaterials(): void {
   ui.materialInput.innerHTML = `
     <option value="">${escapeHtml(t("inspector.mixedMaterials"))}</option>
   ` + state.materials.map((material) => `
-    <option value="${escapeHtml(material.id)}">${escapeHtml(material.name)} (${escapeHtml(material.color.toUpperCase())})</option>
+    <option value="${escapeHtml(material.id)}">${escapeHtml(displayMaterialName(material))} (${escapeHtml(material.color.toUpperCase())})</option>
   `).join("");
 
   ui.materialSelectList.innerHTML = state.materials.map((material) => `
@@ -1215,12 +1237,12 @@ function renderMaterials(): void {
       type="button"
       role="option"
       data-material-id="${escapeHtml(material.id)}"
-      title="${escapeHtml(material.name)} ${escapeHtml(material.color.toUpperCase())}"
+      title="${escapeHtml(displayMaterialName(material))} ${escapeHtml(material.color.toUpperCase())}"
       aria-selected="false"
     >
       <span class="material-select-swatch" style="background: ${material.color}"></span>
       <span class="material-select-option-copy">
-        <strong>${escapeHtml(material.name)}</strong>
+        <strong>${escapeHtml(displayMaterialName(material))}</strong>
         <small>${escapeHtml(material.color.toUpperCase())}</small>
       </span>
     </button>
@@ -1229,7 +1251,7 @@ function renderMaterials(): void {
   ui.materialList.innerHTML = state.materials.map((material) => `
     <div class="material-card">
       <span class="material-swatch" style="background: ${material.color}"></span>
-      <strong>${escapeHtml(material.name)}</strong>
+      <strong>${escapeHtml(displayMaterialName(material))}</strong>
     </div>
   `).join("");
   syncMaterialSelect();
