@@ -13,9 +13,14 @@ import {
   selectedBoards,
   worldToScreen
 } from "./geometry";
+import { translate } from "./i18n";
 import type { Board, Material, MeasurementAxis, Point, SketchState } from "./types";
 
 const colors = ["#5c8d89", "#d19041", "#725d9f", "#538052", "#bb5d50", "#3f75a3"];
+
+function t(id: string): string {
+  return translate(id);
+}
 
 export class SketchRenderer {
   private readonly ctx: CanvasRenderingContext2D;
@@ -358,13 +363,13 @@ export class SketchRenderer {
     const bounds = boundsFor(boards);
     if (!bounds) return;
 
-    this.drawDimensionLine(bounds.left, bounds.top, bounds.right, bounds.top, `Outer ${mm(bounds.w)}`, -28, "#255e55");
-    this.drawDimensionLine(bounds.right, bounds.top, bounds.right, bounds.bottom, `Outer ${mm(bounds.h)}`, 30, "#255e55");
+    this.drawDimensionLine(bounds.left, bounds.top, bounds.right, bounds.top, `${t("metrics.outer")} ${mm(bounds.w)}`, -28, "#255e55");
+    this.drawDimensionLine(bounds.right, bounds.top, bounds.right, bounds.bottom, `${t("metrics.outer")} ${mm(bounds.h)}`, 30, "#255e55");
 
     const inner = innerDimensions(boards, this.state.thickness);
     if (inner?.hasFrame) {
-      this.drawDimensionLine(bounds.left + this.state.thickness, bounds.bottom, bounds.right - this.state.thickness, bounds.bottom, `Inner ${mm(inner.innerW)}`, 28, "#a45f1b");
-      this.drawDimensionLine(bounds.left, bounds.top + this.state.thickness, bounds.left, bounds.bottom - this.state.thickness, `Inner ${mm(inner.innerH)}`, -30, "#a45f1b");
+      this.drawDimensionLine(bounds.left + this.state.thickness, bounds.bottom, bounds.right - this.state.thickness, bounds.bottom, `${t("metrics.inner")} ${mm(inner.innerW)}`, 28, "#a45f1b");
+      this.drawDimensionLine(bounds.left, bounds.top + this.state.thickness, bounds.left, bounds.bottom - this.state.thickness, `${t("metrics.inner")} ${mm(inner.innerH)}`, -30, "#a45f1b");
     }
 
     if (selected && selectedSet.length <= 1) {
