@@ -1,61 +1,65 @@
-<aside class="sidebar left-panel" aria-label="Drawing tools">
+<script lang="ts">
+  import { _ } from "svelte-i18n";
+</script>
+
+<aside class="sidebar left-panel" aria-label={$_("panels.drawingTools")}>
   <div class="brand">
     <div class="mark">MB</div>
     <div>
-      <h1>Mebel Maker</h1>
-      <p>2D furniture sketching</p>
+      <h1>{$_("app.name")}</h1>
+      <p>{$_("app.tagline")}</p>
     </div>
   </div>
 
   <label class="project-name-field">
-    <span>Project name</span>
-    <input id="projectNameInput" type="text" maxlength="80" placeholder="Untitled project" autocomplete="off">
+    <span>{$_("panels.projectName")}</span>
+    <input id="projectNameInput" type="text" maxlength="80" placeholder={$_("panels.projectNamePlaceholder")} autocomplete="off">
   </label>
 
   <section class="tool-section">
-    <h2>Pieces</h2>
+    <h2>{$_("panels.pieces")}</h2>
     <div class="preset-list" id="presetList">
-      <button class="preset-card" draggable="true" data-preset="side" title="Side panel">
+      <button class="preset-card" draggable="true" data-preset="side" title={$_("pieces.sidePanel")}>
         <span class="piece-preview vertical"></span>
-        <span>Side</span>
+        <span>{$_("pieces.side")}</span>
       </button>
-      <button class="preset-card" draggable="true" data-preset="shelf" title="Shelf board">
+      <button class="preset-card" draggable="true" data-preset="shelf" title={$_("pieces.shelfBoard")}>
         <span class="piece-preview horizontal"></span>
-        <span>Shelf</span>
+        <span>{$_("pieces.shelf")}</span>
       </button>
-      <button class="preset-card" draggable="true" data-preset="divider" title="Vertical divider">
+      <button class="preset-card" draggable="true" data-preset="divider" title={$_("pieces.verticalDivider")}>
         <span class="piece-preview vertical slim"></span>
-        <span>Divider</span>
+        <span>{$_("pieces.divider")}</span>
       </button>
-      <button class="preset-card" draggable="true" data-preset="back" title="Back panel">
+      <button class="preset-card" draggable="true" data-preset="back" title={$_("pieces.backPanel")}>
         <span class="piece-preview panel"></span>
-        <span>Back</span>
+        <span>{$_("pieces.back")}</span>
       </button>
-      <button class="preset-card" draggable="true" data-preset="front" title="Front panel">
+      <button class="preset-card" draggable="true" data-preset="front" title={$_("pieces.frontPanel")}>
         <span class="piece-preview panel front"></span>
-        <span>Front</span>
+        <span>{$_("pieces.front")}</span>
       </button>
     </div>
   </section>
 
   <section class="tool-section">
-    <h2>Settings</h2>
+    <h2>{$_("panels.settings")}</h2>
     <label class="field">
-      <span>Wood thickness</span>
+      <span>{$_("settings.woodThickness")}</span>
       <div class="input-row">
         <input id="thicknessInput" type="number" min="3" max="80" step="1">
         <span>mm</span>
       </div>
     </label>
     <label class="field">
-      <span>Default depth</span>
+      <span>{$_("settings.defaultDepth")}</span>
       <div class="input-row">
         <input id="depthInput" type="number" min="1" max="2000" step="1">
         <span>mm</span>
       </div>
     </label>
     <label class="field">
-      <span>Snap step</span>
+      <span>{$_("settings.snapStep")}</span>
       <div class="input-row">
         <input id="gridInput" type="number" min="1" max="100" step="1">
         <span>mm</span>
@@ -63,35 +67,35 @@
     </label>
     <label class="toggle-row">
       <input id="snapToggle" type="checkbox" checked>
-      <span>Snap to grid, edges, and alignment</span>
+      <span>{$_("settings.snapToGrid")}</span>
     </label>
     <label class="toggle-row">
       <input id="dimToggle" type="checkbox" checked>
-      <span>Show dimension hints</span>
+      <span>{$_("settings.showDimensionHints")}</span>
     </label>
   </section>
 
   <section class="tool-section">
-    <h2>Layers</h2>
+    <h2>{$_("panels.layers")}</h2>
     <label class="toggle-row">
       <input id="frontLayerToggle" type="checkbox" checked>
-      <span>Show front panels</span>
+      <span>{$_("settings.showFrontPanels")}</span>
     </label>
   </section>
 
   <details class="tool-section collapsible-section" open>
-    <summary>Materials</summary>
+    <summary>{$_("panels.materials")}</summary>
     <form class="material-form" id="materialForm">
       <label class="field">
-        <span>Name</span>
-        <input id="materialNameInput" type="text" autocomplete="off" placeholder="Custom material">
+        <span>{$_("inspector.name")}</span>
+        <input id="materialNameInput" type="text" autocomplete="off" placeholder={$_("panels.materialNamePlaceholder")}>
       </label>
       <div class="material-input-row">
         <label class="field">
-          <span>Color</span>
+          <span>{$_("inspector.color")}</span>
           <input id="materialColorInput" type="color" value="#c99756">
         </label>
-        <button id="addMaterialBtn" class="tool-button" type="submit" title="Add custom material">＋ Add</button>
+        <button id="addMaterialBtn" class="tool-button" type="submit" title={$_("panels.materialNamePlaceholder")}>＋ {$_("common.add")}</button>
       </div>
     </form>
     <div class="material-list" id="materialList"></div>

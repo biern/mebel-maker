@@ -1,5 +1,6 @@
 import { SketchRenderer } from "./renderer";
 import { Visualization3DRenderer } from "./visualization3d";
+import { translate } from "./i18n";
 import complexTemplateSource from "../templates/complex.mebel?raw";
 import {
   boardLabel,
@@ -164,7 +165,7 @@ const state: SketchState = {
   tool: "select",
   pendingMeasurementAnchor: null,
   previewMeasurementAnchor: null,
-  lastSnap: "Ready"
+  lastSnap: t("common.ready")
 };
 
 const renderer = new SketchRenderer(canvas, state);
@@ -227,11 +228,11 @@ interface PiecePreset {
 type TemplateId = "cabinet" | "bookcase" | "base-cabinet" | "wall-cabinet" | "simple-box" | "complex";
 
 const presets: Record<string, PiecePreset> = {
-  side: { name: "Side", kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 },
-  shelf: { name: "Shelf", kind: "shelf", autoThickness: "height", w: () => 820 - state.thickness * 2, h: () => state.thickness },
-  divider: { name: "Divider", kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 - state.thickness * 2 },
-  back: { name: "Back", kind: "back", autoThickness: "none", w: () => 820, h: () => 560 },
-  front: { name: "Front", kind: "front", autoThickness: "none", w: () => 820, h: () => 560 }
+  side: { name: t("pieces.side"), kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 },
+  shelf: { name: t("pieces.shelf"), kind: "shelf", autoThickness: "height", w: () => 820 - state.thickness * 2, h: () => state.thickness },
+  divider: { name: t("pieces.divider"), kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 - state.thickness * 2 },
+  back: { name: t("pieces.back"), kind: "back", autoThickness: "none", w: () => 820, h: () => 560 },
+  front: { name: t("pieces.front"), kind: "front", autoThickness: "none", w: () => 820, h: () => 560 }
 };
 
 const defaultMaterialId = "birch-plywood";
@@ -242,19 +243,23 @@ function query<T extends Element>(selector: string): T {
   return element;
 }
 
+function t(id: string, values?: Record<string, string | number | boolean | Date | null | undefined>): string {
+  return translate(id, values ? { values } : undefined);
+}
+
 function defaultMaterials(): Material[] {
   return [
-    { id: "birch-plywood", name: "Birch plywood", color: "#d9b77e" },
-    { id: "oak", name: "Oak", color: "#c99756" },
-    { id: "walnut", name: "Walnut", color: "#7a4f34" },
-    { id: "pine", name: "Pine", color: "#e1c889" },
-    { id: "white-melamine", name: "White melamine", color: "#f5f3ec" },
-    { id: "black", name: "Black", color: "#252525" },
-    { id: "white", name: "White", color: "#ffffff" },
-    { id: "gray", name: "Gray", color: "#9aa0a6" },
-    { id: "red", name: "Red", color: "#b8483b" },
-    { id: "blue", name: "Blue", color: "#3f75a3" },
-    { id: "green", name: "Green", color: "#538052" }
+    { id: "birch-plywood", name: t("materials.birchPlywood"), color: "#d9b77e" },
+    { id: "oak", name: t("materials.oak"), color: "#c99756" },
+    { id: "walnut", name: t("materials.walnut"), color: "#7a4f34" },
+    { id: "pine", name: t("materials.pine"), color: "#e1c889" },
+    { id: "white-melamine", name: t("materials.whiteMelamine"), color: "#f5f3ec" },
+    { id: "black", name: t("materials.black"), color: "#252525" },
+    { id: "white", name: t("materials.white"), color: "#ffffff" },
+    { id: "gray", name: t("materials.gray"), color: "#9aa0a6" },
+    { id: "red", name: t("materials.red"), color: "#b8483b" },
+    { id: "blue", name: t("materials.blue"), color: "#3f75a3" },
+    { id: "green", name: t("materials.green"), color: "#538052" }
   ];
 }
 
@@ -409,7 +414,7 @@ function laminateKey(laminate: LaminateEdges): string {
 function laminateLabel(laminate: LaminateEdges): string {
   const edges = ["left", "right", "front", "back"]
     .filter((edge) => laminate[edge as keyof LaminateEdges]);
-  return edges.length ? edges.join(", ") : "none";
+  return edges.length ? edges.map((edge) => edgeLabel(edge as BoardEdge | "front" | "back")).join(", ") : t("metrics.none");
 }
 
 function laminateLengthLabel(board: Board): string {
@@ -422,8 +427,20 @@ function laminateLengthLabel(board: Board): string {
   const shortest = Math.min(board.w, board.h);
   const labels = edgeLengths
     .filter(([edge]) => board.laminate[edge])
-    .map(([, length]) => length === shortest ? "short" : "long");
-  return labels.length ? labels.join(",") : "none";
+    .map(([, length]) => length === shortest ? t("metrics.short") : t("metrics.long"));
+  return labels.length ? labels.join(",") : t("metrics.none");
+}
+
+function edgeLabel(edge: BoardEdge | "front" | "back"): string {
+  const labels: Record<BoardEdge | "front" | "back", string> = {
+    left: t("inspector.left"),
+    right: t("inspector.right"),
+    top: t("inspector.top"),
+    bottom: t("inspector.bottom"),
+    front: t("inspector.front"),
+    back: t("inspector.back")
+  };
+  return labels[edge];
 }
 
 function escapeHtml(value: string): string {
@@ -437,7 +454,7 @@ function escapeHtml(value: string): string {
 }
 
 function materialName(materialId: string): string {
-  return state.materials.find((material) => material.id === materialId)?.name ?? "Unknown material";
+  return state.materials.find((material) => material.id === materialId)?.name ?? t("inspector.unknownMaterial");
 }
 
 function materialColor(materialId: string): string {
@@ -622,12 +639,12 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
 
 function templateLabel(templateId: TemplateId): string {
   const labels: Record<TemplateId, string> = {
-    cabinet: "Cabinet",
-    bookcase: "Bookcase",
-    "base-cabinet": "Base cabinet",
-    "wall-cabinet": "Wall cabinet",
-    "simple-box": "Simple box",
-    complex: "Complex"
+    cabinet: t("templates.cabinet"),
+    bookcase: t("templates.bookcase"),
+    "base-cabinet": t("templates.baseCabinet"),
+    "wall-cabinet": t("templates.wallCabinet"),
+    "simple-box": t("templates.simpleBox"),
+    complex: t("templates.complex")
   };
   return labels[templateId];
 }
@@ -635,13 +652,13 @@ function templateLabel(templateId: TemplateId): string {
 function createProjectFileTemplate(source: string, label: string, recordHistory: boolean): void {
   try {
     const project = JSON.parse(source) as SavedProject;
-    if (!isSupportedProject(project)) throw new Error("Unsupported template file");
+    if (!isSupportedProject(project)) throw new Error(t("status.unsupportedTemplateFile"));
     applyProject({ ...project, projectName: label }, recordHistory);
     state.lastSnap = label;
     fitToView();
   } catch {
-    state.lastSnap = "Could not create template";
-    notify("Could not create template");
+    state.lastSnap = t("status.couldNotCreateTemplate");
+    notify(t("status.couldNotCreateTemplate"));
     updateInspector();
   }
 }
@@ -672,20 +689,20 @@ function createBlankProject(recordHistory = true): void {
   state.gridOriginX = 0;
   state.gridOriginY = 0;
   setOriginBottomLeftView();
-  state.lastSnap = recordHistory ? "New project" : "Ready";
+  state.lastSnap = recordHistory ? t("status.newProject") : t("common.ready");
   refresh();
 }
 
 function newProjectWithConfirmation(): void {
   const hasProjectContent = Boolean(state.projectName) || state.boards.length > 0 || state.measurements.length > 0;
   if (!hasProjectContent) {
-    state.lastSnap = "Ready for a new project";
+    state.lastSnap = t("status.readyForNewProject");
     updateInspector();
     return;
   }
-  if (!window.confirm("Start a new project? This removes the current project name, pieces, measurements, and anchors.")) return;
+  if (!window.confirm(t("dialogs.newProjectConfirm"))) return;
   createBlankProject();
-  notify("New project ready");
+  notify(t("status.newProjectReady"));
 }
 
 function refresh(): void {
@@ -707,8 +724,8 @@ function renderRightPanelMode(): void {
   ui.woodOrderPanel.hidden = !woodOrderOpen;
   ui.woodOrderToggleBtn.classList.toggle("active", woodOrderOpen);
   ui.woodOrderToggleBtn.setAttribute("aria-pressed", String(woodOrderOpen));
-  ui.woodOrderToggleBtn.title = woodOrderOpen ? "Hide wood order list" : "Show wood order list";
-  ui.woodOrderToggleBtn.setAttribute("aria-label", woodOrderOpen ? "Hide wood order list" : "Show wood order list");
+  ui.woodOrderToggleBtn.title = woodOrderOpen ? t("workspace.hideWoodOrder") : t("workspace.showWoodOrder");
+  ui.woodOrderToggleBtn.setAttribute("aria-label", woodOrderOpen ? t("workspace.hideWoodOrder") : t("workspace.showWoodOrder"));
 }
 
 function renderTemplateChooser(): void {
@@ -737,7 +754,7 @@ function setActiveView(view: "sketch" | "3d"): void {
   ui.canvasWrap.dataset.view = view;
   ui.view3dBtn.classList.toggle("active", view === "3d");
   ui.view3dBtn.setAttribute("aria-pressed", String(view === "3d"));
-  state.lastSnap = view === "3d" ? "3D view" : "Sketch view";
+  state.lastSnap = view === "3d" ? t("status.view3d") : t("status.sketchView");
   window.requestAnimationFrame(() => {
     resizeActiveView();
     updateInspector();
@@ -757,26 +774,26 @@ function remember(): void {
 function undo(): void {
   const previous = undoStack.pop();
   if (!previous) {
-    state.lastSnap = "Nothing to undo";
+    state.lastSnap = t("status.nothingToUndo");
     updateInspector();
     return;
   }
   redoStack.push(serializeProject());
   applyProject(previous, false);
-  state.lastSnap = "Undone";
+  state.lastSnap = t("status.undone");
   updateInspector();
 }
 
 function redo(): void {
   const next = redoStack.pop();
   if (!next) {
-    state.lastSnap = "Nothing to redo";
+    state.lastSnap = t("status.nothingToRedo");
     updateInspector();
     return;
   }
   undoStack.push(serializeProject());
   applyProject(next, false);
-  state.lastSnap = "Redone";
+  state.lastSnap = t("status.redone");
   updateInspector();
 }
 
@@ -875,11 +892,11 @@ function loadAutosavedProject(): boolean {
     const project = JSON.parse(raw) as SavedProject;
     if (!isSupportedProject(project)) throw new Error("Unsupported project file");
     applyProject(project, false);
-    state.lastSnap = "Restored autosave";
+    state.lastSnap = t("status.restoredAutosave");
     updateInspector();
     return true;
   } catch {
-    state.lastSnap = "Could not restore autosave";
+    state.lastSnap = t("status.couldNotRestoreAutosave");
     updateInspector();
     return false;
   }
@@ -889,7 +906,7 @@ function loadInitialProject(): void {
   const hotProject = import.meta.hot?.data.project as SavedProject | undefined;
   if (hotProject && isSupportedProject(hotProject)) {
     applyProject(hotProject, false);
-    state.lastSnap = "Restored hot reload";
+    state.lastSnap = t("status.restoredHotReload");
     updateInspector();
     return;
   }
@@ -900,8 +917,8 @@ function loadInitialProject(): void {
 function exportProjectFile(): void {
   const json = JSON.stringify(serializeProject(), null, 2);
   downloadTextFile(json, "application/json", `${projectFilenameBase()}-${filenameTimestamp()}.mebel`);
-  state.lastSnap = "Project exported";
-  notify("Saved .mebel project");
+  state.lastSnap = t("status.projectExported");
+  notify(t("status.savedProject"));
   updateInspector();
 }
 
@@ -938,7 +955,7 @@ function downloadTextFile(content: string, type: string, filename: string): void
 function openProjectFilePicker(): void {
   ui.projectFileInput.value = "";
   ui.projectFileInput.click();
-  notify("Choose a .mebel project file");
+  notify(t("status.chooseProjectFile"));
 }
 
 function importProjectFile(file: File): void {
@@ -948,18 +965,18 @@ function importProjectFile(file: File): void {
       const project = JSON.parse(String(reader.result ?? "")) as SavedProject;
       if (!isSupportedProject(project)) throw new Error("Unsupported project file");
       applyProject(project);
-      state.lastSnap = "Project imported";
-      notify("Loaded project");
+      state.lastSnap = t("status.projectImported");
+      notify(t("status.loadedProject"));
       updateInspector();
     } catch {
-      state.lastSnap = "Could not import project";
-      notify("Could not load project");
+      state.lastSnap = t("status.couldNotImportProject");
+      notify(t("status.couldNotLoadProject"));
       updateInspector();
     }
   });
   reader.addEventListener("error", () => {
-    state.lastSnap = "Could not read file";
-    notify("Could not read file");
+    state.lastSnap = t("status.couldNotReadFile");
+    notify(t("status.couldNotReadFile"));
     updateInspector();
   });
   reader.readAsText(file);
@@ -1004,8 +1021,8 @@ function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
 
 function updateLayoutAnchorAxisLabels(): void {
   const axis = selectedLayoutAnchorAxis();
-  ui.layoutAnchorStartLabel.textContent = axis === "x" ? "Left edge" : "Top edge";
-  ui.layoutAnchorEndLabel.textContent = axis === "x" ? "Right edge" : "Bottom edge";
+  ui.layoutAnchorStartLabel.textContent = axis === "x" ? t("inspector.leftEdge") : t("inspector.topEdge");
+  ui.layoutAnchorEndLabel.textContent = axis === "x" ? t("inspector.rightEdge") : t("inspector.bottomEdge");
 }
 
 function updateLayoutBalanceControls(): void {
@@ -1015,7 +1032,7 @@ function updateLayoutBalanceControls(): void {
   ui.layoutAnchorThicknessInput.disabled = disabled;
 }
 
-function setInputValue(input: HTMLInputElement, value: string | null, placeholder = "Mixed"): void {
+function setInputValue(input: HTMLInputElement, value: string | null, placeholder = t("common.mixed")): void {
   input.value = value ?? "";
   input.placeholder = value === null ? placeholder : "";
 }
@@ -1051,8 +1068,8 @@ function updateInspector(): void {
   ui.emptySelection.hidden = hasSelection;
   ui.inspector.hidden = !hasSelection;
   ui.selectionStatus.textContent = multi && selectionBounds
-    ? `${boards.length} boards selected · ${mm(selectionBounds.w)} × ${mm(selectionBounds.h)}`
-    : board ? boardLabel(board) : measure ? `Measure ${measure.name}` : "No board selected";
+    ? `${t("status.boardsSelected", { count: boards.length })} · ${mm(selectionBounds.w)} × ${mm(selectionBounds.h)}`
+    : board ? boardLabel(board) : measure ? `${t("workspace.measureName")} ${measure.name}` : t("workspace.noBoardSelected");
   ui.snapStatus.textContent = state.lastSnap;
   updateViewportOverlay();
   ui.measureModeBtn.classList.toggle("active", state.tool === "measure");
@@ -1060,8 +1077,8 @@ function updateInspector(): void {
   ui.redoBtn.disabled = !redoStack.length;
   setSelectionButtonsDisabled(!hasSelection);
   ui.deleteBtn.disabled = !hasSelection && !measure;
-  ui.deleteBtn.title = measure ? "Delete selected measurement" : "Delete selected boards";
-  ui.deleteBtn.setAttribute("aria-label", measure ? "Delete selected measurement" : "Delete selected boards");
+  ui.deleteBtn.title = measure ? t("workspace.deleteSelectedMeasurement") : t("workspace.deleteSelectedBoards");
+  ui.deleteBtn.setAttribute("aria-label", measure ? t("workspace.deleteSelectedMeasurement") : t("workspace.deleteSelectedBoards"));
   canvas.classList.toggle("measure-mode", state.tool === "measure");
   if (state.tool === "measure") canvas.style.cursor = "";
   ui.wInput.disabled = false;
@@ -1072,7 +1089,7 @@ function updateInspector(): void {
   ui.layoutAnchorBalanceInput.disabled = !board || multi;
   ui.layoutAnchorApplyBtn.disabled = !board || multi;
   ui.layoutAnchorClearBtn.disabled = !board || multi || layoutAnchorsForBoard(board.id).length === 0;
-  if (!board || multi) ui.layoutAnchorSummary.textContent = "No layout anchors";
+  if (!board || multi) ui.layoutAnchorSummary.textContent = t("inspector.noLayoutAnchors");
   ui.materialLabelSwatch.style.background = board && !multi ? materialColor(board.materialId) : "transparent";
   if (!hasSelection) {
     updateLayoutBalanceControls();
@@ -1081,7 +1098,7 @@ function updateInspector(): void {
 
   if (multi) {
     ui.nameInput.disabled = true;
-    setInputValue(ui.nameInput, null, `${boards.length} boards`);
+    setInputValue(ui.nameInput, null, t("status.boardsSelected", { count: boards.length }));
     setInputValue(ui.xInput, selectionBounds ? String(Math.round(selectionBounds.left)) : null);
     setInputValue(ui.yInput, selectionBounds ? String(Math.round(displayY(selectionBounds.top))) : null);
     setInputValue(ui.wInput, null);
@@ -1097,8 +1114,8 @@ function updateInspector(): void {
     ui.yInput.value = String(Math.round(displayY(board.y)));
     ui.wInput.value = String(Math.round(board.w));
     ui.hInput.value = String(Math.round(board.h));
-    ui.wInput.placeholder = board.autoThickness === "width" && board.thicknessOverride === null ? "Global" : "";
-    ui.hInput.placeholder = board.autoThickness === "height" && board.thicknessOverride === null ? "Global" : "";
+    ui.wInput.placeholder = board.autoThickness === "width" && board.thicknessOverride === null ? t("common.global") : "";
+    ui.hInput.placeholder = board.autoThickness === "height" && board.thicknessOverride === null ? t("common.global") : "";
     if (board.autoThickness === "width" && board.thicknessOverride === null) ui.wInput.value = "";
     if (board.autoThickness === "height" && board.thicknessOverride === null) ui.hInput.value = "";
     ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
@@ -1109,7 +1126,7 @@ function updateInspector(): void {
     if (!ui.layoutAnchorThicknessInput.value) ui.layoutAnchorThicknessInput.value = String(state.thickness);
     ui.layoutAnchorSummary.textContent = anchors.length
       ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
-      : "No layout anchors";
+      : t("inspector.noLayoutAnchors");
     ui.wInput.disabled = false;
     ui.hInput.disabled = false;
   }
@@ -1118,7 +1135,7 @@ function updateInspector(): void {
   const depthOverride = commonValue(boards, (item) => item.depthOverride === null ? "" : String(item.depthOverride));
   ui.materialInput.value = materialId ?? "";
   syncMaterialSelect();
-  setInputValue(ui.depthOverrideInput, depthOverride, "Mixed");
+  setInputValue(ui.depthOverrideInput, depthOverride, t("common.mixed"));
   ui.materialLabelSwatch.style.background = materialId ? materialColor(materialId) : "transparent";
   setCheckboxValue(ui.laminateLeftInput, commonValue(boards, (item) => String(item.laminate.left)) === null ? null : boards[0].laminate.left);
   setCheckboxValue(ui.laminateRightInput, commonValue(boards, (item) => String(item.laminate.right)) === null ? null : boards[0].laminate.right);
@@ -1133,7 +1150,7 @@ function updateViewportOverlay(): void {
   const scalePx = Math.max(28, Math.min(90, scaleLength * state.scale));
   ui.overlayScaleBar.style.setProperty("--scale-width", `${scalePx}px`);
   ui.overlayScaleLabel.textContent = mm(scaleLength);
-  ui.overlayZoomLabel.textContent = `Zoom ${Math.round(state.scale * 100)}%`;
+  ui.overlayZoomLabel.textContent = t("workspace.zoom", { percent: Math.round(state.scale * 100) });
 }
 
 function niceScaleLength(targetMm: number): number {
@@ -1152,7 +1169,7 @@ function closeMaterialSelect(): void {
 
 function syncMaterialSelect(): void {
   const material = ui.materialInput.value ? materialById(ui.materialInput.value) : null;
-  ui.materialSelectText.textContent = material ? `${material.name} (${material.color.toUpperCase()})` : "Mixed materials";
+  ui.materialSelectText.textContent = material ? `${material.name} (${material.color.toUpperCase()})` : t("inspector.mixedMaterials");
   ui.materialSelectSwatch.style.background = material ? material.color : "linear-gradient(135deg, #d9b77e 0 50%, #7a4f34 50% 100%)";
   ui.materialSelectSwatch.classList.toggle("mixed", !material);
   ui.materialSelectList.querySelectorAll<HTMLElement>("[data-material-id]").forEach((option) => {
@@ -1171,7 +1188,7 @@ function toggleMaterialSelect(): void {
 
 function setWoodOrderOpen(open: boolean): void {
   woodOrderOpen = open;
-  state.lastSnap = open ? "Wood order" : "Properties";
+  state.lastSnap = open ? t("status.woodOrder") : t("status.properties");
   renderRightPanelMode();
   updateInspector();
 }
@@ -1181,13 +1198,13 @@ function selectBoardFromOrder(boardId: number): void {
   if (!board) return;
   setSelection([board.id], board.id);
   state.tool = "select";
-  state.lastSnap = `${board.name} selected`;
+  state.lastSnap = t("status.selected", { name: board.name });
   refresh();
 }
 
 function renderMaterials(): void {
   ui.materialInput.innerHTML = `
-    <option value="">Mixed materials</option>
+    <option value="">${escapeHtml(t("inspector.mixedMaterials"))}</option>
   ` + state.materials.map((material) => `
     <option value="${escapeHtml(material.id)}">${escapeHtml(material.name)} (${escapeHtml(material.color.toUpperCase())})</option>
   `).join("");
@@ -1229,17 +1246,17 @@ function renderMeasurements(): void {
   if (selectedSet.length > 1 && bounds) {
     cards.push(`
       <div class="metric-card">
-        <strong>${selectedSet.length} selected boards</strong>
-        <span>Selection: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
-        <span>Position: X ${mm(bounds.left)}, Y ${mm(bounds.top)}</span>
+        <strong>${t("status.boardsSelected", { count: selectedSet.length })}</strong>
+        <span>${t("metrics.selection")}: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
+        <span>${t("metrics.position")}: X ${mm(bounds.left)}, Y ${mm(bounds.top)}</span>
       </div>
     `);
   } else if (selected) {
     cards.push(`
       <div class="metric-card">
         <strong>${selected.name}</strong>
-        <span>Board: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected, state.depth))}</span>
-        <span>Position: X ${mm(selected.x)}, Y ${mm(displayY(selected.y))}</span>
+        <span>${t("metrics.board")}: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected, state.depth))}</span>
+        <span>${t("metrics.position")}: X ${mm(selected.x)}, Y ${mm(displayY(selected.y))}</span>
       </div>
     `);
   }
@@ -1247,22 +1264,22 @@ function renderMeasurements(): void {
   if (bounds) {
     cards.push(`
       <div class="metric-card">
-        <strong>${selectedSet.length > 1 ? "Selected boards" : selected ? `Connected group ${selected.group}` : "Whole sketch"}</strong>
-        <span>Outer: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
-        <span>Inner: ${inner?.hasFrame ? `${mm(inner.innerW)} × ${mm(inner.innerH)}` : "needs opposing frame boards"}</span>
-        <span>Thickness model: ${mm(state.thickness)}</span>
-        <span>Default depth: ${mm(state.depth)}</span>
+        <strong>${selectedSet.length > 1 ? t("pieces.selectedBoards") : selected ? t("pieces.connectedGroup", { group: selected.group }) : t("pieces.wholeSketch")}</strong>
+        <span>${t("metrics.outer")}: ${mm(bounds.w)} × ${mm(bounds.h)}</span>
+        <span>${t("metrics.inner")}: ${inner?.hasFrame ? `${mm(inner.innerW)} × ${mm(inner.innerH)}` : t("metrics.needsOpposingFrameBoards")}</span>
+        <span>${t("metrics.thicknessModel")}: ${mm(state.thickness)}</span>
+        <span>${t("metrics.defaultDepth")}: ${mm(state.depth)}</span>
       </div>
     `);
   }
 
-  ui.measureList.innerHTML = cards.join("") || `<div class="empty-state">Add boards to see measurements.</div>`;
+  ui.measureList.innerHTML = cards.join("") || `<div class="empty-state">${escapeHtml(t("metrics.addBoards"))}</div>`;
 }
 
 function renderWarnings(): void {
   const overlaps = computeOverlaps(state.boards);
   if (!overlaps.length) {
-    ui.warningList.innerHTML = `<div class="empty-state">No overlaps.</div>`;
+    ui.warningList.innerHTML = `<div class="empty-state">${escapeHtml(t("metrics.noOverlaps"))}</div>`;
     return;
   }
 
@@ -1270,7 +1287,7 @@ function renderWarnings(): void {
     const [a, b] = overlap.boardIds.map((id) => state.boards.find((board) => board.id === id)?.name ?? defaultPieceName(id));
     return `
       <div class="warning-card">
-        <strong>Overlap</strong>
+        <strong>${t("metrics.overlap")}</strong>
         <span>${a} and ${b}</span>
         <span>${mm(overlap.w)} × ${mm(overlap.h)}</span>
       </div>
@@ -1279,8 +1296,8 @@ function renderWarnings(): void {
 }
 
 function renderCutList(): void {
-  ui.cutList.innerHTML = cutListHtml(state.boards.filter((board) => !board.ignoreInOrder), "No boards in the wood order.");
-  ui.ignoredCutList.innerHTML = cutListHtml(state.boards.filter((board) => board.ignoreInOrder), "No ignored boards.");
+  ui.cutList.innerHTML = cutListHtml(state.boards.filter((board) => !board.ignoreInOrder), t("pieces.noBoardsInOrder"));
+  ui.ignoredCutList.innerHTML = cutListHtml(state.boards.filter((board) => board.ignoreInOrder), t("pieces.noIgnoredBoards"));
 }
 
 function cutListHtml(boards: Board[], emptyMessage: string): string {
@@ -1296,10 +1313,10 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
     return `
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${w} × ${h} × ${d} mm</strong>
-        <span>Material: ${escapeHtml(materialName(materialId))}</span>
-        <span>Laminate: ${laminate}</span>
+        <span>${t("metrics.material")}: ${escapeHtml(materialName(materialId))}</span>
+        <span>${t("metrics.laminate")}: ${laminate}</span>
         <div class="cut-card-pieces">${boards.map((board) => `
-          <button class="cut-piece-button" type="button" data-board-id="${board.id}" title="Select ${escapeHtml(board.name)}">
+          <button class="cut-piece-button" type="button" data-board-id="${board.id}" title="${escapeHtml(t("order.selectPiece", { name: board.name }))}">
             ${escapeHtml(board.name)}
           </button>
         `).join("")}</div>
@@ -1322,9 +1339,9 @@ function renderAnchorOverlay(): void {
       if (!position) return "";
       const point = worldToScreen(state, position.x, position.y);
       return `
-        <button class="anchor-chip" data-remove-anchor="${anchor.id}" type="button" style="left: ${point.x}px; top: ${point.y - 8}px" title="Remove anchor to ${escapeHtml(anchorTargetLabel(anchor))}" aria-label="Remove anchor to ${escapeHtml(anchorTargetLabel(anchor))}">
+        <button class="anchor-chip" data-remove-anchor="${anchor.id}" type="button" style="left: ${point.x}px; top: ${point.y - 8}px" title="${escapeHtml(t("anchors.removeAnchorTo", { target: anchorTargetLabel(anchor) }))}" aria-label="${escapeHtml(t("anchors.removeAnchorTo", { target: anchorTargetLabel(anchor) }))}">
           ${anchorChipIcon()}
-          <span class="visually-hidden">Remove anchor</span>
+          <span class="visually-hidden">${t("anchors.removeAnchor")}</span>
         </button>
       `;
     })
@@ -1333,7 +1350,7 @@ function renderAnchorOverlay(): void {
     .map((position) => {
       const point = worldToScreen(state, position.x, position.y);
       return `
-        <span class="anchor-chip anchor-chip-preview" style="left: ${point.x}px; top: ${point.y - 8}px" title="Will link when released" aria-hidden="true">
+        <span class="anchor-chip anchor-chip-preview" style="left: ${point.x}px; top: ${point.y - 8}px" title="${escapeHtml(t("anchors.willLink"))}" aria-hidden="true">
           ${anchorChipIcon()}
         </span>
       `;
@@ -1354,7 +1371,7 @@ function anchorChipIcon(): string {
 
 function anchorTargetLabel(anchor: BoardAnchor): string {
   const target = state.boards.find((board) => board.id === anchor.targetBoardId);
-  return `${target?.name ?? defaultPieceName(anchor.targetBoardId)} ${anchor.targetEdge}`;
+  return `${target?.name ?? defaultPieceName(anchor.targetBoardId)} ${edgeLabel(anchor.targetEdge)}`;
 }
 
 function anchorChipPosition(anchor: BoardAnchor): Point | null {
@@ -1502,7 +1519,7 @@ function applyThicknessChange(newThickness: number): void {
   remember();
   const oldThickness = state.thickness;
   const updateExisting = state.boards.some((board) => board.autoThickness !== "none")
-    ? window.confirm(`Update all existing auto-thickness pieces to ${mm(newThickness)} thickness? Choose Cancel to keep their current thicknesses.`)
+    ? window.confirm(t("dialogs.updateThickness", { value: mm(newThickness) }))
     : false;
   state.thickness = newThickness;
   if (normalizePositiveNumber(ui.layoutAnchorThicknessInput.value, oldThickness) === oldThickness) {
@@ -1526,8 +1543,8 @@ function applyThicknessChange(newThickness: number): void {
   });
   state.boards.forEach((board) => applyAnchorsToBoard(board.id));
   state.lastSnap = updateExisting
-    ? `All auto-thickness pieces ${mm(state.thickness)}`
-    : `Default thickness ${mm(state.thickness)}`;
+    ? t("status.allAutoThickness", { value: mm(state.thickness) })
+    : t("status.defaultThickness", { value: mm(state.thickness) });
   refresh();
 }
 
@@ -1536,7 +1553,7 @@ function applyDepthChange(newDepth: number): void {
   remember();
   const oldDepth = state.depth;
   const updateExisting = state.boards.length > 0
-    ? window.confirm(`Update all existing pieces to ${mm(newDepth)} depth? Choose Cancel to keep their current depths.`)
+    ? window.confirm(t("dialogs.updateDepth", { value: mm(newDepth) }))
     : false;
   state.depth = newDepth;
   if (state.boards.length > 0) {
@@ -1545,8 +1562,8 @@ function applyDepthChange(newDepth: number): void {
     });
   }
   state.lastSnap = updateExisting
-    ? `All pieces depth ${mm(state.depth)}`
-    : `Default depth ${mm(state.depth)}`;
+    ? t("status.allPiecesDepth", { value: mm(state.depth) })
+    : t("status.defaultDepth", { value: mm(state.depth) });
   refresh();
 }
 
@@ -1565,19 +1582,19 @@ function exportCutListCsv(): void {
     "text/csv;charset=utf-8",
     `${projectFilenameBase()}-pieces-${filenameTimestamp()}.csv`
   );
-  state.lastSnap = "Piece list CSV exported";
-  notify("Saved piece list CSV");
+  state.lastSnap = t("status.pieceListCsvExported");
+  notify(t("status.savedPieceListCsv"));
   updateInspector();
 }
 
 async function copyCutListCsv(): Promise<void> {
   try {
     await copyText(cutListCsv());
-    state.lastSnap = "Piece list CSV copied";
-    notify("Copied piece list CSV");
+    state.lastSnap = t("status.pieceListCsvCopied");
+    notify(t("status.copiedPieceListCsv"));
   } catch {
-    state.lastSnap = "Could not copy CSV";
-    notify("Could not copy CSV");
+    state.lastSnap = t("status.couldNotCopyCsv");
+    notify(t("status.couldNotCopyCsv"));
   }
   updateInspector();
 }
@@ -1655,7 +1672,7 @@ function updateBoardFromInspector(event?: Event): void {
     remember();
     board.thicknessOverride = null;
     board.w = state.thickness;
-    state.lastSnap = `Width uses global ${mm(state.thickness)}`;
+    state.lastSnap = t("status.widthUsesGlobal", { value: mm(state.thickness) });
     propagateAnchorsFrom(board.id);
     refresh();
     return;
@@ -1664,7 +1681,7 @@ function updateBoardFromInspector(event?: Event): void {
     remember();
     board.thicknessOverride = null;
     board.h = state.thickness;
-    state.lastSnap = `Height uses global ${mm(state.thickness)}`;
+    state.lastSnap = t("status.heightUsesGlobal", { value: mm(state.thickness) });
     propagateAnchorsFrom(board.id);
     refresh();
     return;
@@ -1674,7 +1691,7 @@ function updateBoardFromInspector(event?: Event): void {
     boards.forEach((item) => {
       item.depthOverride = null;
     });
-    state.lastSnap = `Depth uses global ${mm(state.depth)}`;
+    state.lastSnap = t("status.depthUsesGlobal", { value: mm(state.depth) });
     refresh();
     return;
   }
@@ -1686,13 +1703,13 @@ function updateBoardFromInspector(event?: Event): void {
       const nextX = target === ui.xInput ? Number(ui.xInput.value) : selectionBounds.left;
       const nextY = target === ui.yInput ? modelY(Number(ui.yInput.value)) : selectionBounds.top;
       moveBoardsBy(boards, (Number.isFinite(nextX) ? nextX : selectionBounds.left) - selectionBounds.left, (Number.isFinite(nextY) ? nextY : selectionBounds.top) - selectionBounds.top);
-      state.lastSnap = "Selection moved";
+      state.lastSnap = t("status.selectionMoved");
     }
     if (target === ui.depthOverrideInput) {
       boards.forEach((item) => {
         item.depthOverride = normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(item, state.depth));
       });
-      state.lastSnap = `Depth set on ${boards.length} boards`;
+      state.lastSnap = t("status.depthSetOnBoards", { count: boards.length });
     }
   } else {
     board.name = ui.nameInput.value.trim() || board.name;
@@ -1719,14 +1736,14 @@ function updateMaterialFromInspector(): void {
   boards.forEach((board) => {
     board.materialId = ui.materialInput.value;
   });
-  state.lastSnap = boards.length > 1 ? `Material set on ${boards.length} boards` : `Material: ${materialName(boards[0].materialId)}`;
+  state.lastSnap = boards.length > 1 ? t("status.materialSetOnBoards", { count: boards.length }) : t("status.material", { name: materialName(boards[0].materialId) });
   refresh();
 }
 
 function addCustomMaterial(): void {
   const name = ui.materialNameInput.value.trim();
   if (!name) {
-    state.lastSnap = "Name the material first";
+    state.lastSnap = t("status.nameMaterialFirst");
     updateInspector();
     return;
   }
@@ -1740,7 +1757,7 @@ function addCustomMaterial(): void {
   state.materials.push(material);
   ui.materialNameInput.value = "";
   ui.materialColorInput.value = "#c99756";
-  state.lastSnap = `Material added: ${material.name}`;
+  state.lastSnap = t("status.materialAdded", { name: material.name });
   refresh();
 }
 
@@ -1756,7 +1773,7 @@ function updateLaminateFromInspector(): void {
       back: ui.laminateBackInput.checked
     };
   });
-  state.lastSnap = boards.length > 1 ? `Laminate set on ${boards.length} boards` : "Laminate updated";
+  state.lastSnap = boards.length > 1 ? t("status.laminateSetOnBoards", { count: boards.length }) : t("status.laminateUpdated");
   refresh();
 }
 
@@ -1767,7 +1784,7 @@ function updateOrderInclusionFromInspector(): void {
   boards.forEach((board) => {
     board.ignoreInOrder = ui.ignoreOrderInput.checked;
   });
-  state.lastSnap = ui.ignoreOrderInput.checked ? "Removed from wood order" : "Added to wood order";
+  state.lastSnap = ui.ignoreOrderInput.checked ? t("status.removedFromOrder") : t("status.addedToOrder");
   refresh();
 }
 
@@ -1784,7 +1801,7 @@ function updateLayoutAnchorSummary(): void {
   ui.layoutAnchorCountInput.value = anchors.length ? String(anchors.length) : ui.layoutAnchorCountInput.value;
   ui.layoutAnchorSummary.textContent = anchors.length
     ? anchors.map((anchor) => mm(anchor.offset)).join(", ")
-    : "No layout anchors";
+    : t("inspector.noLayoutAnchors");
 }
 
 function layoutAnchorOffsets(board: Board, axis: LayoutAnchorAxis, count: number): number[] | null {
@@ -1812,7 +1829,7 @@ function distributeLayoutAnchors(): void {
   const count = Math.max(1, Math.min(20, normalizePositiveNumber(ui.layoutAnchorCountInput.value, 4)));
   const offsets = layoutAnchorOffsets(board, axis, count);
   if (!offsets) {
-    state.lastSnap = "Not enough span for balanced anchors";
+    state.lastSnap = t("status.notEnoughSpan");
     updateInspector();
     return;
   }
@@ -1827,7 +1844,7 @@ function distributeLayoutAnchors(): void {
     });
     state.nextLayoutAnchorId += 1;
   });
-  state.lastSnap = ui.layoutAnchorBalanceInput.checked ? `${count} balanced anchors added` : `${count} layout anchors added`;
+  state.lastSnap = ui.layoutAnchorBalanceInput.checked ? t("status.balancedAnchorsAdded", { count }) : t("status.layoutAnchorsAdded", { count });
   refresh();
 }
 
@@ -1836,7 +1853,7 @@ function clearLayoutAnchors(): void {
   if (!board || !layoutAnchorsForBoard(board.id).length) return;
   remember();
   state.layoutAnchors = state.layoutAnchors.filter((anchor) => anchor.boardId !== board.id);
-  state.lastSnap = "Layout anchors cleared";
+  state.lastSnap = t("status.layoutAnchorsCleared");
   refresh();
 }
 
@@ -1894,7 +1911,7 @@ function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: Measur
   state.tool = "select";
   state.pendingMeasurementAnchor = null;
   state.previewMeasurementAnchor = null;
-  state.lastSnap = "Measurement added";
+  state.lastSnap = t("status.measurementAdded");
   refresh();
 }
 
@@ -1921,7 +1938,7 @@ function handleMeasurementClick(point: Point): void {
   if (!state.pendingMeasurementAnchor) {
     state.pendingMeasurementAnchor = anchor;
     state.previewMeasurementAnchor = null;
-    state.lastSnap = anchor.kind === "grid" ? "Grid anchor set, pick second anchor" : "Edge anchor set, pick second anchor";
+    state.lastSnap = anchor.kind === "grid" ? t("status.gridAnchorSet") : t("status.edgeAnchorSet");
     refresh();
     return;
   }
@@ -1946,7 +1963,7 @@ function deleteSelectedBoards(): void {
     state.selectedMeasurementId = null;
   }
   clearSelection();
-  state.lastSnap = ids.size > 1 ? `${ids.size} boards deleted` : "Board deleted";
+  state.lastSnap = ids.size > 1 ? t("status.boardsDeleted", { count: ids.size }) : t("status.boardDeleted");
   refresh();
 }
 
@@ -1957,7 +1974,7 @@ function deleteMeasurement(id: number): void {
   state.measurements = state.measurements.filter((measurement) => measurement.id !== id);
   if (state.selectedMeasurementId === id) state.selectedMeasurementId = null;
   if (renamingMeasurementId === id) closeMeasurementRename();
-  state.lastSnap = "Measurement deleted";
+  state.lastSnap = t("status.measurementDeleted");
   refresh();
 }
 
@@ -1986,7 +2003,7 @@ function openMeasurementRename(id: number, event: MouseEvent): void {
   positionMeasurementRenameForm(event);
   ui.measureRenameInput.value = measurement.name;
   ui.measureRenameForm.hidden = false;
-  state.lastSnap = "Rename measurement";
+  state.lastSnap = t("status.renameMeasurement");
   refresh();
   window.requestAnimationFrame(() => {
     ui.measureRenameInput.focus();
@@ -2008,7 +2025,7 @@ function submitMeasurementRename(): void {
   remember();
   measurement.name = normalizedName;
   setMeasurementSelection(measurement.id);
-  state.lastSnap = nextName ? "Measurement named" : "Measurement reset";
+  state.lastSnap = nextName ? t("status.measurementNamed") : t("status.measurementReset");
   refresh();
 }
 
@@ -2068,7 +2085,7 @@ function duplicateSelectedBoards(): void {
       state.nextLayoutAnchorId += 1;
     });
   setSelection(copies.map((board) => board.id), copies[0]?.id ?? null);
-  state.lastSnap = copies.length > 1 ? `${copies.length} boards duplicated` : "Board duplicated";
+  state.lastSnap = copies.length > 1 ? t("status.boardsDuplicated", { count: copies.length }) : t("status.boardDuplicated");
   refresh();
 }
 
@@ -2107,7 +2124,7 @@ function rotateSelectedBoards(): void {
       });
   });
   state.anchors = state.anchors.filter((anchor) => !rotatedIds.has(anchor.boardId) && !rotatedIds.has(anchor.targetBoardId));
-  state.lastSnap = boards.length > 1 ? `${boards.length} boards rotated` : "Rotated 90 deg";
+  state.lastSnap = boards.length > 1 ? t("status.rotatedBoards", { count: boards.length }) : t("status.rotated90");
   refresh();
 }
 
@@ -2208,7 +2225,7 @@ function updateMeasurementDrag(point: Point): void {
   }
   if (!drag.changed) return;
   measurement.displayOffset = Math.round(layout.axis === "horizontal" ? drag.startOffset - dy : drag.startOffset + dx);
-  state.lastSnap = "Measurement display moved";
+  state.lastSnap = t("status.measurementDisplayMoved");
   canvas.style.cursor = "move";
   refresh();
 }
@@ -2240,7 +2257,7 @@ canvas.addEventListener("pointerdown", (event) => {
     if (handle && selectedBoards(state).length <= 1) {
       remember();
       state.resizing = { id: selected.id, handle, startPoint: point, startRect: rectFromBoard(selected) };
-      state.lastSnap = "Resizing";
+      state.lastSnap = t("status.resizing");
       canvas.style.cursor = cursorForResizeHandle(handle);
       canvas.setPointerCapture(event.pointerId);
       refresh();
@@ -2258,7 +2275,7 @@ canvas.addEventListener("pointerdown", (event) => {
       startOffset: measurementDisplayOffset(measurement, index),
       changed: false
     };
-    state.lastSnap = "Measurement selected";
+    state.lastSnap = t("status.measurementSelected");
     canvas.style.cursor = "move";
     canvas.setPointerCapture(event.pointerId);
     refresh();
@@ -2269,7 +2286,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (board) {
     if (isAdditiveSelection(event)) {
       toggleBoardSelection(board.id);
-      state.lastSnap = selectedIdSet().size > 1 ? `${selectedIdSet().size} boards selected` : "Selection updated";
+      state.lastSnap = selectedIdSet().size > 1 ? t("status.boardsSelected", { count: selectedIdSet().size }) : t("status.selectionUpdated");
       refresh();
       return;
     }
@@ -2335,7 +2352,7 @@ canvas.addEventListener("pointermove", (event) => {
     state.panX = state.panning.panX + event.clientX - state.panning.startX;
     state.panY = state.panning.panY + event.clientY - state.panning.startY;
     state.snapGuides = [];
-    state.lastSnap = "Panning view";
+    state.lastSnap = t("status.panningView");
     canvas.style.cursor = "grabbing";
     refresh();
     return;
@@ -2349,7 +2366,7 @@ canvas.addEventListener("pointermove", (event) => {
   if (state.selectionBox) {
     state.selectionBox.current = point;
     state.snapGuides = [];
-    state.lastSnap = "Selecting boards";
+    state.lastSnap = t("status.selectingBoards");
     canvas.style.cursor = "crosshair";
     refresh();
     return;
@@ -2396,11 +2413,11 @@ canvas.addEventListener("pointerup", (event) => {
       const rectSelection = boardsInRect(selectionRect).map((board) => board.id);
       const nextIds = selectionBox.additive ? [...selectedIdSet(), ...rectSelection] : rectSelection;
       setSelection(nextIds, rectSelection[0] ?? (selectionBox.additive ? state.selectedId : null));
-      state.lastSnap = rectSelection.length ? `${selectedIdSet().size} boards selected` : "No boards in selection";
+      state.lastSnap = rectSelection.length ? t("status.boardsSelected", { count: selectedIdSet().size }) : t("status.noBoardsInSelection");
     } else if (!selectionBox.additive) {
       clearSelection();
       state.selectedMeasurementId = null;
-      state.lastSnap = "No board selected";
+      state.lastSnap = t("workspace.noBoardSelected");
     }
   }
   state.dragging = null;
@@ -2410,7 +2427,7 @@ canvas.addEventListener("pointerup", (event) => {
   state.selectionBox = null;
   state.snapGuides = [];
   finishedBoardIds.forEach((id) => anchorTouchedBoard(id));
-  if (finishedMeasurementDrag?.changed) state.lastSnap = "Measurement display moved";
+  if (finishedMeasurementDrag?.changed) state.lastSnap = t("status.measurementDisplayMoved");
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   updateCanvasCursor(point);
   refresh();
@@ -2438,7 +2455,7 @@ ui.anchorOverlay.addEventListener("click", (event) => {
   const id = Number(target.dataset.removeAnchor);
   remember();
   state.anchors = state.anchors.filter((anchor) => anchor.id !== id);
-  state.lastSnap = "Anchor removed";
+  state.lastSnap = t("status.anchorRemoved");
   refresh();
 }, listenerOptions);
 
@@ -2452,7 +2469,7 @@ ui.measureModeBtn.addEventListener("click", () => {
   state.tool = state.tool === "measure" ? "select" : "measure";
   state.pendingMeasurementAnchor = null;
   state.previewMeasurementAnchor = null;
-  state.lastSnap = state.tool === "measure" ? "Pick first anchor" : "Select mode";
+  state.lastSnap = state.tool === "measure" ? t("status.pickFirstAnchor") : t("status.selectMode");
   refresh();
 }, listenerOptions);
 ui.presetList.addEventListener("click", (event) => {
@@ -2519,7 +2536,7 @@ ui.projectNameInput.addEventListener("change", () => {
   if (nextName === state.projectName) return;
   remember();
   state.projectName = nextName;
-  state.lastSnap = nextName ? "Project named" : "Project name cleared";
+  state.lastSnap = nextName ? t("status.projectNamed") : t("status.projectNameCleared");
   refresh();
 }, listenerOptions);
 commitOnChangeOrEnter(ui.thicknessInput, () => applyThicknessChange(Math.max(3, Number(ui.thicknessInput.value) || 18)));
@@ -2532,7 +2549,7 @@ ui.gridInput.addEventListener("input", () => {
 ui.snapToggle.addEventListener("change", () => {
   remember();
   state.snap = ui.snapToggle.checked;
-  state.lastSnap = state.snap ? "Snap on" : "Snap off";
+  state.lastSnap = state.snap ? t("status.snapOn") : t("status.snapOff");
   refresh();
 }, listenerOptions);
 ui.dimToggle.addEventListener("change", () => {
@@ -2543,7 +2560,7 @@ ui.dimToggle.addEventListener("change", () => {
 ui.frontLayerToggle.addEventListener("change", () => {
   remember();
   state.showFrontPanels = ui.frontLayerToggle.checked;
-  state.lastSnap = state.showFrontPanels ? "Front panels shown" : "Front panels ghosted";
+  state.lastSnap = state.showFrontPanels ? t("status.frontPanelsShown") : t("status.frontPanelsGhosted");
   refresh();
 }, listenerOptions);
 [ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput]
