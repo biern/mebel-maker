@@ -73,6 +73,17 @@
           <path d="M12 3 V12"></path>
         </svg>
       </button>
+      <span class="toolbar-separator" aria-hidden="true"></span>
+      <button id="woodOrderToggleBtn" class="icon-button" title="Show wood order list" aria-label="Show wood order list" aria-pressed="false">
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 5 H19"></path>
+          <path d="M5 12 H19"></path>
+          <path d="M5 19 H19"></path>
+          <path d="M4 5 H4.01"></path>
+          <path d="M4 12 H4.01"></path>
+          <path d="M4 19 H4.01"></path>
+        </svg>
+      </button>
       <input id="projectFileInput" class="hidden-file-input" type="file" accept=".mebel,application/json,.json">
     </div>
   </div>

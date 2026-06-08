@@ -412,6 +412,20 @@ function laminateLabel(laminate: LaminateEdges): string {
   return edges.length ? edges.join(", ") : "none";
 }
 
+function laminateLengthLabel(board: Board): string {
+  const edgeLengths: Array<[keyof LaminateEdges, number]> = [
+    ["left", board.h],
+    ["right", board.h],
+    ["front", board.w],
+    ["back", board.w]
+  ];
+  const shortest = Math.min(board.w, board.h);
+  const labels = edgeLengths
+    .filter(([edge]) => board.laminate[edge])
+    .map(([, length]) => length === shortest ? "short" : "long");
+  return labels.length ? labels.join(",") : "none";
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -693,6 +707,8 @@ function renderRightPanelMode(): void {
   ui.woodOrderPanel.hidden = !woodOrderOpen;
   ui.woodOrderToggleBtn.classList.toggle("active", woodOrderOpen);
   ui.woodOrderToggleBtn.setAttribute("aria-pressed", String(woodOrderOpen));
+  ui.woodOrderToggleBtn.title = woodOrderOpen ? "Hide wood order list" : "Show wood order list";
+  ui.woodOrderToggleBtn.setAttribute("aria-label", woodOrderOpen ? "Hide wood order list" : "Show wood order list");
 }
 
 function renderTemplateChooser(): void {
@@ -1276,7 +1292,7 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
 
   return [...grouped.entries()].map(([key, boards]) => {
     const [w, h, d, , materialId] = key.split("×");
-    const laminate = laminateLabel(boards[0].laminate);
+    const laminate = laminateLengthLabel(boards[0]);
     return `
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${w} × ${h} × ${d} mm</strong>
@@ -2483,7 +2499,7 @@ ui.fitBtn.addEventListener("click", fitToView, listenerOptions);
 ui.view3dBtn.addEventListener("click", () => {
   setActiveView(activeView === "3d" ? "sketch" : "3d");
 }, listenerOptions);
-ui.woodOrderToggleBtn.addEventListener("click", () => setWoodOrderOpen(true), listenerOptions);
+ui.woodOrderToggleBtn.addEventListener("click", () => setWoodOrderOpen(!woodOrderOpen), listenerOptions);
 ui.woodOrderBackBtn.addEventListener("click", () => setWoodOrderOpen(false), listenerOptions);
 ui.cutList.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-board-id]");

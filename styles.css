@@ -62,16 +62,6 @@ input {
   border-width: 0 0 0 1px;
 }
 
-.panel-action-section {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.panel-action-button {
-  justify-content: flex-start;
-  width: 100%;
-}
-
 .order-panel-header {
   align-items: center;
   border-top: 0;
