@@ -62,6 +62,38 @@ input {
   border-width: 0 0 0 1px;
 }
 
+.panel-action-section {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.panel-action-button {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.order-panel-header {
+  align-items: center;
+  border-top: 0;
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0;
+}
+
+.order-panel-header h2 {
+  margin-bottom: 0;
+}
+
+.order-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.order-actions .tool-button {
+  min-width: 0;
+}
+
 .brand {
   align-items: center;
   display: flex;
@@ -337,6 +369,104 @@ select {
   min-height: 38px;
   padding: 8px 10px;
   width: 100%;
+}
+
+.native-material-input {
+  display: none;
+}
+
+.material-select {
+  position: relative;
+}
+
+.material-select-button,
+.material-select-option {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  grid-template-columns: 22px 1fr;
+  min-height: 38px;
+  text-align: left;
+  width: 100%;
+}
+
+.material-select-button {
+  border-radius: var(--radius);
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.material-select-button:focus {
+  border-color: var(--accent);
+  outline: 2px solid rgba(40, 127, 111, 0.16);
+}
+
+.material-select-list {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  left: 0;
+  margin-top: 5px;
+  max-height: 254px;
+  overflow: auto;
+  position: absolute;
+  right: 0;
+  z-index: 20;
+}
+
+.material-select-option {
+  border-width: 0 0 1px;
+  gap: 9px;
+  padding: 8px 10px;
+}
+
+.material-select-option:last-child {
+  border-bottom: 0;
+}
+
+.material-select-option:hover,
+.material-select-option.selected {
+  background: #eef4f1;
+}
+
+.material-select-option-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.material-select-option-copy strong,
+.material-select-option-copy small,
+.material-select-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-select-option-copy strong {
+  font-size: 13px;
+}
+
+.material-select-option-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.material-select-swatch {
+  border: 1px solid rgba(32, 37, 34, 0.2);
+  border-radius: 4px;
+  display: block;
+  height: 22px;
+  width: 22px;
+}
+
+.material-select-swatch.mixed {
+  border-style: dashed;
 }
 
 input[type="color"] {
@@ -860,6 +990,37 @@ select:disabled {
 .cut-card .count {
   color: var(--accent);
   font-weight: 800;
+}
+
+.cut-card-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.cut-piece-button {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.1;
+  min-height: 28px;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 5px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cut-piece-button:hover,
+.cut-piece-button:focus-visible {
+  background: #e7f3f0;
+  border-color: var(--accent);
+  outline: 0;
 }
 
 .warning-card {

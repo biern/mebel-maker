@@ -73,21 +73,6 @@
           <path d="M12 3 V12"></path>
         </svg>
       </button>
-      <span class="toolbar-separator" aria-hidden="true"></span>
-      <button id="copyCsvBtn" class="icon-button" title="Copy piece list as CSV" aria-label="Copy piece list as CSV">
-        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M9 4 H19 V16 H9 Z"></path>
-          <path d="M5 8 H15 V20 H5 Z"></path>
-        </svg>
-      </button>
-      <button id="exportBtn" class="icon-button csv-button" title="Save piece list as CSV" aria-label="Save piece list as CSV">
-        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 4 V15"></path>
-          <path d="M8 11 L12 15 L16 11"></path>
-          <path d="M5 19 H19"></path>
-        </svg>
-        <span>CSV</span>
-      </button>
       <input id="projectFileInput" class="hidden-file-input" type="file" accept=".mebel,application/json,.json">
     </div>
   </div>

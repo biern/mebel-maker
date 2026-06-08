@@ -96,6 +96,11 @@ const ui = {
   layoutAnchorApplyBtn: query<HTMLButtonElement>("#layoutAnchorApplyBtn"),
   layoutAnchorClearBtn: query<HTMLButtonElement>("#layoutAnchorClearBtn"),
   layoutAnchorSummary: query<HTMLElement>("#layoutAnchorSummary"),
+  materialSelect: query<HTMLElement>("#materialSelect"),
+  materialSelectButton: query<HTMLButtonElement>("#materialSelectButton"),
+  materialSelectList: query<HTMLElement>("#materialSelectList"),
+  materialSelectSwatch: query<HTMLElement>("#materialSelectSwatch"),
+  materialSelectText: query<HTMLElement>("#materialSelectText"),
   materialInput: query<HTMLSelectElement>("#materialInput"),
   materialLabelSwatch: query<HTMLElement>("#materialLabelSwatch"),
   materialForm: query<HTMLFormElement>("#materialForm"),
@@ -110,6 +115,11 @@ const ui = {
   measureList: query<HTMLElement>("#measureList"),
   warningList: query<HTMLElement>("#warningList"),
   cutList: query<HTMLElement>("#cutList"),
+  ignoredCutList: query<HTMLElement>("#ignoredCutList"),
+  rightPanelTools: query<HTMLElement>("#rightPanelTools"),
+  woodOrderPanel: query<HTMLElement>("#woodOrderPanel"),
+  woodOrderToggleBtn: query<HTMLButtonElement>("#woodOrderToggleBtn"),
+  woodOrderBackBtn: query<HTMLButtonElement>("#woodOrderBackBtn"),
   materialList: query<HTMLElement>("#materialList"),
   anchorOverlay: query<HTMLElement>("#anchorOverlay"),
   overlayScaleBar: query<HTMLElement>("#overlayScaleBar"),
@@ -174,6 +184,7 @@ const redoStack: SavedProject[] = [];
 let notificationTimer: number | undefined;
 let renamingMeasurementId: number | null = null;
 let activeView: "sketch" | "3d" = "sketch";
+let woodOrderOpen = false;
 
 interface SavedProject {
   schemaVersion?: 1;
@@ -417,6 +428,10 @@ function materialName(materialId: string): string {
 
 function materialColor(materialId: string): string {
   return state.materials.find((material) => material.id === materialId)?.color ?? state.materials[0].color;
+}
+
+function materialById(materialId: string): Material | null {
+  return state.materials.find((material) => material.id === materialId) ?? null;
 }
 
 function materialIdFromName(name: string): string {
@@ -669,7 +684,15 @@ function refresh(): void {
   renderMeasurements();
   renderWarnings();
   renderCutList();
+  renderRightPanelMode();
   autosaveProject();
+}
+
+function renderRightPanelMode(): void {
+  ui.rightPanelTools.hidden = woodOrderOpen;
+  ui.woodOrderPanel.hidden = !woodOrderOpen;
+  ui.woodOrderToggleBtn.classList.toggle("active", woodOrderOpen);
+  ui.woodOrderToggleBtn.setAttribute("aria-pressed", String(woodOrderOpen));
 }
 
 function renderTemplateChooser(): void {
@@ -1078,6 +1101,7 @@ function updateInspector(): void {
   const materialId = commonValue(boards, (item) => item.materialId);
   const depthOverride = commonValue(boards, (item) => item.depthOverride === null ? "" : String(item.depthOverride));
   ui.materialInput.value = materialId ?? "";
+  syncMaterialSelect();
   setInputValue(ui.depthOverrideInput, depthOverride, "Mixed");
   ui.materialLabelSwatch.style.background = materialId ? materialColor(materialId) : "transparent";
   setCheckboxValue(ui.laminateLeftInput, commonValue(boards, (item) => String(item.laminate.left)) === null ? null : boards[0].laminate.left);
@@ -1105,11 +1129,68 @@ function niceScaleLength(targetMm: number): number {
   return base;
 }
 
+function closeMaterialSelect(): void {
+  ui.materialSelectList.hidden = true;
+  ui.materialSelectButton.setAttribute("aria-expanded", "false");
+}
+
+function syncMaterialSelect(): void {
+  const material = ui.materialInput.value ? materialById(ui.materialInput.value) : null;
+  ui.materialSelectText.textContent = material ? `${material.name} (${material.color.toUpperCase()})` : "Mixed materials";
+  ui.materialSelectSwatch.style.background = material ? material.color : "linear-gradient(135deg, #d9b77e 0 50%, #7a4f34 50% 100%)";
+  ui.materialSelectSwatch.classList.toggle("mixed", !material);
+  ui.materialSelectList.querySelectorAll<HTMLElement>("[data-material-id]").forEach((option) => {
+    const selected = option.dataset.materialId === ui.materialInput.value;
+    option.classList.toggle("selected", selected);
+    option.setAttribute("aria-selected", String(selected));
+  });
+}
+
+function toggleMaterialSelect(): void {
+  const open = ui.materialSelectList.hidden;
+  ui.materialSelectList.hidden = !open;
+  ui.materialSelectButton.setAttribute("aria-expanded", String(open));
+  if (open) syncMaterialSelect();
+}
+
+function setWoodOrderOpen(open: boolean): void {
+  woodOrderOpen = open;
+  state.lastSnap = open ? "Wood order" : "Properties";
+  renderRightPanelMode();
+  updateInspector();
+}
+
+function selectBoardFromOrder(boardId: number): void {
+  const board = state.boards.find((item) => item.id === boardId);
+  if (!board) return;
+  setSelection([board.id], board.id);
+  state.tool = "select";
+  state.lastSnap = `${board.name} selected`;
+  refresh();
+}
+
 function renderMaterials(): void {
   ui.materialInput.innerHTML = `
     <option value="">Mixed materials</option>
   ` + state.materials.map((material) => `
-    <option value="${escapeHtml(material.id)}">${escapeHtml(material.name)}</option>
+    <option value="${escapeHtml(material.id)}">${escapeHtml(material.name)} (${escapeHtml(material.color.toUpperCase())})</option>
+  `).join("");
+
+  ui.materialSelectList.innerHTML = state.materials.map((material) => `
+    <button
+      class="material-select-option"
+      type="button"
+      role="option"
+      data-material-id="${escapeHtml(material.id)}"
+      title="${escapeHtml(material.name)} ${escapeHtml(material.color.toUpperCase())}"
+      aria-selected="false"
+    >
+      <span class="material-select-swatch" style="background: ${material.color}"></span>
+      <span class="material-select-option-copy">
+        <strong>${escapeHtml(material.name)}</strong>
+        <small>${escapeHtml(material.color.toUpperCase())}</small>
+      </span>
+    </button>
   `).join("");
 
   ui.materialList.innerHTML = state.materials.map((material) => `
@@ -1118,6 +1199,7 @@ function renderMaterials(): void {
       <strong>${escapeHtml(material.name)}</strong>
     </div>
   `).join("");
+  syncMaterialSelect();
 }
 
 function renderMeasurements(): void {
@@ -1181,25 +1263,33 @@ function renderWarnings(): void {
 }
 
 function renderCutList(): void {
+  ui.cutList.innerHTML = cutListHtml(state.boards.filter((board) => !board.ignoreInOrder), "No boards in the wood order.");
+  ui.ignoredCutList.innerHTML = cutListHtml(state.boards.filter((board) => board.ignoreInOrder), "No ignored boards.");
+}
+
+function cutListHtml(boards: Board[], emptyMessage: string): string {
   const grouped = new Map<string, Board[]>();
-  state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
+  boards.forEach((board) => {
     const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board, state.depth)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
 
-  ui.cutList.innerHTML = [...grouped.entries()].map(([key, boards]) => {
-    const [w, h, d, t, materialId] = key.split("×");
+  return [...grouped.entries()].map(([key, boards]) => {
+    const [w, h, d, , materialId] = key.split("×");
     const laminate = laminateLabel(boards[0].laminate);
     return `
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${w} × ${h} × ${d} mm</strong>
-        <span>Material thickness: ${t} mm</span>
         <span>Material: ${escapeHtml(materialName(materialId))}</span>
         <span>Laminate: ${laminate}</span>
-        <span>${boards.map((board) => escapeHtml(board.name)).join(", ")}</span>
+        <div class="cut-card-pieces">${boards.map((board) => `
+          <button class="cut-piece-button" type="button" data-board-id="${board.id}" title="Select ${escapeHtml(board.name)}">
+            ${escapeHtml(board.name)}
+          </button>
+        `).join("")}</div>
       </div>
     `;
-  }).join("") || `<div class="empty-state">No boards in the sketch yet.</div>`;
+  }).join("") || `<div class="empty-state">${emptyMessage}</div>`;
 }
 
 function renderAnchorOverlay(): void {
@@ -2393,6 +2483,18 @@ ui.fitBtn.addEventListener("click", fitToView, listenerOptions);
 ui.view3dBtn.addEventListener("click", () => {
   setActiveView(activeView === "3d" ? "sketch" : "3d");
 }, listenerOptions);
+ui.woodOrderToggleBtn.addEventListener("click", () => setWoodOrderOpen(true), listenerOptions);
+ui.woodOrderBackBtn.addEventListener("click", () => setWoodOrderOpen(false), listenerOptions);
+ui.cutList.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-board-id]");
+  if (!button) return;
+  selectBoardFromOrder(Number(button.dataset.boardId));
+}, listenerOptions);
+ui.ignoredCutList.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-board-id]");
+  if (!button) return;
+  selectBoardFromOrder(Number(button.dataset.boardId));
+}, listenerOptions);
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv(), listenerOptions);
 ui.exportBtn.addEventListener("click", exportCutListCsv, listenerOptions);
 ui.projectNameInput.addEventListener("change", () => {
@@ -2431,6 +2533,24 @@ ui.frontLayerToggle.addEventListener("change", () => {
 [ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput]
   .forEach((input) => commitOnChangeOrEnter(input, updateBoardFromInspector));
 ui.materialInput.addEventListener("change", updateMaterialFromInspector, listenerOptions);
+ui.materialSelectButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleMaterialSelect();
+}, listenerOptions);
+ui.materialSelectList.addEventListener("click", (event) => {
+  const option = (event.target as HTMLElement).closest<HTMLElement>("[data-material-id]");
+  if (!option) return;
+  ui.materialInput.value = option.dataset.materialId ?? "";
+  closeMaterialSelect();
+  updateMaterialFromInspector();
+}, listenerOptions);
+document.addEventListener("click", (event) => {
+  if (ui.materialSelect.contains(event.target as Node)) return;
+  closeMaterialSelect();
+}, listenerOptions);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMaterialSelect();
+}, listenerOptions);
 ui.layoutAnchorAxisInput.addEventListener("change", updateLayoutAnchorSummary, listenerOptions);
 ui.layoutAnchorBalanceInput.addEventListener("change", updateLayoutBalanceControls, listenerOptions);
 ui.layoutAnchorApplyBtn.addEventListener("click", distributeLayoutAnchors, listenerOptions);
