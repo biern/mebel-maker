@@ -68,6 +68,14 @@
       </button>
       <span class="toolbar-separator" aria-hidden="true"></span>
       <button id="fitBtn" class="icon-button" title={$_("workspace.fitDrawing")} aria-label={$_("workspace.fitDrawing")}>⌖</button>
+      <button id="printSketchBtn" class="icon-button" title={$_("workspace.printSketch")} aria-label={$_("workspace.printSketch")}>
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 8 V4 H17 V8"></path>
+          <path d="M7 17 H5 V9 H19 V17 H17"></path>
+          <path d="M7 13 H17 V20 H7 Z"></path>
+          <path d="M16 11 H17"></path>
+        </svg>
+      </button>
       <button id="view3dBtn" class="icon-button" title={$_("workspace.toggle3d")} aria-label={$_("workspace.toggle3d")}>
         <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z"></path>

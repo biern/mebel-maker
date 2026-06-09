@@ -124,6 +124,8 @@ export class SketchRenderer {
   }
 
   private drawBoard(board: Board): void {
+    if (board.kind === "front" && !this.state.showFrontPanels) return;
+
     const rect = rectFromBoard(board);
     const point = worldToScreen(this.state, rect.x, rect.y);
     const w = rect.w * this.state.scale;
@@ -163,7 +165,7 @@ export class SketchRenderer {
   private boardOpacity(board: Board, active: boolean): number {
     if (board.kind !== "front") return 1;
     if (active) return 0.5;
-    return this.state.showFrontPanels ? 1 : 0.3;
+    return 1;
   }
 
   private materialFor(board: Board): Material {
@@ -361,9 +363,11 @@ export class SketchRenderer {
 
   private drawDimensions(): void {
     if (!this.state.showDimensions) return;
-    const selected = selectedBoard(this.state);
-    const selectedSet = selectedBoards(this.state);
-    const boards = selectedSet.length > 1 ? selectedSet : selected ? groupBoards(this.state, selected.group) : this.state.boards;
+    const selected = this.visibleBoard(selectedBoard(this.state));
+    const selectedSet = selectedBoards(this.state).filter((board) => this.isBoardVisible(board));
+    const boards = selectedSet.length > 1
+      ? selectedSet
+      : selected ? groupBoards(this.state, selected.group).filter((board) => this.isBoardVisible(board)) : this.state.boards.filter((board) => this.isBoardVisible(board));
     const bounds = boundsFor(boards);
     if (!bounds) return;
 
@@ -386,7 +390,7 @@ export class SketchRenderer {
   private drawResizeHandles(): void {
     if (selectedBoards(this.state).length > 1) return;
     const selected = selectedBoard(this.state);
-    if (!selected) return;
+    if (!selected || !this.isBoardVisible(selected)) return;
     const rect = rectFromBoard(selected);
     const point = worldToScreen(this.state, rect.x, rect.y);
     const w = rect.w * this.state.scale;
@@ -414,6 +418,14 @@ export class SketchRenderer {
       this.ctx.strokeRect(x - handleOffset, y - handleOffset, handleSize, handleSize);
     });
     this.ctx.restore();
+  }
+
+  private isBoardVisible(board: Board): boolean {
+    return board.kind !== "front" || this.state.showFrontPanels;
+  }
+
+  private visibleBoard(board: Board | null): Board | null {
+    return board && this.isBoardVisible(board) ? board : null;
   }
 
   private drawGuideLabel(
