@@ -1108,8 +1108,10 @@ select:disabled {
 
   .workspace,
   .canvas-wrap {
-    display: block;
+    align-content: start;
+    display: grid;
     height: 100vh;
+    justify-content: center;
     min-height: 0;
     overflow: hidden;
     width: 100%;
@@ -1118,10 +1120,10 @@ select:disabled {
   #sketchCanvas {
     background: #ffffff;
     display: block !important;
-    height: 100vh;
+    height: min(100vh, calc(100vw / var(--print-sketch-ratio, 1.5)));
     outline: 0 !important;
     touch-action: auto;
-    width: 100%;
+    width: min(100%, calc(100vh * var(--print-sketch-ratio, 1.5)));
   }
 }
 

@@ -197,7 +197,7 @@ let notificationTimer: number | undefined;
 let renamingMeasurementId: number | null = null;
 let activeView: "sketch" | "3d" = "sketch";
 let woodOrderOpen = false;
-let sketchPrintRestore: { showFrontPanels: boolean; view: "sketch" | "3d" } | null = null;
+let sketchPrintRestore: { showConnectionMarks: boolean; showFrontPanels: boolean; view: "sketch" | "3d" } | null = null;
 let sketchPrintRestoreTimer: number | undefined;
 
 interface SavedProject {
@@ -1758,13 +1758,20 @@ function printCutListTable(): void {
 function printSketch(): void {
   if (sketchPrintRestore) return;
 
+  const canvasRect = canvas.getBoundingClientRect();
+  const canvasWrapRect = ui.canvasWrap.getBoundingClientRect();
+  const printRatio = (canvasRect.width || canvasWrapRect.width || 1) / Math.max(1, canvasRect.height || canvasWrapRect.height);
   sketchPrintRestore = {
+    showConnectionMarks: state.showConnectionMarks,
     showFrontPanels: state.showFrontPanels,
     view: activeView
   };
   window.clearTimeout(sketchPrintRestoreTimer);
+  ui.canvasWrap.style.setProperty("--print-sketch-ratio", String(printRatio));
   document.body.classList.add("printing-sketch");
+  state.showConnectionMarks = true;
   state.showFrontPanels = false;
+  ui.connectionMarksToggle.checked = true;
   ui.frontLayerToggle.checked = false;
   if (activeView !== "sketch") setActiveView("sketch");
   state.lastSnap = t("status.sketchPrintReady");
@@ -1788,9 +1795,12 @@ function restoreAfterSketchPrint(): void {
   sketchPrintRestore = null;
   window.clearTimeout(sketchPrintRestoreTimer);
   document.body.classList.remove("printing-sketch");
+  ui.canvasWrap.style.removeProperty("--print-sketch-ratio");
+  state.showConnectionMarks = restore.showConnectionMarks;
   state.showFrontPanels = restore.showFrontPanels;
   syncSettingsInputs();
   if (activeView !== restore.view) setActiveView(restore.view);
+  else resizeActiveView();
   state.lastSnap = t("status.sketchPrintRestored");
   refresh();
 }
