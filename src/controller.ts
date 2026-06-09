@@ -76,6 +76,7 @@ const ui = {
   projectFileInput: query<HTMLInputElement>("#projectFileInput"),
   deleteBtn: query<HTMLButtonElement>("#deleteBtn"),
   fitBtn: query<HTMLButtonElement>("#fitBtn"),
+  printSketchBtn: query<HTMLButtonElement>("#printSketchBtn"),
   view3dBtn: query<HTMLButtonElement>("#view3dBtn"),
   copyCsvBtn: query<HTMLButtonElement>("#copyCsvBtn"),
   exportBtn: query<HTMLButtonElement>("#exportBtn"),
@@ -159,7 +160,7 @@ const state: SketchState = {
   gridOriginY: 120,
   snap: true,
   showDimensions: true,
-  showFrontPanels: true,
+  showFrontPanels: false,
   showConnectionMarks: true,
   scale: 0.62,
   panX: 160,
@@ -196,6 +197,8 @@ let notificationTimer: number | undefined;
 let renamingMeasurementId: number | null = null;
 let activeView: "sketch" | "3d" = "sketch";
 let woodOrderOpen = false;
+let sketchPrintRestore: { showFrontPanels: boolean; view: "sketch" | "3d" } | null = null;
+let sketchPrintRestoreTimer: number | undefined;
 
 interface SavedProject {
   schemaVersion?: 1 | 2;
@@ -1752,6 +1755,46 @@ function printCutListTable(): void {
   updateInspector();
 }
 
+function printSketch(): void {
+  if (sketchPrintRestore) return;
+
+  sketchPrintRestore = {
+    showFrontPanels: state.showFrontPanels,
+    view: activeView
+  };
+  window.clearTimeout(sketchPrintRestoreTimer);
+  document.body.classList.add("printing-sketch");
+  state.showFrontPanels = false;
+  ui.frontLayerToggle.checked = false;
+  if (activeView !== "sketch") setActiveView("sketch");
+  state.lastSnap = t("status.sketchPrintReady");
+  notify(t("status.sketchPrintReady"));
+  updateInspector();
+
+  window.addEventListener("afterprint", restoreAfterSketchPrint, { once: true });
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      renderer.resize();
+      sketchPrintRestoreTimer = window.setTimeout(restoreAfterSketchPrint, 60_000);
+      window.print();
+    });
+  });
+}
+
+function restoreAfterSketchPrint(): void {
+  const restore = sketchPrintRestore;
+  if (!restore) return;
+
+  sketchPrintRestore = null;
+  window.clearTimeout(sketchPrintRestoreTimer);
+  document.body.classList.remove("printing-sketch");
+  state.showFrontPanels = restore.showFrontPanels;
+  syncSettingsInputs();
+  if (activeView !== restore.view) setActiveView(restore.view);
+  state.lastSnap = t("status.sketchPrintRestored");
+  refresh();
+}
+
 function cutListPrintHtml(rows: string[][], title: string): string {
   const header = rows[0];
   const bodyRows = rows.slice(1);
@@ -2751,6 +2794,7 @@ ui.ignoredCutList.addEventListener("click", (event) => {
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv(), listenerOptions);
 ui.exportBtn.addEventListener("click", exportCutListCsv, listenerOptions);
 ui.printOrderBtn.addEventListener("click", printCutListTable, listenerOptions);
+ui.printSketchBtn.addEventListener("click", printSketch, listenerOptions);
 ui.projectNameInput.addEventListener("change", () => {
   const nextName = normalizeProjectName(ui.projectNameInput.value);
   ui.projectNameInput.value = nextName;
@@ -2781,7 +2825,7 @@ ui.dimToggle.addEventListener("change", () => {
 ui.frontLayerToggle.addEventListener("change", () => {
   remember();
   state.showFrontPanels = ui.frontLayerToggle.checked;
-  state.lastSnap = state.showFrontPanels ? t("status.frontPanelsShown") : t("status.frontPanelsGhosted");
+  state.lastSnap = state.showFrontPanels ? t("status.frontPanelsShown") : t("status.frontPanelsHidden");
   refresh();
 }, listenerOptions);
 ui.connectionMarksToggle.addEventListener("change", () => {

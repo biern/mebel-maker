@@ -98,6 +98,7 @@ export class Visualization3DRenderer {
 
     displayOrderedBoards(this.state.boards)
       .map((board) => this.boxForBoard(board, centerX, centerY, sceneDepth, overlayThickness))
+      .filter((box): box is BoardBox => box !== null)
       .forEach((box) => this.addBoardBox(box));
 
     if (!this.cameraReady) this.resetCamera();
@@ -151,11 +152,12 @@ export class Visualization3DRenderer {
     this.root.add(grid);
   }
 
-  private boxForBoard(board: Board, centerX: number, centerY: number, sceneDepth: number, overlayThickness: number): BoardBox {
+  private boxForBoard(board: Board, centerX: number, centerY: number, sceneDepth: number, overlayThickness: number): BoardBox | null {
+    if (board.kind === "front" && !this.state.showFrontPanels) return null;
+
     const rect = rectFromBoard(board);
     const range = this.zRangeForBoard(board, effectiveDepth(board, this.state.depth), overlayThickness);
     const d = Math.max(1, range.front - range.back);
-    const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.18 : 1;
     return {
       board,
       x: rect.x + rect.w / 2 - centerX,
@@ -164,7 +166,7 @@ export class Visualization3DRenderer {
       w: Math.max(1, rect.w),
       h: Math.max(1, rect.h),
       d,
-      opacity
+      opacity: 1
     };
   }
 

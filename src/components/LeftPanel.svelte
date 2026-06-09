@@ -78,7 +78,7 @@
   <section class="tool-section">
     <h2>{$_("panels.layers")}</h2>
     <label class="toggle-row">
-      <input id="frontLayerToggle" type="checkbox" checked>
+      <input id="frontLayerToggle" type="checkbox">
       <span>{$_("settings.showFrontPanels")}</span>
     </label>
     <label class="toggle-row">
