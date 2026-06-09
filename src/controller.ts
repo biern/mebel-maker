@@ -1636,22 +1636,30 @@ async function copyCutListCsv(): Promise<void> {
 
 function cutListCsv(): string {
   const rows = [
-    ["quantity", "width_mm", "height_mm", "depth_mm", "thickness_mm", "material", "laminate_edges", "pieces"]
+    [
+      t("order.csvQuantity"),
+      t("order.csvThickness"),
+      t("order.csvWidth"),
+      t("order.csvHeight"),
+      t("order.csvMaterial"),
+      t("order.csvLaminateEdges"),
+      t("order.csvPieces")
+    ]
   ];
   const grouped = new Map<string, Board[]>();
   state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board, state.depth)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
+    const cutout = boardCutoutDimensions(board);
+    const key = `${cutout.thickness}×${cutout.width}×${cutout.height}×${board.materialId}×${laminateKey(board.laminate)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
 
   grouped.forEach((boards, key) => {
-    const [w, h, d, t, materialId] = key.split("×");
+    const [thickness, width, height, materialId] = key.split("×");
     rows.push([
       String(boards.length),
-      w,
-      h,
-      d,
-      t,
+      thickness,
+      width,
+      height,
       materialName(materialId),
       laminateLabel(boards[0].laminate),
       boards.map((board) => board.name).join("; ")
@@ -1659,6 +1667,33 @@ function cutListCsv(): string {
   });
 
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+function boardCutoutDimensions(board: Board): { thickness: number; width: number; height: number } {
+  const thickness = Math.round(effectiveThickness(board, state.thickness));
+  const depth = Math.round(effectiveDepth(board, state.depth));
+
+  if (board.autoThickness === "width") {
+    return {
+      thickness,
+      width: depth,
+      height: Math.round(board.h)
+    };
+  }
+
+  if (board.autoThickness === "height") {
+    return {
+      thickness,
+      width: Math.round(board.w),
+      height: depth
+    };
+  }
+
+  return {
+    thickness,
+    width: Math.round(board.w),
+    height: Math.round(board.h)
+  };
 }
 
 async function copyText(text: string): Promise<void> {

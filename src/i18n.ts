@@ -268,6 +268,13 @@ const en = {
   order: {
     copyCsvTitle: "Copy piece list as CSV",
     saveCsvTitle: "Save piece list as CSV",
+    csvQuantity: "Quantity",
+    csvThickness: "Thickness (mm)",
+    csvWidth: "Width (mm)",
+    csvHeight: "Height (mm)",
+    csvMaterial: "Material",
+    csvLaminateEdges: "Laminate edges",
+    csvPieces: "Pieces",
     selectPiece: "Select {name}"
   },
   anchors: {
@@ -540,6 +547,13 @@ const pl: typeof en = {
   order: {
     copyCsvTitle: "Kopiuj listę elementów jako CSV",
     saveCsvTitle: "Zapisz listę elementów jako CSV",
+    csvQuantity: "Liczba",
+    csvThickness: "Grubość (mm)",
+    csvWidth: "Szerokość (mm)",
+    csvHeight: "Wysokość (mm)",
+    csvMaterial: "Materiał",
+    csvLaminateEdges: "Oklejone krawędzie",
+    csvPieces: "Elementy",
     selectPiece: "Zaznacz {name}"
   },
   anchors: {
