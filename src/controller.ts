@@ -4,7 +4,6 @@ import { translate } from "./i18n";
 import complexTemplateSource from "../templates/complex.mebel?raw";
 import {
   boardLabel,
-  autoThicknessForOrientation,
   boundsFor,
   computeGroups,
   computeOverlaps,
@@ -21,7 +20,6 @@ import {
   measurementAxis,
   mm,
   nearestMeasurementAnchor,
-  orientationForAutoThickness,
   orientationForKind,
   physicalDimensions,
   rectFromBoard,
@@ -31,13 +29,12 @@ import {
   selectedBoard,
   selectedBoards,
   selectedMeasurement,
-  syncBoardSketchFromDimensions,
   snapBoard,
   snapValueToGrid,
   updateDimensionsFromSketchRect,
   worldToScreen
 } from "./geometry";
-import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, PieceDimensions, PieceOrientation, Point, Rect, ResizeHandle, SketchState } from "./types";
+import type { Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, PieceDimensions, PieceOrientation, Point, Rect, ResizeHandle, SketchState } from "./types";
 
 declare global {
   interface Window {
@@ -202,7 +199,7 @@ interface SavedProject {
   version: 1 | string;
   appVersion?: string;
   projectName?: string;
-  boards: Board[];
+  boards: SavedBoard[];
   anchors?: BoardAnchor[];
   layoutAnchors?: BoardLayoutAnchor[];
   measurements: SketchState["measurements"];
@@ -227,10 +224,25 @@ interface SavedProject {
   depth?: number;
 }
 
+type LegacyAutoThicknessAxis = "width" | "height" | "none";
+
+type SavedBoard = Partial<Board> & {
+  id: number;
+  name?: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  kind?: BoardKind;
+  autoThickness?: LegacyAutoThicknessAxis;
+  thicknessOverride?: number | null;
+  depthOverride?: number | null;
+};
+
 interface PiecePreset {
   name: string;
   kind: BoardKind;
-  autoThickness: AutoThicknessAxis;
+  orientation: PieceOrientation;
   w: () => number;
   h: () => number;
 }
@@ -238,11 +250,11 @@ interface PiecePreset {
 type TemplateId = "cabinet" | "bookcase" | "base-cabinet" | "wall-cabinet" | "simple-box" | "complex";
 
 const presets: Record<string, PiecePreset> = {
-  side: { name: t("pieces.side"), kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 },
-  shelf: { name: t("pieces.shelf"), kind: "shelf", autoThickness: "height", w: () => 820 - state.thickness * 2, h: () => state.thickness },
-  divider: { name: t("pieces.divider"), kind: "upright", autoThickness: "width", w: () => state.thickness, h: () => 560 - state.thickness * 2 },
-  back: { name: t("pieces.back"), kind: "back", autoThickness: "none", w: () => 820, h: () => 560 },
-  front: { name: t("pieces.front"), kind: "front", autoThickness: "none", w: () => 820, h: () => 560 }
+  side: { name: t("pieces.side"), kind: "upright", orientation: "vertical", w: () => state.thickness, h: () => 560 },
+  shelf: { name: t("pieces.shelf"), kind: "shelf", orientation: "horizontal", w: () => 820 - state.thickness * 2, h: () => state.thickness },
+  divider: { name: t("pieces.divider"), kind: "upright", orientation: "vertical", w: () => state.thickness, h: () => 560 - state.thickness * 2 },
+  back: { name: t("pieces.back"), kind: "back", orientation: "front", w: () => 820, h: () => 560 },
+  front: { name: t("pieces.front"), kind: "front", orientation: "front", w: () => 820, h: () => 560 }
 };
 
 const defaultMaterialId = "birch-plywood";
@@ -331,7 +343,8 @@ function normalizedLayoutAnchors(layoutAnchors?: BoardLayoutAnchor[]): BoardLayo
   return layoutAnchors.filter((anchor) => {
     const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
     const offset = Number(anchor.offset);
-    const span = anchor.axis === "x" ? board?.w : board?.h;
+    const rect = board ? rectFromBoard(board) : null;
+    const span = anchor.axis === "x" ? rect?.w : rect?.h;
     const key = `${anchor.boardId}:${anchor.axis}:${Math.round(offset * 1000)}`;
     const ok = boardIds.has(anchor.boardId) &&
       (anchor.axis === "x" || anchor.axis === "y") &&
@@ -412,31 +425,25 @@ function normalizedMeasureName(name: string | undefined, id: number): string {
   return trimmed || defaultMeasureName(id);
 }
 
-function withDefaults(board: Board): Board {
+function withDefaults(board: SavedBoard): Board {
   const materialId = board.materialId && state.materials.some((material) => material.id === board.materialId)
     ? board.materialId
     : defaultMaterialId;
-  const autoThickness = board.autoThickness ?? (board.kind ? autoThicknessForOrientation(orientationForKind(board.kind)) : "none");
   const kind = board.kind ?? "panel";
-  const orientation = normalizePieceOrientation(board.orientation, kind, autoThickness);
+  const orientation = normalizePieceOrientation(board.orientation, kind, board.autoThickness);
   const normalized: Board = {
-    ...board,
+    id: board.id,
     name: normalizedPieceName(board.name, board.id),
     x: Number.isFinite(Number(board.x)) ? Math.round(Number(board.x)) : 120,
     y: Number.isFinite(Number(board.y)) ? Math.round(Number(board.y)) : 120,
-    w: normalizePositiveNumber(board.w, 400),
-    h: normalizePositiveNumber(board.h, 250),
     dimensions: normalizePieceDimensions(board, orientation),
     orientation,
     kind,
-    autoThickness: autoThicknessForOrientation(orientation),
     materialId,
-    thicknessOverride: normalizeOptionalPositiveNumber(board.thicknessOverride),
-    depthOverride: normalizeOptionalPositiveNumber(board.depthOverride),
     laminate: normalizeLaminate(board.laminate),
-    ignoreInOrder: board.ignoreInOrder ?? false
+    ignoreInOrder: board.ignoreInOrder ?? false,
+    group: board.group ?? 0
   };
-  syncBoardSketchFromDimensions(normalized, state.thickness, state.depth);
   return normalized;
 }
 
@@ -468,13 +475,14 @@ function laminateLabel(laminate: LaminateEdges): string {
 }
 
 function laminateOrderLabel(board: Board): string {
+  const rect = rectFromBoard(board);
   const edgeLengths: Array<[keyof LaminateEdges, number]> = [
-    ["left", board.h],
-    ["right", board.h],
-    ["top", board.w],
-    ["bottom", board.w],
-    ["front", board.w],
-    ["back", board.w]
+    ["left", rect.h],
+    ["right", rect.h],
+    ["top", rect.w],
+    ["bottom", rect.w],
+    ["front", rect.w],
+    ["back", rect.w]
   ];
   const labels = edgeLengths
     .filter(([edge]) => board.laminate[edge])
@@ -550,15 +558,31 @@ function normalizeMeasurementDisplayOffset(value: unknown, index: number): numbe
   return Number.isFinite(parsed) ? Math.round(parsed) : defaultMeasurementDisplayOffset(index);
 }
 
-function normalizePieceOrientation(value: unknown, kind: BoardKind, autoThickness: AutoThicknessAxis): PieceOrientation {
+function orientationForLegacyAutoThickness(axis: unknown): PieceOrientation {
+  if (axis === "width") return "vertical";
+  if (axis === "height") return "horizontal";
+  return "front";
+}
+
+function normalizePieceOrientation(value: unknown, kind: BoardKind, autoThickness?: LegacyAutoThicknessAxis): PieceOrientation {
   if (value === "vertical" || value === "horizontal" || value === "front") return value;
-  if (autoThickness === "width" || autoThickness === "height" || autoThickness === "none") return orientationForAutoThickness(autoThickness);
+  if (autoThickness) return orientationForLegacyAutoThickness(autoThickness);
   return orientationForKind(kind);
 }
 
-function normalizePieceDimensions(board: Partial<Board>, orientation: PieceOrientation): PieceDimensions {
+function dimensionsFromSketch(orientation: PieceOrientation, sketchW: number, sketchH: number): PieceDimensions {
+  if (orientation === "vertical") {
+    return { width: state.depth, height: sketchH, thickness: sketchW };
+  }
+  if (orientation === "horizontal") {
+    return { width: sketchW, height: state.depth, thickness: sketchH };
+  }
+  return { width: sketchW, height: sketchH, thickness: state.thickness };
+}
+
+function normalizePieceDimensions(board: SavedBoard, orientation: PieceOrientation): PieceDimensions {
   const saved = board.dimensions as Partial<PieceDimensions> | undefined;
-  const thickness = normalizeOptionalPositiveNumber(saved?.thickness ?? board.thicknessOverride);
+  const fallbackThickness = normalizePositiveNumber(board.thicknessOverride, state.thickness);
   const fallbackDepth = normalizeOptionalPositiveNumber(board.depthOverride) ?? state.depth;
   const fallbackWidth = normalizePositiveNumber(board.w, 400);
   const fallbackHeight = normalizePositiveNumber(board.h, 250);
@@ -567,7 +591,7 @@ function normalizePieceDimensions(board: Partial<Board>, orientation: PieceOrien
     return {
       width: normalizePositiveNumber(saved?.width, fallbackDepth),
       height: normalizePositiveNumber(saved?.height, fallbackHeight),
-      thickness
+      thickness: normalizePositiveNumber(saved?.thickness, fallbackThickness)
     };
   }
 
@@ -575,14 +599,14 @@ function normalizePieceDimensions(board: Partial<Board>, orientation: PieceOrien
     return {
       width: normalizePositiveNumber(saved?.width, fallbackWidth),
       height: normalizePositiveNumber(saved?.height, fallbackDepth),
-      thickness
+      thickness: normalizePositiveNumber(saved?.thickness, fallbackThickness)
     };
   }
 
   return {
     width: normalizePositiveNumber(saved?.width, fallbackWidth),
     height: normalizePositiveNumber(saved?.height, fallbackHeight),
-    thickness
+    thickness: normalizePositiveNumber(saved?.thickness, fallbackThickness)
   };
 }
 
@@ -594,28 +618,21 @@ function modelY(y: number): number {
   return -y;
 }
 
-function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: AutoThicknessAxis }, recordHistory = true): void {
+function addBoard(partial: Partial<Board> & { kind: BoardKind; orientation: PieceOrientation }, recordHistory = true): void {
   if (recordHistory) remember();
-  const orientation = normalizePieceOrientation(partial.orientation, partial.kind, partial.autoThickness);
   const board: Board = {
     id: state.nextId,
     name: normalizedPieceName(partial.name, state.nextId),
     x: partial.x ?? 120,
     y: partial.y ?? 120,
-    w: partial.w ?? 400,
-    h: partial.h ?? 250,
-    dimensions: normalizePieceDimensions(partial, orientation),
-    orientation,
+    dimensions: partial.dimensions ?? dimensionsFromSketch(partial.orientation, 400, 250),
+    orientation: partial.orientation,
     kind: partial.kind,
-    autoThickness: autoThicknessForOrientation(orientation),
     materialId: partial.materialId ?? defaultMaterialId,
-    thicknessOverride: normalizeOptionalPositiveNumber(partial.thicknessOverride),
-    depthOverride: normalizeOptionalPositiveNumber(partial.depthOverride),
     laminate: normalizeLaminate(partial.laminate),
     ignoreInOrder: partial.ignoreInOrder ?? false,
     group: 0
   };
-  syncBoardSketchFromDimensions(board, state.thickness, state.depth);
   state.nextId += 1;
   state.boards.push(board);
   setSelection([board.id], board.id);
@@ -623,8 +640,12 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
   refresh();
 }
 
-function addTemplateBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: AutoThicknessAxis }): void {
+function addTemplateBoard(partial: Partial<Board> & { kind: BoardKind; orientation: PieceOrientation }): void {
   addBoard(partial, false);
+}
+
+function addSketchBoard(x: number, y: number, w: number, h: number, kind: BoardKind, orientation: PieceOrientation): void {
+  addTemplateBoard({ x, y, dimensions: dimensionsFromSketch(orientation, w, h), kind, orientation });
 }
 
 function beginTemplate(recordHistory: boolean, x: number, y: number): void {
@@ -647,24 +668,24 @@ function beginTemplate(recordHistory: boolean, x: number, y: number): void {
 function addOpenFrame(x: number, y: number, outerW: number, outerH: number): void {
   const t = state.thickness;
   const innerW = outerW - 2 * t;
-  addTemplateBoard({ x, y, w: t, h: outerH, kind: "upright", autoThickness: "width" });
-  addTemplateBoard({ x: x + outerW - t, y, w: t, h: outerH, kind: "upright", autoThickness: "width" });
-  addTemplateBoard({ x: x + t, y, w: innerW, h: t, kind: "shelf", autoThickness: "height" });
-  addTemplateBoard({ x: x + t, y: y + outerH - t, w: innerW, h: t, kind: "shelf", autoThickness: "height" });
+  addSketchBoard(x, y, t, outerH, "upright", "vertical");
+  addSketchBoard(x + outerW - t, y, t, outerH, "upright", "vertical");
+  addSketchBoard(x + t, y, innerW, t, "shelf", "horizontal");
+  addSketchBoard(x + t, y + outerH - t, innerW, t, "shelf", "horizontal");
 }
 
 function addBackPanel(x: number, y: number, outerW: number, outerH: number): void {
-  addTemplateBoard({ x, y, w: outerW, h: outerH, kind: "back", autoThickness: "none" });
+  addSketchBoard(x, y, outerW, outerH, "back", "front");
 }
 
 function addShelf(x: number, y: number, outerW: number): void {
   const t = state.thickness;
-  addTemplateBoard({ x: x + t, y, w: outerW - 2 * t, h: t, kind: "shelf", autoThickness: "height" });
+  addSketchBoard(x + t, y, outerW - 2 * t, t, "shelf", "horizontal");
 }
 
 function addDivider(x: number, y: number, h: number): void {
   const t = state.thickness;
-  addTemplateBoard({ x, y, w: t, h, kind: "upright", autoThickness: "width" });
+  addSketchBoard(x, y, t, h, "upright", "vertical");
 }
 
 function createTemplate(templateId: TemplateId, recordHistory = true): void {
@@ -702,8 +723,8 @@ function createTemplate(templateId: TemplateId, recordHistory = true): void {
     const dividerX = x + outerW / 2 - t / 2;
     const shelfY = y + 360;
     addOpenFrame(x, y, outerW, outerH);
-    addTemplateBoard({ x: x + t, y: shelfY, w: dividerX - x - t, h: t, kind: "shelf", autoThickness: "height" });
-    addTemplateBoard({ x: dividerX + t, y: shelfY, w: x + outerW - t - (dividerX + t), h: t, kind: "shelf", autoThickness: "height" });
+    addSketchBoard(x + t, shelfY, dividerX - x - t, t, "shelf", "horizontal");
+    addSketchBoard(dividerX + t, shelfY, x + outerW - t - (dividerX + t), t, "shelf", "horizontal");
     addDivider(dividerX, y + t, outerH - 2 * t);
     addBackPanel(x, y, outerW, outerH);
   }
@@ -1107,7 +1128,7 @@ function layoutAnchorsForBoard(boardId: number, axis?: LayoutAnchorAxis): BoardL
 }
 
 function defaultLayoutAnchorAxis(board: Board): LayoutAnchorAxis {
-  if (board.autoThickness === "width") return "y";
+  if (board.orientation === "vertical") return "y";
   return "x";
 }
 
@@ -1198,19 +1219,20 @@ function updateInspector(): void {
     ui.wInput.disabled = true;
     ui.hInput.disabled = true;
   } else if (board) {
+    const rect = rectFromBoard(board);
     const axis = layoutAnchorsForBoard(board.id).at(0)?.axis ?? defaultLayoutAnchorAxis(board);
     const anchors = layoutAnchorsForBoard(board.id, axis);
     ui.nameInput.value = board.name;
     ui.nameInput.placeholder = "";
-    ui.xInput.value = String(Math.round(board.x));
-    ui.yInput.value = String(Math.round(displayY(board.y)));
-    ui.wInput.value = String(Math.round(board.w));
-    ui.hInput.value = String(Math.round(board.h));
-    ui.wInput.placeholder = board.autoThickness === "width" && board.thicknessOverride === null ? t("common.global") : "";
-    ui.hInput.placeholder = board.autoThickness === "height" && board.thicknessOverride === null ? t("common.global") : "";
-    if (board.autoThickness === "width" && board.thicknessOverride === null) ui.wInput.value = "";
-    if (board.autoThickness === "height" && board.thicknessOverride === null) ui.hInput.value = "";
-    ui.depthOverrideInput.value = board.depthOverride === null ? "" : String(board.depthOverride);
+    ui.xInput.value = String(Math.round(rect.x));
+    ui.yInput.value = String(Math.round(displayY(rect.y)));
+    ui.wInput.value = String(Math.round(rect.w));
+    ui.hInput.value = String(Math.round(rect.h));
+    ui.wInput.placeholder = board.orientation === "vertical" && board.dimensions.thickness === state.thickness ? t("common.global") : "";
+    ui.hInput.placeholder = board.orientation === "horizontal" && board.dimensions.thickness === state.thickness ? t("common.global") : "";
+    if (board.orientation === "vertical" && board.dimensions.thickness === state.thickness) ui.wInput.value = "";
+    if (board.orientation === "horizontal" && board.dimensions.thickness === state.thickness) ui.hInput.value = "";
+    ui.depthOverrideInput.value = effectiveDepth(board, state.depth) === state.depth ? "" : String(effectiveDepth(board, state.depth));
     ui.materialInput.value = board.materialId;
     ui.layoutAnchorAxisInput.value = axis;
     updateLayoutAnchorAxisLabels();
@@ -1224,7 +1246,7 @@ function updateInspector(): void {
   }
 
   const materialId = commonValue(boards, (item) => item.materialId);
-  const depthOverride = commonValue(boards, (item) => item.depthOverride === null ? "" : String(item.depthOverride));
+  const depthOverride = commonValue(boards, (item) => effectiveDepth(item, state.depth) === state.depth ? "" : String(effectiveDepth(item, state.depth)));
   ui.materialInput.value = materialId ?? "";
   syncMaterialSelect();
   setInputValue(ui.depthOverrideInput, depthOverride, t("common.mixed"));
@@ -1346,11 +1368,12 @@ function renderMeasurements(): void {
       </div>
     `);
   } else if (selected) {
+    const rect = rectFromBoard(selected);
     cards.push(`
       <div class="metric-card">
         <strong>${selected.name}</strong>
-        <span>${t("metrics.board")}: ${mm(selected.w)} × ${mm(selected.h)} × ${mm(effectiveDepth(selected, state.depth))}</span>
-        <span>${t("metrics.position")}: X ${mm(selected.x)}, Y ${mm(displayY(selected.y))}</span>
+        <span>${t("metrics.board")}: ${mm(rect.w)} × ${mm(rect.h)} × ${mm(effectiveDepth(selected, state.depth))}</span>
+        <span>${t("metrics.position")}: X ${mm(rect.x)}, Y ${mm(displayY(rect.y))}</span>
       </div>
     `);
   }
@@ -1473,17 +1496,19 @@ function anchorChipPosition(anchor: BoardAnchor): Point | null {
   const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
   const target = state.boards.find((candidate) => candidate.id === anchor.targetBoardId);
   if (!board || !target) return null;
+  const rect = rectFromBoard(board);
+  const targetRect = rectFromBoard(target);
   const edgePosition = boardEdgeValue(board, anchor.edge);
 
   if (anchor.edge === "left" || anchor.edge === "right") {
-    const top = Math.max(board.y, target.y);
-    const bottom = Math.min(board.y + board.h, target.y + target.h);
-    return { x: edgePosition, y: top <= bottom ? (top + bottom) / 2 : board.y + board.h / 2 };
+    const top = Math.max(rect.y, targetRect.y);
+    const bottom = Math.min(rect.y + rect.h, targetRect.y + targetRect.h);
+    return { x: edgePosition, y: top <= bottom ? (top + bottom) / 2 : rect.y + rect.h / 2 };
   }
 
-  const left = Math.max(board.x, target.x);
-  const right = Math.min(board.x + board.w, target.x + target.w);
-  return { x: left <= right ? (left + right) / 2 : board.x + board.w / 2, y: edgePosition };
+  const left = Math.max(rect.x, targetRect.x);
+  const right = Math.min(rect.x + rect.w, targetRect.x + targetRect.w);
+  return { x: left <= right ? (left + right) / 2 : rect.x + rect.w / 2, y: edgePosition };
 }
 
 function anchorTouchedBoard(boardId: number): void {
@@ -1512,24 +1537,26 @@ function addBoardAnchor(boardId: number, edge: BoardEdge, targetBoardId: number,
 
 function canAnchorEdge(board: Board, edge: BoardEdge): boolean {
   if (board.kind === "front") return false;
-  if (board.autoThickness === "width") return edge === "top" || edge === "bottom";
-  if (board.autoThickness === "height") return edge === "left" || edge === "right";
+  if (board.orientation === "vertical") return edge === "top" || edge === "bottom";
+  if (board.orientation === "horizontal") return edge === "left" || edge === "right";
   return true;
 }
 
 function touchingEdges(board: Board, target: Board): Array<[BoardEdge, BoardEdge]> {
   const tolerance = 0.5;
   const edges: Array<[BoardEdge, BoardEdge]> = [];
-  if (Math.abs(board.x - (target.x + target.w)) <= tolerance && rangesOverlap(board.y, board.y + board.h, target.y, target.y + target.h)) {
+  const rect = rectFromBoard(board);
+  const targetRect = rectFromBoard(target);
+  if (Math.abs(rect.x - (targetRect.x + targetRect.w)) <= tolerance && rangesOverlap(rect.y, rect.y + rect.h, targetRect.y, targetRect.y + targetRect.h)) {
     edges.push(["left", "right"]);
   }
-  if (Math.abs(board.x + board.w - target.x) <= tolerance && rangesOverlap(board.y, board.y + board.h, target.y, target.y + target.h)) {
+  if (Math.abs(rect.x + rect.w - targetRect.x) <= tolerance && rangesOverlap(rect.y, rect.y + rect.h, targetRect.y, targetRect.y + targetRect.h)) {
     edges.push(["right", "left"]);
   }
-  if (Math.abs(board.y - (target.y + target.h)) <= tolerance && rangesOverlap(board.x, board.x + board.w, target.x, target.x + target.w)) {
+  if (Math.abs(rect.y - (targetRect.y + targetRect.h)) <= tolerance && rangesOverlap(rect.x, rect.x + rect.w, targetRect.x, targetRect.x + targetRect.w)) {
     edges.push(["top", "bottom"]);
   }
-  if (Math.abs(board.y + board.h - target.y) <= tolerance && rangesOverlap(board.x, board.x + board.w, target.x, target.x + target.w)) {
+  if (Math.abs(rect.y + rect.h - targetRect.y) <= tolerance && rangesOverlap(rect.x, rect.x + rect.w, targetRect.x, targetRect.x + targetRect.w)) {
     edges.push(["bottom", "top"]);
   }
   return edges;
@@ -1567,10 +1594,11 @@ function applyAnchorsToBoard(boardId: number): void {
 }
 
 function boardEdgeValue(board: Board, edge: BoardEdge): number {
-  if (edge === "left") return board.x;
-  if (edge === "right") return board.x + board.w;
-  if (edge === "top") return board.y;
-  return board.y + board.h;
+  const rect = rectFromBoard(board);
+  if (edge === "left") return rect.x;
+  if (edge === "right") return rect.x + rect.w;
+  if (edge === "top") return rect.y;
+  return rect.y + rect.h;
 }
 
 function setRectEdge(rect: Rect, edge: BoardEdge, value: number): void {
@@ -1613,7 +1641,7 @@ function applyThicknessChange(newThickness: number): void {
   if (newThickness === state.thickness) return;
   remember();
   const oldThickness = state.thickness;
-  const updateExisting = state.boards.some((board) => board.autoThickness !== "none")
+  const updateExisting = state.boards.some((board) => board.orientation !== "front")
     ? window.confirm(t("dialogs.updateThickness", { value: mm(newThickness) }))
     : false;
   state.thickness = newThickness;
@@ -1624,19 +1652,16 @@ function applyThicknessChange(newThickness: number): void {
     const oldBoardThickness = effectiveThicknessWithDefault(board, oldThickness);
     const nextBoardThickness = updateExisting ? newThickness : oldBoardThickness;
     const delta = nextBoardThickness - oldBoardThickness;
-    if (board.autoThickness !== "none") {
-      board.dimensions.thickness = updateExisting ? null : oldBoardThickness;
-      board.thicknessOverride = board.dimensions.thickness;
-    }
+    if (board.orientation === "front") board.dimensions.thickness = newThickness;
+    else board.dimensions.thickness = nextBoardThickness;
     if (board.orientation === "vertical") {
       if (board.x > 160) board.x -= delta;
-      syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     }
     if (board.orientation === "horizontal") {
+      const rect = rectFromBoard(board);
       board.x += delta;
-      board.dimensions.width = Math.max(nextBoardThickness, board.w - delta * 2);
+      board.dimensions.width = Math.max(nextBoardThickness, rect.w - delta * 2);
       if (board.y > 120) board.y -= delta;
-      syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     }
   });
   state.boards.forEach((board) => applyAnchorsToBoard(board.id));
@@ -1659,8 +1684,6 @@ function applyDepthChange(newDepth: number): void {
       const nextDepth = updateExisting ? newDepth : effectiveDepthWithDefault(board, oldDepth);
       if (board.orientation === "vertical") board.dimensions.width = nextDepth;
       if (board.orientation === "horizontal") board.dimensions.height = nextDepth;
-      board.depthOverride = updateExisting ? null : nextDepth;
-      syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     });
   }
   state.lastSnap = updateExisting
@@ -1670,11 +1693,13 @@ function applyDepthChange(newDepth: number): void {
 }
 
 function effectiveDepthWithDefault(board: Board, defaultDepth: number): number {
-  return board.depthOverride ?? defaultDepth;
+  if (board.orientation === "vertical") return board.dimensions.width;
+  if (board.orientation === "horizontal") return board.dimensions.height;
+  return defaultDepth;
 }
 
 function effectiveThicknessWithDefault(board: Board, defaultThickness: number): number {
-  return board.thicknessOverride ?? defaultThickness;
+  return board.dimensions.thickness ?? defaultThickness;
 }
 
 function exportCutListCsv(): void {
@@ -1737,7 +1762,7 @@ function cutListCsv(): string {
 }
 
 function boardCutoutDimensions(board: Board): { thickness: number; width: number; height: number } {
-  const dimensions = physicalDimensions(board, state.thickness, state.depth);
+  const dimensions = physicalDimensions(board);
 
   return {
     thickness: Math.round(dimensions.thickness),
@@ -1788,21 +1813,17 @@ function updateBoardFromInspector(event?: Event): void {
   const boards = selectedBoards(state);
   if (!board || !boards.length) return;
   const target = event?.target;
-  if (target === ui.wInput && board.autoThickness === "width" && ui.wInput.value === "") {
+  if (target === ui.wInput && board.orientation === "vertical" && ui.wInput.value === "") {
     remember();
-    board.dimensions.thickness = null;
-    board.thicknessOverride = null;
-    syncBoardSketchFromDimensions(board, state.thickness, state.depth);
+    board.dimensions.thickness = state.thickness;
     state.lastSnap = t("status.widthUsesGlobal", { value: mm(state.thickness) });
     propagateAnchorsFrom(board.id);
     refresh();
     return;
   }
-  if (target === ui.hInput && board.autoThickness === "height" && ui.hInput.value === "") {
+  if (target === ui.hInput && board.orientation === "horizontal" && ui.hInput.value === "") {
     remember();
-    board.dimensions.thickness = null;
-    board.thicknessOverride = null;
-    syncBoardSketchFromDimensions(board, state.thickness, state.depth);
+    board.dimensions.thickness = state.thickness;
     state.lastSnap = t("status.heightUsesGlobal", { value: mm(state.thickness) });
     propagateAnchorsFrom(board.id);
     refresh();
@@ -1811,7 +1832,8 @@ function updateBoardFromInspector(event?: Event): void {
   if (target === ui.depthOverrideInput && ui.depthOverrideInput.value === "") {
     remember();
     boards.forEach((item) => {
-      item.depthOverride = null;
+      if (item.orientation === "vertical") item.dimensions.width = state.depth;
+      if (item.orientation === "horizontal") item.dimensions.height = state.depth;
     });
     state.lastSnap = t("status.depthUsesGlobal", { value: mm(state.depth) });
     refresh();
@@ -1829,7 +1851,9 @@ function updateBoardFromInspector(event?: Event): void {
     }
     if (target === ui.depthOverrideInput) {
       boards.forEach((item) => {
-        item.depthOverride = normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(item, state.depth));
+        const nextDepth = normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(item, state.depth));
+        if (item.orientation === "vertical") item.dimensions.width = nextDepth;
+        if (item.orientation === "horizontal") item.dimensions.height = nextDepth;
       });
       state.lastSnap = t("status.depthSetOnBoards", { count: boards.length });
     }
@@ -1838,20 +1862,19 @@ function updateBoardFromInspector(event?: Event): void {
     const nextRect = {
       x: Number(ui.xInput.value) || 0,
       y: modelY(Number(ui.yInput.value) || 0),
-      w: board.autoThickness === "width" && ui.wInput.value === "" ? state.thickness : Math.max(1, Number(ui.wInput.value) || 1),
-      h: board.autoThickness === "height" && ui.hInput.value === "" ? state.thickness : Math.max(1, Number(ui.hInput.value) || 1)
+      w: board.orientation === "vertical" && ui.wInput.value === "" ? state.thickness : Math.max(1, Number(ui.wInput.value) || 1),
+      h: board.orientation === "horizontal" && ui.hInput.value === "" ? state.thickness : Math.max(1, Number(ui.hInput.value) || 1)
     };
-    if (board.autoThickness === "width") {
-      board.dimensions.thickness = ui.wInput.value === "" ? null : normalizePositiveNumber(ui.wInput.value, effectiveThickness(board, state.thickness));
+    if (board.orientation === "vertical") {
+      board.dimensions.thickness = ui.wInput.value === "" ? state.thickness : normalizePositiveNumber(ui.wInput.value, effectiveThickness(board, state.thickness));
     }
-    if (board.autoThickness === "height") {
-      board.dimensions.thickness = ui.hInput.value === "" ? null : normalizePositiveNumber(ui.hInput.value, effectiveThickness(board, state.thickness));
+    if (board.orientation === "horizontal") {
+      board.dimensions.thickness = ui.hInput.value === "" ? state.thickness : normalizePositiveNumber(ui.hInput.value, effectiveThickness(board, state.thickness));
     }
-    board.thicknessOverride = board.dimensions.thickness;
-    board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board, state.depth));
-    if (board.orientation === "vertical") board.dimensions.width = board.depthOverride ?? state.depth;
-    if (board.orientation === "horizontal") board.dimensions.height = board.depthOverride ?? state.depth;
-    updateDimensionsFromSketchRect(board, nextRect, state.thickness, state.depth);
+    const nextDepth = ui.depthOverrideInput.value === "" ? state.depth : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board, state.depth));
+    if (board.orientation === "vertical") board.dimensions.width = nextDepth;
+    if (board.orientation === "horizontal") board.dimensions.height = nextDepth;
+    updateDimensionsFromSketchRect(board, nextRect);
     propagateAnchorsFrom(board.id);
   }
   refresh();
@@ -1935,7 +1958,8 @@ function updateLayoutAnchorSummary(): void {
 }
 
 function layoutAnchorOffsets(board: Board, axis: LayoutAnchorAxis, count: number): number[] | null {
-  const span = axis === "x" ? board.w : board.h;
+  const rect = rectFromBoard(board);
+  const span = axis === "x" ? rect.w : rect.h;
   if (!ui.layoutAnchorBalanceInput.checked) {
     return Array.from({ length: count }, (_, index) => Math.round((span * (index + 1)) / (count + 1)));
   }
@@ -1998,10 +2022,9 @@ function createPresetAt(presetId: string, point?: Point): void {
   addBoard({
     x: snapValueToGrid(state, center.x - preset.w() / 2, "x"),
     y: snapValueToGrid(state, center.y - preset.h() / 2, "y"),
-    w: preset.w(),
-    h: preset.h(),
+    dimensions: dimensionsFromSketch(preset.orientation, preset.w(), preset.h()),
     kind: preset.kind,
-    autoThickness: preset.autoThickness
+    orientation: preset.orientation
   });
 }
 
@@ -2011,7 +2034,7 @@ function currentViewCenter(): Point {
 }
 
 function applyBoardRect(board: Board, rect: { x: number; y: number; w: number; h: number }): void {
-  updateDimensionsFromSketchRect(board, rect, state.thickness, state.depth);
+  updateDimensionsFromSketchRect(board, rect);
 }
 
 function moveBoardsBy(boards: Board[], dx: number, dy: number): void {
@@ -2045,17 +2068,18 @@ function addMeasurement(a: MeasurementAnchor, b: MeasurementAnchor, axis: Measur
 function addSelectedMeasurement(axis: MeasurementAxis): void {
   const board = selectedBoard(state);
   if (!board) return;
+  const rect = rectFromBoard(board);
   if (axis === "horizontal") {
     addMeasurement(
-      { kind: "board-edge", boardId: board.id, edge: "left", offset: board.h / 2 },
-      { kind: "board-edge", boardId: board.id, edge: "right", offset: board.h / 2 },
+      { kind: "board-edge", boardId: board.id, edge: "left", offset: rect.h / 2 },
+      { kind: "board-edge", boardId: board.id, edge: "right", offset: rect.h / 2 },
       "horizontal"
     );
     return;
   }
   addMeasurement(
-    { kind: "board-edge", boardId: board.id, edge: "top", offset: board.w / 2 },
-    { kind: "board-edge", boardId: board.id, edge: "bottom", offset: board.w / 2 },
+    { kind: "board-edge", boardId: board.id, edge: "top", offset: rect.w / 2 },
+    { kind: "board-edge", boardId: board.id, edge: "bottom", offset: rect.w / 2 },
     "vertical"
   );
 }
@@ -2236,14 +2260,14 @@ function rotateSelectedBoards(): void {
   remember();
   const rotatedIds = new Set(boards.map((board) => board.id));
   boards.forEach((board) => {
-    const centerX = board.x + board.w / 2;
-    const centerY = board.y + board.h / 2;
+    const rect = rectFromBoard(board);
+    const centerX = rect.x + rect.w / 2;
+    const centerY = rect.y + rect.h / 2;
     board.orientation = rotateOrientation(board.orientation);
-    board.autoThickness = autoThicknessForOrientation(board.orientation);
     board.kind = rotateBoardKind(board.kind);
-    syncBoardSketchFromDimensions(board, state.thickness, state.depth);
-    board.x = Math.round(centerX - board.w / 2);
-    board.y = Math.round(centerY - board.h / 2);
+    const nextRect = rectFromBoard(board);
+    board.x = Math.round(centerX - nextRect.w / 2);
+    board.y = Math.round(centerY - nextRect.h / 2);
     state.layoutAnchors
       .filter((anchor) => anchor.boardId === board.id)
       .forEach((anchor) => {

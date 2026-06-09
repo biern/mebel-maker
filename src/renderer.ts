@@ -7,6 +7,7 @@ import {
   measurementDisplayLine,
   measurementAxis,
   mm,
+  rectFromBoard,
   resizeHandlesForBoard,
   resolveMeasurementAnchor,
   selectedBoard,
@@ -123,9 +124,10 @@ export class SketchRenderer {
   }
 
   private drawBoard(board: Board): void {
-    const point = worldToScreen(this.state, board.x, board.y);
-    const w = board.w * this.state.scale;
-    const h = board.h * this.state.scale;
+    const rect = rectFromBoard(board);
+    const point = worldToScreen(this.state, rect.x, rect.y);
+    const w = rect.w * this.state.scale;
+    const h = rect.h * this.state.scale;
     const selected = this.state.selectedIds.includes(board.id) || board.id === this.state.selectedId;
     const primary = board.id === this.state.selectedId;
     const resizing = board.id === this.state.resizing?.id;
@@ -145,7 +147,7 @@ export class SketchRenderer {
     this.ctx.strokeStyle = "rgba(99, 72, 37, 0.28)";
     this.ctx.lineWidth = 1;
     const grainGap = Math.max(10, 28 * this.state.scale);
-    if (board.w >= board.h) {
+    if (rect.w >= rect.h) {
       for (let y = point.y + grainGap; y < point.y + h; y += grainGap) this.line(point.x + 4, y, point.x + w - 4, y);
     } else {
       for (let x = point.x + grainGap; x < point.x + w; x += grainGap) this.line(x, point.y + 4, x, point.y + h - 4);
@@ -238,19 +240,21 @@ export class SketchRenderer {
       this.ctx.setLineDash(selected ? [5, 4] : [3, 5]);
 
       if (anchor.axis === "x") {
-        const x = board.x + anchor.offset;
-        if (anchor.offset < 0 || anchor.offset > board.w) return;
-        const a = worldToScreen(this.state, x, board.y);
-        const b = worldToScreen(this.state, x, board.y + board.h);
+        const rect = rectFromBoard(board);
+        const x = rect.x + anchor.offset;
+        if (anchor.offset < 0 || anchor.offset > rect.w) return;
+        const a = worldToScreen(this.state, x, rect.y);
+        const b = worldToScreen(this.state, x, rect.y + rect.h);
         this.line(a.x, a.y, b.x, b.y);
         this.drawLayoutAnchorDot(a.x, (a.y + b.y) / 2, color);
         return;
       }
 
-      const y = board.y + anchor.offset;
-      if (anchor.offset < 0 || anchor.offset > board.h) return;
-      const a = worldToScreen(this.state, board.x, y);
-      const b = worldToScreen(this.state, board.x + board.w, y);
+      const rect = rectFromBoard(board);
+      const y = rect.y + anchor.offset;
+      if (anchor.offset < 0 || anchor.offset > rect.h) return;
+      const a = worldToScreen(this.state, rect.x, y);
+      const b = worldToScreen(this.state, rect.x + rect.w, y);
       this.line(a.x, a.y, b.x, b.y);
       this.drawLayoutAnchorDot((a.x + b.x) / 2, a.y, color);
     });
@@ -373,8 +377,9 @@ export class SketchRenderer {
     }
 
     if (selected && selectedSet.length <= 1) {
-      this.drawDimensionLine(selected.x, selected.y + selected.h, selected.x + selected.w, selected.y + selected.h, mm(selected.w), 18, "#6e4d83");
-      this.drawDimensionLine(selected.x + selected.w, selected.y, selected.x + selected.w, selected.y + selected.h, mm(selected.h), 18, "#6e4d83");
+      const rect = rectFromBoard(selected);
+      this.drawDimensionLine(rect.x, rect.y + rect.h, rect.x + rect.w, rect.y + rect.h, mm(rect.w), 18, "#6e4d83");
+      this.drawDimensionLine(rect.x + rect.w, rect.y, rect.x + rect.w, rect.y + rect.h, mm(rect.h), 18, "#6e4d83");
     }
   }
 
@@ -382,9 +387,10 @@ export class SketchRenderer {
     if (selectedBoards(this.state).length > 1) return;
     const selected = selectedBoard(this.state);
     if (!selected) return;
-    const point = worldToScreen(this.state, selected.x, selected.y);
-    const w = selected.w * this.state.scale;
-    const h = selected.h * this.state.scale;
+    const rect = rectFromBoard(selected);
+    const point = worldToScreen(this.state, rect.x, rect.y);
+    const w = rect.w * this.state.scale;
+    const h = rect.h * this.state.scale;
     const handlePoints: Record<string, [number, number]> = {
       nw: [point.x, point.y],
       n: [point.x + w / 2, point.y],

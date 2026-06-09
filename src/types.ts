@@ -1,5 +1,4 @@
 export type BoardKind = "upright" | "shelf" | "panel" | "back" | "front";
-export type AutoThicknessAxis = "width" | "height" | "none";
 export type PieceOrientation = "vertical" | "horizontal" | "front";
 export type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 export type BoardEdge = "left" | "right" | "top" | "bottom";
@@ -9,7 +8,7 @@ export type MeasurementAxis = "horizontal" | "vertical";
 export interface PieceDimensions {
   width: number;
   height: number;
-  thickness: number | null;
+  thickness: number;
 }
 
 export interface Board {
@@ -17,15 +16,10 @@ export interface Board {
   name: string;
   x: number;
   y: number;
-  w: number;
-  h: number;
   dimensions: PieceDimensions;
   orientation: PieceOrientation;
   kind: BoardKind;
-  autoThickness: AutoThicknessAxis;
   materialId: string;
-  thicknessOverride: number | null;
-  depthOverride: number | null;
   laminate: LaminateEdges;
   ignoreInOrder: boolean;
   group: number;

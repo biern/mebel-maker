@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { boundsFor, displayOrderedBoards, effectiveDepth } from "./geometry";
+import { boundsFor, displayOrderedBoards, effectiveDepth, rectFromBoard } from "./geometry";
 import type { Board, Material, SketchState } from "./types";
 
 interface DepthRange {
@@ -152,16 +152,17 @@ export class Visualization3DRenderer {
   }
 
   private boxForBoard(board: Board, centerX: number, centerY: number, sceneDepth: number, overlayThickness: number): BoardBox {
+    const rect = rectFromBoard(board);
     const range = this.zRangeForBoard(board, effectiveDepth(board, this.state.depth), overlayThickness);
     const d = Math.max(1, range.front - range.back);
     const opacity = board.kind === "front" && !this.state.showFrontPanels ? 0.18 : 1;
     return {
       board,
-      x: board.x + board.w / 2 - centerX,
-      y: centerY - (board.y + board.h / 2),
+      x: rect.x + rect.w / 2 - centerX,
+      y: centerY - (rect.y + rect.h / 2),
       z: (range.back + range.front) / 2 - sceneDepth / 2,
-      w: Math.max(1, board.w),
-      h: Math.max(1, board.h),
+      w: Math.max(1, rect.w),
+      h: Math.max(1, rect.h),
       d,
       opacity
     };
@@ -216,10 +217,12 @@ export class Visualization3DRenderer {
   }
 
   private boardsOverlapInElevation(a: Board, b: Board): boolean {
-    return a.x < b.x + b.w &&
-      a.x + a.w > b.x &&
-      a.y < b.y + b.h &&
-      a.y + a.h > b.y;
+    const ar = rectFromBoard(a);
+    const br = rectFromBoard(b);
+    return ar.x < br.x + br.w &&
+      ar.x + ar.w > br.x &&
+      ar.y < br.y + br.h &&
+      ar.y + ar.h > br.y;
   }
 
   private materialFor(board: Board): Material {

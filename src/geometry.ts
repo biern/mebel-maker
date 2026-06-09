@@ -8,7 +8,6 @@ import type {
   MeasurementAnchor,
   MeasurementAxis,
   OverlapRegion,
-  PieceDimensions,
   PieceOrientation,
   Point,
   Rect,
@@ -27,7 +26,8 @@ export function mm(value: number): string {
 }
 
 export function boardLabel(board: Board): string {
-  return `${board.name} · ${mm(board.w)} × ${mm(board.h)}`;
+  const rect = rectFromBoard(board);
+  return `${board.name} · ${mm(rect.w)} × ${mm(rect.h)}`;
 }
 
 export function orientationForKind(kind: Board["kind"]): PieceOrientation {
@@ -36,80 +36,31 @@ export function orientationForKind(kind: Board["kind"]): PieceOrientation {
   return "front";
 }
 
-export function orientationForAutoThickness(axis: Board["autoThickness"]): PieceOrientation {
-  if (axis === "width") return "vertical";
-  if (axis === "height") return "horizontal";
-  return "front";
+export function physicalDimensions(board: Board): { width: number; height: number; thickness: number } {
+  return board.dimensions;
 }
 
-export function autoThicknessForOrientation(orientation: PieceOrientation): Board["autoThickness"] {
-  if (orientation === "vertical") return "width";
-  if (orientation === "horizontal") return "height";
-  return "none";
-}
+export function boardSketchRect(board: Board): Rect {
+  const dimensions = physicalDimensions(board);
 
-export function physicalDimensions(board: Board, defaultThickness: number, defaultDepth: number): { width: number; height: number; thickness: number } {
-  const orientation = board.orientation ?? orientationForAutoThickness(board.autoThickness);
-  const dimensions = board.dimensions as PieceDimensions | undefined;
-  const thickness = dimensions?.thickness ?? board.thicknessOverride ?? defaultThickness;
-
-  if (orientation === "vertical") {
-    return {
-      width: dimensions?.width ?? board.depthOverride ?? defaultDepth,
-      height: dimensions?.height ?? board.h,
-      thickness
-    };
-  }
-
-  if (orientation === "horizontal") {
-    return {
-      width: dimensions?.width ?? board.w,
-      height: dimensions?.height ?? board.depthOverride ?? defaultDepth,
-      thickness
-    };
-  }
-
-  return {
-    width: dimensions?.width ?? board.w,
-    height: dimensions?.height ?? board.h,
-    thickness
-  };
-}
-
-export function boardSketchRect(board: Board, defaultThickness: number, defaultDepth: number): Rect {
-  const dimensions = physicalDimensions(board, defaultThickness, defaultDepth);
-  const orientation = board.orientation ?? orientationForAutoThickness(board.autoThickness);
-
-  if (orientation === "vertical") return { x: board.x, y: board.y, w: dimensions.thickness, h: dimensions.height };
-  if (orientation === "horizontal") return { x: board.x, y: board.y, w: dimensions.width, h: dimensions.thickness };
+  if (board.orientation === "vertical") return { x: board.x, y: board.y, w: dimensions.thickness, h: dimensions.height };
+  if (board.orientation === "horizontal") return { x: board.x, y: board.y, w: dimensions.width, h: dimensions.thickness };
   return { x: board.x, y: board.y, w: dimensions.width, h: dimensions.height };
 }
 
-export function syncBoardSketchFromDimensions(board: Board, defaultThickness: number, defaultDepth: number): void {
-  const rect = boardSketchRect(board, defaultThickness, defaultDepth);
-  board.w = Math.round(rect.w);
-  board.h = Math.round(rect.h);
-  board.autoThickness = autoThicknessForOrientation(board.orientation);
-  board.thicknessOverride = board.dimensions.thickness;
-  if (board.orientation === "vertical") board.depthOverride = board.dimensions.width === defaultDepth ? null : board.dimensions.width;
-  else if (board.orientation === "horizontal") board.depthOverride = board.dimensions.height === defaultDepth ? null : board.dimensions.height;
-}
+export function updateDimensionsFromSketchRect(board: Board, rect: Rect): void {
+  const current = physicalDimensions(board);
 
-export function updateDimensionsFromSketchRect(board: Board, rect: Rect, defaultThickness: number, defaultDepth: number): void {
-  const current = physicalDimensions(board, defaultThickness, defaultDepth);
-  const orientation = board.orientation ?? orientationForAutoThickness(board.autoThickness);
-
-  if (orientation === "vertical") {
-    board.dimensions = { width: current.width, height: Math.round(rect.h), thickness: board.dimensions.thickness };
-  } else if (orientation === "horizontal") {
-    board.dimensions = { width: Math.round(rect.w), height: current.height, thickness: board.dimensions.thickness };
+  if (board.orientation === "vertical") {
+    board.dimensions = { width: current.width, height: Math.round(rect.h), thickness: current.thickness };
+  } else if (board.orientation === "horizontal") {
+    board.dimensions = { width: Math.round(rect.w), height: current.height, thickness: current.thickness };
   } else {
-    board.dimensions = { width: Math.round(rect.w), height: Math.round(rect.h), thickness: board.dimensions.thickness };
+    board.dimensions = { width: Math.round(rect.w), height: Math.round(rect.h), thickness: current.thickness };
   }
 
   board.x = Math.round(rect.x);
   board.y = Math.round(rect.y);
-  syncBoardSketchFromDimensions(board, defaultThickness, defaultDepth);
 }
 
 export function selectedBoard(state: SketchState): Board | null {
@@ -141,7 +92,7 @@ export function worldToScreen(state: SketchState, x: number, y: number): Point {
 }
 
 export function rectEdges(board: Board): RectEdges {
-  return edgesForRect(board);
+  return edgesForRect(rectFromBoard(board));
 }
 
 export function edgesForRect(rect: Rect): RectEdges {
@@ -179,35 +130,38 @@ export function hitTest(state: Pick<SketchState, "boards" | "showFrontPanels">, 
 }
 
 function pointInBoard(board: Board, point: Point): boolean {
-  const slop = board.w < 32 || board.h < 32 ? 14 : 0;
-  return point.x >= board.x - slop &&
-    point.x <= board.x + board.w + slop &&
-    point.y >= board.y - slop &&
-    point.y <= board.y + board.h + slop;
+  const rect = rectFromBoard(board);
+  const slop = rect.w < 32 || rect.h < 32 ? 14 : 0;
+  return point.x >= rect.x - slop &&
+    point.x <= rect.x + rect.w + slop &&
+    point.y >= rect.y - slop &&
+    point.y <= rect.y + rect.h + slop;
 }
 
 export function boundsFor(boards: Board[]): Bounds | null {
   if (!boards.length) return null;
-  const left = Math.min(...boards.map((board) => board.x));
-  const top = Math.min(...boards.map((board) => board.y));
-  const right = Math.max(...boards.map((board) => board.x + board.w));
-  const bottom = Math.max(...boards.map((board) => board.y + board.h));
+  const rects = boards.map(rectFromBoard);
+  const left = Math.min(...rects.map((rect) => rect.x));
+  const top = Math.min(...rects.map((rect) => rect.y));
+  const right = Math.max(...rects.map((rect) => rect.x + rect.w));
+  const bottom = Math.max(...rects.map((rect) => rect.y + rect.h));
   return { left, top, right, bottom, w: right - left, h: bottom - top };
 }
 
 export function rectFromBoard(board: Board): Rect {
-  return { x: board.x, y: board.y, w: board.w, h: board.h };
+  return boardSketchRect(board);
 }
 
 export function effectiveDepth(board: Board, defaultDepth: number): number {
-  if (board.orientation === "vertical" && board.dimensions) return board.dimensions.width;
-  if (board.orientation === "horizontal" && board.dimensions) return board.dimensions.height;
-  return board.depthOverride ?? defaultDepth;
+  void defaultDepth;
+  if (board.orientation === "vertical") return board.dimensions.width;
+  if (board.orientation === "horizontal") return board.dimensions.height;
+  return defaultDepth;
 }
 
 export function effectiveThickness(board: Board, defaultThickness: number): number {
-  if (board.dimensions) return board.dimensions.thickness ?? defaultThickness;
-  return board.thicknessOverride ?? defaultThickness;
+  void defaultThickness;
+  return board.dimensions.thickness;
 }
 
 export function snapValueToGrid(state: SketchState, value: number, axis: "x" | "y"): number {
@@ -255,13 +209,25 @@ export function innerDimensions(boards: Board[], thickness: number): InnerDimens
   if (!bounds) return null;
   const frameBoards = boards.filter((board) => !isOverlayPanel(board));
 
-  const leftPanel = frameBoards.find((board) => Math.abs(board.x - bounds.left) <= 0.5 && board.h > thickness * 2);
-  const rightPanel = frameBoards.find((board) => Math.abs(board.x + board.w - bounds.right) <= 0.5 && board.h > thickness * 2);
-  const topPanel = frameBoards.find((board) => Math.abs(board.y - bounds.top) <= 0.5 && board.w > thickness * 2);
-  const bottomPanel = frameBoards.find((board) => Math.abs(board.y + board.h - bounds.bottom) <= 0.5 && board.w > thickness * 2);
+  const leftPanel = frameBoards.find((board) => {
+    const rect = rectFromBoard(board);
+    return Math.abs(rect.x - bounds.left) <= 0.5 && rect.h > thickness * 2;
+  });
+  const rightPanel = frameBoards.find((board) => {
+    const rect = rectFromBoard(board);
+    return Math.abs(rect.x + rect.w - bounds.right) <= 0.5 && rect.h > thickness * 2;
+  });
+  const topPanel = frameBoards.find((board) => {
+    const rect = rectFromBoard(board);
+    return Math.abs(rect.y - bounds.top) <= 0.5 && rect.w > thickness * 2;
+  });
+  const bottomPanel = frameBoards.find((board) => {
+    const rect = rectFromBoard(board);
+    return Math.abs(rect.y + rect.h - bounds.bottom) <= 0.5 && rect.w > thickness * 2;
+  });
 
-  const innerW = Math.max(0, bounds.w - (leftPanel?.w ?? 0) - (rightPanel?.w ?? 0));
-  const innerH = Math.max(0, bounds.h - (topPanel?.h ?? 0) - (bottomPanel?.h ?? 0));
+  const innerW = Math.max(0, bounds.w - (leftPanel ? rectFromBoard(leftPanel).w : 0) - (rightPanel ? rectFromBoard(rightPanel).w : 0));
+  const innerH = Math.max(0, bounds.h - (topPanel ? rectFromBoard(topPanel).h : 0) - (bottomPanel ? rectFromBoard(bottomPanel).h : 0));
   return { innerW, innerH, hasFrame: Boolean(leftPanel || rightPanel || topPanel || bottomPanel) };
 }
 
@@ -344,7 +310,7 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
     }
   });
 
-  const finalMoving = { ...board, x: snapped.x, y: snapped.y };
+  const finalMoving = { ...rectFromBoard(board), x: snapped.x, y: snapped.y };
   guideLinks.forEach((link, index) => {
     if (!link || !guides[index]) return;
     guides[index].linkPoint = connectionPreviewPoint(board, finalMoving, link.edge, link.target, link.targetEdge);
@@ -356,9 +322,10 @@ export function snapBoard(state: SketchState, board: Board, targetX: number, tar
 export function hitResizeHandle(state: SketchState, board: Board, point: Point): ResizeHandle | null {
   const threshold = 18;
   const screenPoint = worldToScreen(state, point.x, point.y);
-  const boardPoint = worldToScreen(state, board.x, board.y);
-  const w = board.w * state.scale;
-  const h = board.h * state.scale;
+  const rect = rectFromBoard(board);
+  const boardPoint = worldToScreen(state, rect.x, rect.y);
+  const w = rect.w * state.scale;
+  const h = rect.h * state.scale;
   const handlePoints: Record<ResizeHandle, Point> = {
     nw: { x: boardPoint.x, y: boardPoint.y },
     n: { x: boardPoint.x + w / 2, y: boardPoint.y },
@@ -396,11 +363,11 @@ export function resizeBoard(state: SketchState, board: Board, handle: ResizeHand
     rect.h = startRect.h - dy;
   }
 
-  if (board.autoThickness === "width") {
+  if (board.orientation === "vertical") {
     rect.x = startRect.x;
     rect.w = startRect.w;
   }
-  if (board.autoThickness === "height") {
+  if (board.orientation === "horizontal") {
     rect.y = startRect.y;
     rect.h = startRect.h;
   }
@@ -409,8 +376,8 @@ export function resizeBoard(state: SketchState, board: Board, handle: ResizeHand
 }
 
 export function resizeHandlesForBoard(board: Board): ResizeHandle[] {
-  if (board.autoThickness === "width") return ["n", "s"];
-  if (board.autoThickness === "height") return ["w", "e"];
+  if (board.orientation === "vertical") return ["n", "s"];
+  if (board.orientation === "horizontal") return ["w", "e"];
   return ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
 }
 
@@ -421,22 +388,23 @@ export function nearestMeasurementAnchor(state: SketchState, point: Point): Meas
   let bestDistance = Number.POSITIVE_INFINITY;
 
   state.boards.forEach((board) => {
+    const rect = rectFromBoard(board);
     const edges = rectEdges(board);
     const candidates: Array<{ edge: BoardEdge; distance: number; offset: number }> = [
-      { edge: "left", distance: Math.abs(point.x - edges.left), offset: point.y - board.y },
-      { edge: "right", distance: Math.abs(point.x - edges.right), offset: point.y - board.y },
-      { edge: "top", distance: Math.abs(point.y - edges.top), offset: point.x - board.x },
-      { edge: "bottom", distance: Math.abs(point.y - edges.bottom), offset: point.x - board.x }
+      { edge: "left", distance: Math.abs(point.x - edges.left), offset: point.y - rect.y },
+      { edge: "right", distance: Math.abs(point.x - edges.right), offset: point.y - rect.y },
+      { edge: "top", distance: Math.abs(point.y - edges.top), offset: point.x - rect.x },
+      { edge: "bottom", distance: Math.abs(point.y - edges.bottom), offset: point.x - rect.x }
     ];
 
     candidates.forEach((candidate) => {
       const onVerticalEdge = (candidate.edge === "left" || candidate.edge === "right") &&
-        point.y >= board.y - threshold && point.y <= board.y + board.h + threshold;
+        point.y >= rect.y - threshold && point.y <= rect.y + rect.h + threshold;
       const onHorizontalEdge = (candidate.edge === "top" || candidate.edge === "bottom") &&
-        point.x >= board.x - threshold && point.x <= board.x + board.w + threshold;
+        point.x >= rect.x - threshold && point.x <= rect.x + rect.w + threshold;
       if (!(onVerticalEdge || onHorizontalEdge) || candidate.distance > threshold) return;
       if (candidate.distance < bestDistance) {
-        const center = candidate.edge === "left" || candidate.edge === "right" ? board.h / 2 : board.w / 2;
+        const center = candidate.edge === "left" || candidate.edge === "right" ? rect.h / 2 : rect.w / 2;
         const offset = Math.abs(candidate.offset - center) <= centerThreshold ? center : candidate.offset;
         bestAnchor = { kind: "board-edge", boardId: board.id, edge: candidate.edge, offset };
         bestDistance = candidate.distance;
@@ -455,15 +423,16 @@ export function resolveMeasurementAnchor(state: SketchState, anchor: Measurement
   if (anchor.kind === "grid") return { x: anchor.x, y: anchor.y };
   const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
   if (!board) return null;
+  const rect = rectFromBoard(board);
   const edges = rectEdges(board);
   if (anchor.edge === "left" || anchor.edge === "right") {
     return {
       x: anchor.edge === "left" ? edges.left : edges.right,
-      y: board.y + clamp(anchor.offset, 0, board.h)
+      y: rect.y + clamp(anchor.offset, 0, rect.h)
     };
   }
   return {
-    x: board.x + clamp(anchor.offset, 0, board.w),
+    x: rect.x + clamp(anchor.offset, 0, rect.w),
     y: anchor.edge === "top" ? edges.top : edges.bottom
   };
 }
@@ -544,10 +513,12 @@ export function computeOverlaps(boards: Board[]): OverlapRegion[] {
       const a = boards[i];
       const b = boards[j];
       if (isOverlayPanel(a) || isOverlayPanel(b)) continue;
-      const x = Math.max(a.x, b.x);
-      const y = Math.max(a.y, b.y);
-      const right = Math.min(a.x + a.w, b.x + b.w);
-      const bottom = Math.min(a.y + a.h, b.y + b.h);
+      const ar = rectFromBoard(a);
+      const br = rectFromBoard(b);
+      const x = Math.max(ar.x, br.x);
+      const y = Math.max(ar.y, br.y);
+      const right = Math.min(ar.x + ar.w, br.x + br.w);
+      const bottom = Math.min(ar.y + ar.h, br.y + br.h);
       if (right - x > 0.5 && bottom - y > 0.5) {
         overlapsFound.push({ x, y, w: right - x, h: bottom - y, boardIds: [a.id, b.id] });
       }
@@ -628,9 +599,10 @@ function layoutAnchorTargets(
     if (ignoreIds.has(anchor.boardId)) return [];
     const board = state.boards.find((candidate) => candidate.id === anchor.boardId);
     if (!board) return [];
-    const span = anchor.axis === "x" ? board.w : board.h;
+    const rect = rectFromBoard(board);
+    const span = anchor.axis === "x" ? rect.w : rect.h;
     if (anchor.offset < 0 || anchor.offset > span) return [];
-    return [{ anchor, board, position: (anchor.axis === "x" ? board.x : board.y) + anchor.offset }];
+    return [{ anchor, board, position: (anchor.axis === "x" ? rect.x : rect.y) + anchor.offset }];
   });
 }
 
@@ -688,20 +660,21 @@ function applyPreviewEdgeDelta(rect: Rect, edge: BoardEdge, delta: number, minSi
 function connectionPreviewPoint(board: Board, rect: Rect, edge: BoardEdge, target: Board, targetEdge: BoardEdge): Point | undefined {
   if (isOverlayPanel(board) || isOverlayPanel(target)) return undefined;
   const edges = edgesForRect(rect);
-  const targetEdges = rectEdges(target);
+  const targetRect = rectFromBoard(target);
+  const targetEdges = edgesForRect(targetRect);
   const sharedEdge = edgeValue(edges, edge);
   const targetSharedEdge = edgeValue(targetEdges, targetEdge);
   if (Math.abs(sharedEdge - targetSharedEdge) > 0.5) return undefined;
 
   if (edge === "left" || edge === "right") {
-    const top = Math.max(rect.y, target.y);
-    const bottom = Math.min(rect.y + rect.h, target.y + target.h);
+    const top = Math.max(rect.y, targetRect.y);
+    const bottom = Math.min(rect.y + rect.h, targetRect.y + targetRect.h);
     if (top > bottom + 0.5) return undefined;
     return { x: sharedEdge, y: (top + bottom) / 2 };
   }
 
-  const left = Math.max(rect.x, target.x);
-  const right = Math.min(rect.x + rect.w, target.x + target.w);
+  const left = Math.max(rect.x, targetRect.x);
+  const right = Math.min(rect.x + rect.w, targetRect.x + targetRect.w);
   if (left > right + 0.5) return undefined;
   return { x: (left + right) / 2, y: sharedEdge };
 }
@@ -748,8 +721,10 @@ function overlaps(a1: number, a2: number, b1: number, b2: number): boolean {
 }
 
 function intersects(a: Board, b: Board): boolean {
-  return a.x < b.x + b.w - 0.5 &&
-    a.x + a.w > b.x + 0.5 &&
-    a.y < b.y + b.h - 0.5 &&
-    a.y + a.h > b.y + 0.5;
+  const ar = rectFromBoard(a);
+  const br = rectFromBoard(b);
+  return ar.x < br.x + br.w - 0.5 &&
+    ar.x + ar.w > br.x + 0.5 &&
+    ar.y < br.y + br.h - 0.5 &&
+    ar.y + ar.h > br.y + 0.5;
 }
