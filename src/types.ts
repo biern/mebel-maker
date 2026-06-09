@@ -77,6 +77,7 @@ export interface SketchState {
   snap: boolean;
   showDimensions: boolean;
   showFrontPanels: boolean;
+  showConnectionMarks: boolean;
   scale: number;
   panX: number;
   panY: number;
@@ -209,4 +210,13 @@ export interface GridAnchor {
 
 export interface OverlapRegion extends Rect {
   boardIds: [number, number];
+}
+
+export interface ConnectionMark {
+  hostBoardId: number;
+  targetBoardId: number;
+  axis: MeasurementAxis;
+  edge: BoardEdge;
+  offset: number;
+  point: Point;
 }

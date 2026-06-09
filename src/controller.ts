@@ -63,6 +63,7 @@ const ui = {
   snapToggle: query<HTMLInputElement>("#snapToggle"),
   dimToggle: query<HTMLInputElement>("#dimToggle"),
   frontLayerToggle: query<HTMLInputElement>("#frontLayerToggle"),
+  connectionMarksToggle: query<HTMLInputElement>("#connectionMarksToggle"),
   duplicateBtn: query<HTMLButtonElement>("#duplicateBtn"),
   rotateBtn: query<HTMLButtonElement>("#rotateBtn"),
   undoBtn: query<HTMLButtonElement>("#undoBtn"),
@@ -159,6 +160,7 @@ const state: SketchState = {
   snap: true,
   showDimensions: true,
   showFrontPanels: true,
+  showConnectionMarks: true,
   scale: 0.62,
   panX: 160,
   panY: 110,
@@ -219,6 +221,7 @@ interface SavedProject {
   snap: boolean;
   showDimensions: boolean;
   showFrontPanels?: boolean;
+  showConnectionMarks?: boolean;
   scale: number;
   panX: number;
   panY: number;
@@ -937,6 +940,7 @@ function serializeProject(): SavedProject {
     snap: state.snap,
     showDimensions: state.showDimensions,
     showFrontPanels: state.showFrontPanels,
+    showConnectionMarks: state.showConnectionMarks,
     scale: state.scale,
     panX: state.panX,
     panY: state.panY
@@ -971,6 +975,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.snap = project.snap ?? state.snap;
   state.showDimensions = project.showDimensions ?? state.showDimensions;
   state.showFrontPanels = project.showFrontPanels ?? state.showFrontPanels;
+  state.showConnectionMarks = project.showConnectionMarks ?? true;
   state.scale = project.scale ?? state.scale;
   state.panX = project.panX ?? state.panX;
   state.panY = project.panY ?? state.panY;
@@ -1114,6 +1119,7 @@ function syncSettingsInputs(): void {
   ui.snapToggle.checked = state.snap;
   ui.dimToggle.checked = state.showDimensions;
   ui.frontLayerToggle.checked = state.showFrontPanels;
+  ui.connectionMarksToggle.checked = state.showConnectionMarks;
 }
 
 function commonValue<T>(items: T[], read: (item: T) => string): string | null {
@@ -2776,6 +2782,12 @@ ui.frontLayerToggle.addEventListener("change", () => {
   remember();
   state.showFrontPanels = ui.frontLayerToggle.checked;
   state.lastSnap = state.showFrontPanels ? t("status.frontPanelsShown") : t("status.frontPanelsGhosted");
+  refresh();
+}, listenerOptions);
+ui.connectionMarksToggle.addEventListener("change", () => {
+  remember();
+  state.showConnectionMarks = ui.connectionMarksToggle.checked;
+  state.lastSnap = state.showConnectionMarks ? t("status.connectionMarksShown") : t("status.connectionMarksHidden");
   refresh();
 }, listenerOptions);
 [ui.nameInput, ui.xInput, ui.yInput, ui.wInput, ui.hInput, ui.depthOverrideInput]

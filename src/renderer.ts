@@ -1,5 +1,6 @@
 import {
   boundsFor,
+  connectionMarks,
   computeOverlaps,
   displayOrderedBoards,
   groupBoards,
@@ -15,7 +16,7 @@ import {
   worldToScreen
 } from "./geometry";
 import { translate } from "./i18n";
-import type { Board, Material, MeasurementAxis, Point, SketchState } from "./types";
+import type { Board, ConnectionMark, Material, MeasurementAxis, Point, SketchState } from "./types";
 
 const colors = ["#5c8d89", "#d19041", "#725d9f", "#538052", "#bb5d50", "#3f75a3"];
 
@@ -48,6 +49,7 @@ export class SketchRenderer {
     displayOrderedBoards(this.state.boards).forEach((board) => this.drawBoard(board));
     this.drawLayoutAnchors();
     this.drawOverlaps();
+    this.drawConnectionMarks();
     this.drawSelectionBox();
     this.drawSnapGuides(rect.width, rect.height);
     this.drawMeasurements();
@@ -220,6 +222,39 @@ export class SketchRenderer {
       }
       this.ctx.stroke();
     });
+    this.ctx.restore();
+  }
+
+  private drawConnectionMarks(): void {
+    if (!this.state.showConnectionMarks) return;
+    const marks = connectionMarks(this.state.boards);
+    if (!marks.length) return;
+
+    this.ctx.save();
+    this.ctx.strokeStyle = "#805a2f";
+    this.ctx.fillStyle = "#805a2f";
+    this.ctx.lineWidth = 1.6;
+    this.ctx.font = "12px system-ui";
+    this.ctx.setLineDash([2, 3]);
+    marks.forEach((mark) => this.drawConnectionMark(mark));
+    this.ctx.restore();
+  }
+
+  private drawConnectionMark(mark: ConnectionMark): void {
+    const point = worldToScreen(this.state, mark.point.x, mark.point.y);
+    const label = mm(mark.offset);
+    const tick = 9;
+    this.ctx.save();
+    this.ctx.setLineDash([]);
+    if (mark.axis === "horizontal") {
+      this.line(point.x, point.y - tick, point.x, point.y + tick);
+      const above = mark.edge === "top";
+      this.drawOutlinedText(label, point.x, point.y + (above ? -15 : 15), "center", above ? "bottom" : "top");
+    } else {
+      this.line(point.x - tick, point.y, point.x + tick, point.y);
+      const left = mark.edge === "left";
+      this.drawOutlinedText(label, point.x + (left ? -12 : 12), point.y, left ? "right" : "left", "middle");
+    }
     this.ctx.restore();
   }
 
@@ -436,6 +471,18 @@ export class SketchRenderer {
     this.ctx.textAlign = align;
     this.ctx.textBaseline = "alphabetic";
     this.ctx.fillText(label, textX, textY);
+    this.ctx.restore();
+  }
+
+  private drawOutlinedText(label: string, x: number, y: number, align: CanvasTextAlign, baseline: CanvasTextBaseline): void {
+    this.ctx.save();
+    this.ctx.textAlign = align;
+    this.ctx.textBaseline = baseline;
+    this.ctx.lineWidth = 4;
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.92)";
+    this.ctx.strokeText(label, x, y);
+    this.ctx.fillStyle = "#805a2f";
+    this.ctx.fillText(label, x, y);
     this.ctx.restore();
   }
 

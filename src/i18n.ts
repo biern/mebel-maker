@@ -70,7 +70,8 @@ const en = {
     snapStep: "Snap step",
     snapToGrid: "Snap to grid, edges, and alignment",
     showDimensionHints: "Show dimension hints",
-    showFrontPanels: "Show front panels"
+    showFrontPanels: "Show front panels",
+    showConnectionMarks: "Show connection marks"
   },
   inspector: {
     emptySelection: "Select boards to edit dimensions and properties.",
@@ -251,6 +252,8 @@ const en = {
     snapOff: "Snap off",
     frontPanelsShown: "Front panels shown",
     frontPanelsGhosted: "Front panels ghosted",
+    connectionMarksShown: "Connection marks shown",
+    connectionMarksHidden: "Connection marks hidden",
     widthUsesGlobal: "Width uses global {value}",
     heightUsesGlobal: "Height uses global {value}",
     depthUsesGlobal: "Depth uses global {value}",
@@ -353,7 +356,8 @@ const pl: typeof en = {
     snapStep: "Krok siatki",
     snapToGrid: "Przyciągaj do siatki, krawędzi i osi",
     showDimensionHints: "Pokazuj podpowiedzi wymiarów",
-    showFrontPanels: "Pokazuj fronty"
+    showFrontPanels: "Pokazuj fronty",
+    showConnectionMarks: "Pokazuj znaczniki połączeń"
   },
   inspector: {
     emptySelection: "Zaznacz płyty, aby edytować wymiary i właściwości.",
@@ -534,6 +538,8 @@ const pl: typeof en = {
     snapOff: "Przyciąganie wyłączone",
     frontPanelsShown: "Fronty pokazane",
     frontPanelsGhosted: "Fronty wyszarzone",
+    connectionMarksShown: "Pokazano znaczniki połączeń",
+    connectionMarksHidden: "Ukryto znaczniki połączeń",
     widthUsesGlobal: "Szerokość używa wartości globalnej {value}",
     heightUsesGlobal: "Wysokość używa wartości globalnej {value}",
     depthUsesGlobal: "Głębokość używa wartości globalnej {value}",

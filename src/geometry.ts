@@ -3,6 +3,7 @@ import type {
   BoardEdge,
   BoardLayoutAnchor,
   Bounds,
+  ConnectionMark,
   InnerDimensions,
   Measurement,
   MeasurementAnchor,
@@ -229,6 +230,27 @@ export function innerDimensions(boards: Board[], thickness: number): InnerDimens
   const innerW = Math.max(0, bounds.w - (leftPanel ? rectFromBoard(leftPanel).w : 0) - (rightPanel ? rectFromBoard(rightPanel).w : 0));
   const innerH = Math.max(0, bounds.h - (topPanel ? rectFromBoard(topPanel).h : 0) - (bottomPanel ? rectFromBoard(bottomPanel).h : 0));
   return { innerW, innerH, hasFrame: Boolean(leftPanel || rightPanel || topPanel || bottomPanel) };
+}
+
+export function connectionMarks(boards: Board[]): ConnectionMark[] {
+  const marks: ConnectionMark[] = [];
+  const seen = new Set<string>();
+  const structuralBoards = boards.filter((board) => !isOverlayPanel(board));
+
+  structuralBoards.forEach((host) => {
+    if (host.orientation !== "horizontal" && host.orientation !== "vertical") return;
+    structuralBoards.forEach((target) => {
+      if (host.id === target.id) return;
+      if (host.orientation === "horizontal" && target.orientation === "vertical") {
+        addHorizontalConnectionMarks(host, target, marks, seen);
+      }
+      if (host.orientation === "vertical" && target.orientation === "horizontal") {
+        addVerticalConnectionMarks(host, target, marks, seen);
+      }
+    });
+  });
+
+  return marks.sort((a, b) => a.hostBoardId - b.hostBoardId || a.offset - b.offset || a.targetBoardId - b.targetBoardId);
 }
 
 export function snapBoard(state: SketchState, board: Board, targetX: number, targetY: number, ignoreIds = new Set([board.id])): SnapResult {
@@ -695,6 +717,67 @@ function applyEdgeDelta(rect: Rect, edge: BoardEdge, delta: number, minSize: num
   rect.y = normalized.y;
   rect.w = normalized.w;
   rect.h = normalized.h;
+}
+
+function addHorizontalConnectionMarks(host: Board, target: Board, marks: ConnectionMark[], seen: Set<string>): void {
+  const tolerance = 0.5;
+  const hostRect = rectFromBoard(host);
+  const targetRect = rectFromBoard(target);
+  const contacts: Array<[BoardEdge, BoardEdge, number, number]> = [
+    ["top", "bottom", hostRect.y, targetRect.y + targetRect.h],
+    ["bottom", "top", hostRect.y + hostRect.h, targetRect.y]
+  ];
+
+  contacts.forEach(([edge, targetEdge, hostValue, targetValue]) => {
+    if (Math.abs(hostValue - targetValue) > tolerance) return;
+    if (overlapLength(hostRect.x, hostRect.x + hostRect.w, targetRect.x, targetRect.x + targetRect.w) <= tolerance) return;
+    const offset = targetRect.x + targetRect.w / 2 - hostRect.x;
+    if (offset < -tolerance || offset > hostRect.w + tolerance) return;
+    addConnectionMark(marks, seen, {
+      hostBoardId: host.id,
+      targetBoardId: target.id,
+      axis: "horizontal",
+      edge,
+      offset,
+      point: { x: hostRect.x + offset, y: hostValue }
+    }, targetEdge);
+  });
+}
+
+function addVerticalConnectionMarks(host: Board, target: Board, marks: ConnectionMark[], seen: Set<string>): void {
+  const tolerance = 0.5;
+  const hostRect = rectFromBoard(host);
+  const targetRect = rectFromBoard(target);
+  const contacts: Array<[BoardEdge, BoardEdge, number, number]> = [
+    ["left", "right", hostRect.x, targetRect.x + targetRect.w],
+    ["right", "left", hostRect.x + hostRect.w, targetRect.x]
+  ];
+
+  contacts.forEach(([edge, targetEdge, hostValue, targetValue]) => {
+    if (Math.abs(hostValue - targetValue) > tolerance) return;
+    if (overlapLength(hostRect.y, hostRect.y + hostRect.h, targetRect.y, targetRect.y + targetRect.h) <= tolerance) return;
+    const offset = targetRect.y + targetRect.h / 2 - hostRect.y;
+    if (offset < -tolerance || offset > hostRect.h + tolerance) return;
+    addConnectionMark(marks, seen, {
+      hostBoardId: host.id,
+      targetBoardId: target.id,
+      axis: "vertical",
+      edge,
+      offset,
+      point: { x: hostValue, y: hostRect.y + offset }
+    }, targetEdge);
+  });
+}
+
+function addConnectionMark(marks: ConnectionMark[], seen: Set<string>, mark: ConnectionMark, targetEdge: BoardEdge): void {
+  const key = `${mark.hostBoardId}:${mark.targetBoardId}:${mark.edge}:${targetEdge}:${Math.round(mark.offset * 1000)}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  marks.push(mark);
+}
+
+function overlapLength(a1: number, a2: number, b1: number, b2: number): number {
+  return Math.min(a2, b2) - Math.max(a1, b1);
 }
 
 function clamp(value: number, min: number, max: number): number {

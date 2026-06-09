@@ -1,5 +1,6 @@
 import {
   computeGroups,
+  connectionMarks,
   computeOverlaps,
   groupBoards,
   hitResizeHandle,
@@ -105,6 +106,7 @@ function starterState(): SketchState {
     snap: true,
     showDimensions: true,
     showFrontPanels: true,
+    showConnectionMarks: true,
     scale: 0.5,
     panX: 0,
     panY: 0,
@@ -151,6 +153,11 @@ assert(topShelfPhysical.width === 784 && topShelfPhysical.height === state.depth
 const panelPhysical = physicalDimensions(boardFromV1({ id: 50, name: "Panel", x: 0, y: 0, w: 320, h: 240, kind: "panel", autoThickness: "none", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 }, state.thickness, state.depth));
 assert(panelPhysical.width === 320 && panelPhysical.height === 240 && panelPhysical.thickness === state.thickness, "front-facing panel physical dimensions should use sketch width x height x thickness");
 
+let marks = connectionMarks(state.boards);
+const topShelfOnLeftSide = marks.find((mark) => mark.hostBoardId === leftSide.id && mark.targetBoardId === topShelf.id);
+assert(topShelfOnLeftSide?.axis === "vertical" && topShelfOnLeftSide.edge === "right", "horizontal shelf short edge should mark the vertical side long edge");
+assert(topShelfOnLeftSide.offset === state.thickness / 2, "vertical host mark should measure the shelf centerline from the side top");
+
 const shelf = state.boards.find((board) => board.name === "Middle shelf");
 assert(shelf, "middle shelf exists");
 assert(snapBoard(state, shelf, 178, 120).guides.length > 0, "moving a shelf near another shelf should expose snap guides");
@@ -163,6 +170,19 @@ const anchorX = shelfRect.x + shelfRect.w / 2;
 const dividerSnap = snapBoard(state, divider, anchorX - dividerRect.w / 2 + 6, divider.y);
 assert(dividerSnap.x === anchorX - dividerRect.w / 2, "upright divider center should snap to a shelf layout anchor");
 assert(dividerSnap.guides.some((guide) => guide.orientation === "vertical"), "layout anchor snap should expose a vertical guide");
+
+const dividerBoard: Board = { ...divider, id: 60, name: "Connection divider", x: 560, dimensions: { ...divider.dimensions, height: 257 } };
+state.boards.push(dividerBoard);
+marks = connectionMarks(state.boards);
+const dividerOnTopShelf = marks.find((mark) => mark.hostBoardId === topShelf.id && mark.targetBoardId === dividerBoard.id);
+assert(dividerOnTopShelf?.axis === "horizontal" && dividerOnTopShelf.edge === "bottom", "vertical divider short edge should mark the horizontal shelf long edge");
+assert(dividerOnTopShelf.offset === dividerBoard.x + state.thickness / 2 - topShelfRect.x, "horizontal host mark should measure the divider centerline from the shelf left");
+const anchorCountBeforeConnectionMarks = state.anchors.length;
+dividerBoard.x += 25;
+const movedDividerMark = connectionMarks(state.boards).find((mark) => mark.hostBoardId === topShelf.id && mark.targetBoardId === dividerBoard.id);
+assert(movedDividerMark?.offset === dividerOnTopShelf.offset + 25, "connection marks should update from current board geometry");
+assert(state.anchors.length === anchorCountBeforeConnectionMarks, "derived connection marks should not add saved anchors");
+state.boards = state.boards.filter((board) => board.id !== dividerBoard.id);
 
 const shelfResize = resizeBoard(state, shelf, "e", shelfRect, { x: shelfRect.x + shelfRect.w, y: shelfRect.y + shelfRect.h / 2 }, { x: shelfRect.x + shelfRect.w + 90, y: shelfRect.y + 120 });
 assert(shelfResize.rect.h === state.thickness, "shelf resize should keep thickness locked");
@@ -229,11 +249,13 @@ state.boards.push(boardFromV1({ id: 6, name: "Back", x: 160, y: 120, w: 820, h: 
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "back panel should not create structural overlap warnings");
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "back panel should not block selecting foreground shelf");
+assert(connectionMarks(state.boards).every((mark) => mark.hostBoardId !== 6 && mark.targetBoardId !== 6), "back panel should not create connection marks");
 
 state.boards.push(boardFromV1({ id: 7, name: "Front", x: 160, y: 120, w: 820, h: 560, kind: "front", autoThickness: "none", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 }, state.thickness, state.depth));
 computeGroups(state.boards);
 assert(computeOverlaps(state.boards).length === 0, "front panel should not create structural overlap warnings");
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Front", "visible front panel should capture clicks above structural boards");
+assert(connectionMarks(state.boards).every((mark) => mark.hostBoardId !== 7 && mark.targetBoardId !== 7), "front panel should not create connection marks");
 state.showFrontPanels = false;
 assert(hitTest(state, { x: 500, y: 404 })?.name === "Middle shelf", "disabled front panels should not capture clicks");
 state.showFrontPanels = true;

@@ -81,6 +81,10 @@
       <input id="frontLayerToggle" type="checkbox" checked>
       <span>{$_("settings.showFrontPanels")}</span>
     </label>
+    <label class="toggle-row">
+      <input id="connectionMarksToggle" type="checkbox" checked>
+      <span>{$_("settings.showConnectionMarks")}</span>
+    </label>
   </section>
 
   <details class="tool-section collapsible-section" open>
