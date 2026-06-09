@@ -244,7 +244,7 @@ export class SketchRenderer {
 
   private drawConnectionMark(mark: ConnectionMark): void {
     const point = worldToScreen(this.state, mark.point.x, mark.point.y);
-    const label = mm(mark.offset);
+    const label = mm(mark.labelOffset);
     const tick = 9;
     this.ctx.save();
     this.ctx.setLineDash([]);

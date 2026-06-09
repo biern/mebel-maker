@@ -733,12 +733,14 @@ function addHorizontalConnectionMarks(host: Board, target: Board, marks: Connect
     if (overlapLength(hostRect.x, hostRect.x + hostRect.w, targetRect.x, targetRect.x + targetRect.w) <= tolerance) return;
     const offset = targetRect.x + targetRect.w / 2 - hostRect.x;
     if (offset < -tolerance || offset > hostRect.w + tolerance) return;
+    const halfThickness = targetRect.w / 2;
     addConnectionMark(marks, seen, {
       hostBoardId: host.id,
       targetBoardId: target.id,
       axis: "horizontal",
       edge,
       offset,
+      labelOffset: connectionMarkLabelOffset(offset, hostRect.w, halfThickness),
       point: { x: hostRect.x + offset, y: hostValue }
     }, targetEdge);
   });
@@ -758,12 +760,14 @@ function addVerticalConnectionMarks(host: Board, target: Board, marks: Connectio
     if (overlapLength(hostRect.y, hostRect.y + hostRect.h, targetRect.y, targetRect.y + targetRect.h) <= tolerance) return;
     const offset = targetRect.y + targetRect.h / 2 - hostRect.y;
     if (offset < -tolerance || offset > hostRect.h + tolerance) return;
+    const halfThickness = targetRect.h / 2;
     addConnectionMark(marks, seen, {
       hostBoardId: host.id,
       targetBoardId: target.id,
       axis: "vertical",
       edge,
       offset,
+      labelOffset: connectionMarkLabelOffset(offset, hostRect.h, halfThickness),
       point: { x: hostValue, y: hostRect.y + offset }
     }, targetEdge);
   });
@@ -778,6 +782,12 @@ function addConnectionMark(marks: ConnectionMark[], seen: Set<string>, mark: Con
 
 function overlapLength(a1: number, a2: number, b1: number, b2: number): number {
   return Math.min(a2, b2) - Math.max(a1, b1);
+}
+
+function connectionMarkLabelOffset(offset: number, hostLength: number, halfThickness: number): number {
+  const tolerance = 0.5;
+  if (Math.abs(offset - (hostLength - halfThickness)) <= tolerance) return -halfThickness;
+  return offset;
 }
 
 function clamp(value: number, min: number, max: number): number {

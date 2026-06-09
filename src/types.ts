@@ -218,5 +218,6 @@ export interface ConnectionMark {
   axis: MeasurementAxis;
   edge: BoardEdge;
   offset: number;
+  labelOffset: number;
   point: Point;
 }
