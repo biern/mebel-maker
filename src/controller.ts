@@ -4,6 +4,7 @@ import { translate } from "./i18n";
 import complexTemplateSource from "../templates/complex.mebel?raw";
 import {
   boardLabel,
+  autoThicknessForOrientation,
   boundsFor,
   computeGroups,
   computeOverlaps,
@@ -20,6 +21,9 @@ import {
   measurementAxis,
   mm,
   nearestMeasurementAnchor,
+  orientationForAutoThickness,
+  orientationForKind,
+  physicalDimensions,
   rectFromBoard,
   resizeBoard,
   resolveMeasurementAnchor,
@@ -27,11 +31,13 @@ import {
   selectedBoard,
   selectedBoards,
   selectedMeasurement,
+  syncBoardSketchFromDimensions,
   snapBoard,
   snapValueToGrid,
+  updateDimensionsFromSketchRect,
   worldToScreen
 } from "./geometry";
-import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, Point, Rect, ResizeHandle, SketchState } from "./types";
+import type { AutoThicknessAxis, Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, PieceDimensions, PieceOrientation, Point, Rect, ResizeHandle, SketchState } from "./types";
 
 declare global {
   interface Window {
@@ -192,7 +198,7 @@ let activeView: "sketch" | "3d" = "sketch";
 let woodOrderOpen = false;
 
 interface SavedProject {
-  schemaVersion?: 1;
+  schemaVersion?: 1 | 2;
   version: 1 | string;
   appVersion?: string;
   projectName?: string;
@@ -410,15 +416,28 @@ function withDefaults(board: Board): Board {
   const materialId = board.materialId && state.materials.some((material) => material.id === board.materialId)
     ? board.materialId
     : defaultMaterialId;
-  return {
+  const autoThickness = board.autoThickness ?? (board.kind ? autoThicknessForOrientation(orientationForKind(board.kind)) : "none");
+  const kind = board.kind ?? "panel";
+  const orientation = normalizePieceOrientation(board.orientation, kind, autoThickness);
+  const normalized: Board = {
     ...board,
     name: normalizedPieceName(board.name, board.id),
+    x: Number.isFinite(Number(board.x)) ? Math.round(Number(board.x)) : 120,
+    y: Number.isFinite(Number(board.y)) ? Math.round(Number(board.y)) : 120,
+    w: normalizePositiveNumber(board.w, 400),
+    h: normalizePositiveNumber(board.h, 250),
+    dimensions: normalizePieceDimensions(board, orientation),
+    orientation,
+    kind,
+    autoThickness: autoThicknessForOrientation(orientation),
     materialId,
     thicknessOverride: normalizeOptionalPositiveNumber(board.thicknessOverride),
     depthOverride: normalizeOptionalPositiveNumber(board.depthOverride),
     laminate: normalizeLaminate(board.laminate),
     ignoreInOrder: board.ignoreInOrder ?? false
   };
+  syncBoardSketchFromDimensions(normalized, state.thickness, state.depth);
+  return normalized;
 }
 
 function nextBoardId(boards: Board[] = state.boards): number {
@@ -531,6 +550,42 @@ function normalizeMeasurementDisplayOffset(value: unknown, index: number): numbe
   return Number.isFinite(parsed) ? Math.round(parsed) : defaultMeasurementDisplayOffset(index);
 }
 
+function normalizePieceOrientation(value: unknown, kind: BoardKind, autoThickness: AutoThicknessAxis): PieceOrientation {
+  if (value === "vertical" || value === "horizontal" || value === "front") return value;
+  if (autoThickness === "width" || autoThickness === "height" || autoThickness === "none") return orientationForAutoThickness(autoThickness);
+  return orientationForKind(kind);
+}
+
+function normalizePieceDimensions(board: Partial<Board>, orientation: PieceOrientation): PieceDimensions {
+  const saved = board.dimensions as Partial<PieceDimensions> | undefined;
+  const thickness = normalizeOptionalPositiveNumber(saved?.thickness ?? board.thicknessOverride);
+  const fallbackDepth = normalizeOptionalPositiveNumber(board.depthOverride) ?? state.depth;
+  const fallbackWidth = normalizePositiveNumber(board.w, 400);
+  const fallbackHeight = normalizePositiveNumber(board.h, 250);
+
+  if (orientation === "vertical") {
+    return {
+      width: normalizePositiveNumber(saved?.width, fallbackDepth),
+      height: normalizePositiveNumber(saved?.height, fallbackHeight),
+      thickness
+    };
+  }
+
+  if (orientation === "horizontal") {
+    return {
+      width: normalizePositiveNumber(saved?.width, fallbackWidth),
+      height: normalizePositiveNumber(saved?.height, fallbackDepth),
+      thickness
+    };
+  }
+
+  return {
+    width: normalizePositiveNumber(saved?.width, fallbackWidth),
+    height: normalizePositiveNumber(saved?.height, fallbackHeight),
+    thickness
+  };
+}
+
 function displayY(y: number): number {
   return -y;
 }
@@ -541,6 +596,7 @@ function modelY(y: number): number {
 
 function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: AutoThicknessAxis }, recordHistory = true): void {
   if (recordHistory) remember();
+  const orientation = normalizePieceOrientation(partial.orientation, partial.kind, partial.autoThickness);
   const board: Board = {
     id: state.nextId,
     name: normalizedPieceName(partial.name, state.nextId),
@@ -548,8 +604,10 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
     y: partial.y ?? 120,
     w: partial.w ?? 400,
     h: partial.h ?? 250,
+    dimensions: normalizePieceDimensions(partial, orientation),
+    orientation,
     kind: partial.kind,
-    autoThickness: partial.autoThickness,
+    autoThickness: autoThicknessForOrientation(orientation),
     materialId: partial.materialId ?? defaultMaterialId,
     thicknessOverride: normalizeOptionalPositiveNumber(partial.thicknessOverride),
     depthOverride: normalizeOptionalPositiveNumber(partial.depthOverride),
@@ -557,6 +615,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; autoThickness: Au
     ignoreInOrder: partial.ignoreInOrder ?? false,
     group: 0
   };
+  syncBoardSketchFromDimensions(board, state.thickness, state.depth);
   state.nextId += 1;
   state.boards.push(board);
   setSelection([board.id], board.id);
@@ -832,7 +891,7 @@ function redo(): void {
 
 function serializeProject(): SavedProject {
   return cloneProject({
-    schemaVersion: 1,
+    schemaVersion: 2,
     version: appVersion,
     appVersion,
     projectName: state.projectName,
@@ -866,6 +925,8 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   if (recordHistory) remember();
   state.projectName = normalizeProjectName(project.projectName);
   state.materials = normalizedMaterials(project.materials);
+  state.thickness = normalizePositiveNumber(project.thickness, state.thickness);
+  state.depth = normalizePositiveNumber(project.depth, state.depth);
   state.boards = (project.boards ?? []).map(withDefaults);
   state.anchors = normalizedAnchors(project.anchors);
   state.layoutAnchors = normalizedLayoutAnchors(project.layoutAnchors);
@@ -882,8 +943,6 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   state.nextAnchorId = project.nextAnchorId ?? nextAnchorId(state.anchors);
   state.nextLayoutAnchorId = project.nextLayoutAnchorId ?? nextLayoutAnchorId(state.layoutAnchors);
   state.nextMeasurementId = project.nextMeasurementId ?? nextMeasureId(state.measurements);
-  state.thickness = normalizePositiveNumber(project.thickness, state.thickness);
-  state.depth = normalizePositiveNumber(project.depth, state.depth);
   state.grid = project.grid ?? state.grid;
   state.gridOriginX = project.gridOriginX ?? (boundsFor(state.boards)?.left ?? state.gridOriginX);
   state.gridOriginY = project.gridOriginY ?? (boundsFor(state.boards)?.top ?? state.gridOriginY);
@@ -907,7 +966,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
 }
 
 function isSupportedProject(project: SavedProject): boolean {
-  return (project.schemaVersion ?? (project.version === 1 ? 1 : undefined)) === 1 && Array.isArray(project.boards);
+  return [1, 2].includes(project.schemaVersion ?? (project.version === 1 ? 1 : 2)) && Array.isArray(project.boards);
 }
 
 function autosaveProject(): void {
@@ -1338,16 +1397,17 @@ function renderCutList(): void {
 function cutListHtml(boards: Board[], emptyMessage: string): string {
   const grouped = new Map<string, Board[]>();
   boards.forEach((board) => {
-    const key = `${Math.round(board.w)}×${Math.round(board.h)}×${effectiveDepth(board, state.depth)}×${state.thickness}×${board.materialId}×${laminateKey(board.laminate)}`;
+    const cutout = boardCutoutDimensions(board);
+    const key = `${cutout.thickness}×${cutout.width}×${cutout.height}×${board.materialId}×${laminateKey(board.laminate)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), board]);
   });
 
   return [...grouped.entries()].map(([key, boards]) => {
-    const [w, h, d, , materialId] = key.split("×");
+    const [thickness, width, height, materialId] = key.split("×");
     const laminate = laminateOrderLabel(boards[0]);
     return `
       <div class="cut-card">
-        <strong><span class="count">${boards.length}×</span> ${w} × ${h} × ${d} mm</strong>
+        <strong><span class="count">${boards.length}×</span> ${width} × ${height} × ${thickness} mm</strong>
         <span>${t("metrics.material")}: ${escapeHtml(materialName(materialId))}</span>
         <span>${t("metrics.laminate")}: ${laminate}</span>
         <div class="cut-card-pieces">${boards.map((board) => `
@@ -1564,16 +1624,19 @@ function applyThicknessChange(newThickness: number): void {
     const oldBoardThickness = effectiveThicknessWithDefault(board, oldThickness);
     const nextBoardThickness = updateExisting ? newThickness : oldBoardThickness;
     const delta = nextBoardThickness - oldBoardThickness;
-    if (board.autoThickness !== "none") board.thicknessOverride = updateExisting ? null : oldBoardThickness;
-    if (board.autoThickness === "width") {
-      if (board.x > 160) board.x -= delta;
-      board.w = nextBoardThickness;
+    if (board.autoThickness !== "none") {
+      board.dimensions.thickness = updateExisting ? null : oldBoardThickness;
+      board.thicknessOverride = board.dimensions.thickness;
     }
-    if (board.autoThickness === "height") {
+    if (board.orientation === "vertical") {
+      if (board.x > 160) board.x -= delta;
+      syncBoardSketchFromDimensions(board, state.thickness, state.depth);
+    }
+    if (board.orientation === "horizontal") {
       board.x += delta;
-      board.w = Math.max(nextBoardThickness, board.w - delta * 2);
+      board.dimensions.width = Math.max(nextBoardThickness, board.w - delta * 2);
       if (board.y > 120) board.y -= delta;
-      board.h = nextBoardThickness;
+      syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     }
   });
   state.boards.forEach((board) => applyAnchorsToBoard(board.id));
@@ -1593,7 +1656,11 @@ function applyDepthChange(newDepth: number): void {
   state.depth = newDepth;
   if (state.boards.length > 0) {
     state.boards.forEach((board) => {
-      board.depthOverride = updateExisting ? null : effectiveDepthWithDefault(board, oldDepth);
+      const nextDepth = updateExisting ? newDepth : effectiveDepthWithDefault(board, oldDepth);
+      if (board.orientation === "vertical") board.dimensions.width = nextDepth;
+      if (board.orientation === "horizontal") board.dimensions.height = nextDepth;
+      board.depthOverride = updateExisting ? null : nextDepth;
+      syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     });
   }
   state.lastSnap = updateExisting
@@ -1670,29 +1737,12 @@ function cutListCsv(): string {
 }
 
 function boardCutoutDimensions(board: Board): { thickness: number; width: number; height: number } {
-  const thickness = Math.round(effectiveThickness(board, state.thickness));
-  const depth = Math.round(effectiveDepth(board, state.depth));
-
-  if (board.autoThickness === "width") {
-    return {
-      thickness,
-      width: depth,
-      height: Math.round(board.h)
-    };
-  }
-
-  if (board.autoThickness === "height") {
-    return {
-      thickness,
-      width: Math.round(board.w),
-      height: depth
-    };
-  }
+  const dimensions = physicalDimensions(board, state.thickness, state.depth);
 
   return {
-    thickness,
-    width: Math.round(board.w),
-    height: Math.round(board.h)
+    thickness: Math.round(dimensions.thickness),
+    width: Math.round(dimensions.width),
+    height: Math.round(dimensions.height)
   };
 }
 
@@ -1740,8 +1790,9 @@ function updateBoardFromInspector(event?: Event): void {
   const target = event?.target;
   if (target === ui.wInput && board.autoThickness === "width" && ui.wInput.value === "") {
     remember();
+    board.dimensions.thickness = null;
     board.thicknessOverride = null;
-    board.w = state.thickness;
+    syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     state.lastSnap = t("status.widthUsesGlobal", { value: mm(state.thickness) });
     propagateAnchorsFrom(board.id);
     refresh();
@@ -1749,8 +1800,9 @@ function updateBoardFromInspector(event?: Event): void {
   }
   if (target === ui.hInput && board.autoThickness === "height" && ui.hInput.value === "") {
     remember();
+    board.dimensions.thickness = null;
     board.thicknessOverride = null;
-    board.h = state.thickness;
+    syncBoardSketchFromDimensions(board, state.thickness, state.depth);
     state.lastSnap = t("status.heightUsesGlobal", { value: mm(state.thickness) });
     propagateAnchorsFrom(board.id);
     refresh();
@@ -1783,17 +1835,23 @@ function updateBoardFromInspector(event?: Event): void {
     }
   } else {
     board.name = ui.nameInput.value.trim() || board.name;
-    board.x = Number(ui.xInput.value) || 0;
-    board.y = modelY(Number(ui.yInput.value) || 0);
-    board.w = board.autoThickness === "width" && ui.wInput.value === "" ? state.thickness : Math.max(1, Number(ui.wInput.value) || 1);
-    board.h = board.autoThickness === "height" && ui.hInput.value === "" ? state.thickness : Math.max(1, Number(ui.hInput.value) || 1);
+    const nextRect = {
+      x: Number(ui.xInput.value) || 0,
+      y: modelY(Number(ui.yInput.value) || 0),
+      w: board.autoThickness === "width" && ui.wInput.value === "" ? state.thickness : Math.max(1, Number(ui.wInput.value) || 1),
+      h: board.autoThickness === "height" && ui.hInput.value === "" ? state.thickness : Math.max(1, Number(ui.hInput.value) || 1)
+    };
     if (board.autoThickness === "width") {
-      board.thicknessOverride = ui.wInput.value === "" ? null : normalizePositiveNumber(ui.wInput.value, effectiveThickness(board, state.thickness));
+      board.dimensions.thickness = ui.wInput.value === "" ? null : normalizePositiveNumber(ui.wInput.value, effectiveThickness(board, state.thickness));
     }
     if (board.autoThickness === "height") {
-      board.thicknessOverride = ui.hInput.value === "" ? null : normalizePositiveNumber(ui.hInput.value, effectiveThickness(board, state.thickness));
+      board.dimensions.thickness = ui.hInput.value === "" ? null : normalizePositiveNumber(ui.hInput.value, effectiveThickness(board, state.thickness));
     }
+    board.thicknessOverride = board.dimensions.thickness;
     board.depthOverride = ui.depthOverrideInput.value === "" ? null : normalizePositiveNumber(ui.depthOverrideInput.value, effectiveDepth(board, state.depth));
+    if (board.orientation === "vertical") board.dimensions.width = board.depthOverride ?? state.depth;
+    if (board.orientation === "horizontal") board.dimensions.height = board.depthOverride ?? state.depth;
+    updateDimensionsFromSketchRect(board, nextRect, state.thickness, state.depth);
     propagateAnchorsFrom(board.id);
   }
   refresh();
@@ -1953,10 +2011,7 @@ function currentViewCenter(): Point {
 }
 
 function applyBoardRect(board: Board, rect: { x: number; y: number; w: number; h: number }): void {
-  board.x = Math.round(rect.x);
-  board.y = Math.round(rect.y);
-  board.w = Math.round(rect.w);
-  board.h = Math.round(rect.h);
+  updateDimensionsFromSketchRect(board, rect, state.thickness, state.depth);
 }
 
 function moveBoardsBy(boards: Board[], dx: number, dy: number): void {
@@ -2126,6 +2181,8 @@ function duplicateSelectedBoards(): void {
       name: defaultPieceName(id),
       x: board.x + 35,
       y: board.y + 35,
+      dimensions: { ...board.dimensions },
+      laminate: { ...board.laminate },
       group: 0
     };
   });
@@ -2161,10 +2218,10 @@ function duplicateSelectedBoards(): void {
   refresh();
 }
 
-function rotateAutoThickness(axis: AutoThicknessAxis): AutoThicknessAxis {
-  if (axis === "width") return "height";
-  if (axis === "height") return "width";
-  return "none";
+function rotateOrientation(orientation: PieceOrientation): PieceOrientation {
+  if (orientation === "vertical") return "horizontal";
+  if (orientation === "horizontal") return "vertical";
+  return "front";
 }
 
 function rotateBoardKind(kind: BoardKind): BoardKind {
@@ -2181,14 +2238,12 @@ function rotateSelectedBoards(): void {
   boards.forEach((board) => {
     const centerX = board.x + board.w / 2;
     const centerY = board.y + board.h / 2;
-    const nextW = board.h;
-    const nextH = board.w;
-    board.x = Math.round(centerX - nextW / 2);
-    board.y = Math.round(centerY - nextH / 2);
-    board.w = Math.round(nextW);
-    board.h = Math.round(nextH);
-    board.autoThickness = rotateAutoThickness(board.autoThickness);
+    board.orientation = rotateOrientation(board.orientation);
+    board.autoThickness = autoThicknessForOrientation(board.orientation);
     board.kind = rotateBoardKind(board.kind);
+    syncBoardSketchFromDimensions(board, state.thickness, state.depth);
+    board.x = Math.round(centerX - board.w / 2);
+    board.y = Math.round(centerY - board.h / 2);
     state.layoutAnchors
       .filter((anchor) => anchor.boardId === board.id)
       .forEach((anchor) => {

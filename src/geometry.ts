@@ -8,6 +8,8 @@ import type {
   MeasurementAnchor,
   MeasurementAxis,
   OverlapRegion,
+  PieceDimensions,
+  PieceOrientation,
   Point,
   Rect,
   RectEdges,
@@ -26,6 +28,88 @@ export function mm(value: number): string {
 
 export function boardLabel(board: Board): string {
   return `${board.name} · ${mm(board.w)} × ${mm(board.h)}`;
+}
+
+export function orientationForKind(kind: Board["kind"]): PieceOrientation {
+  if (kind === "upright") return "vertical";
+  if (kind === "shelf") return "horizontal";
+  return "front";
+}
+
+export function orientationForAutoThickness(axis: Board["autoThickness"]): PieceOrientation {
+  if (axis === "width") return "vertical";
+  if (axis === "height") return "horizontal";
+  return "front";
+}
+
+export function autoThicknessForOrientation(orientation: PieceOrientation): Board["autoThickness"] {
+  if (orientation === "vertical") return "width";
+  if (orientation === "horizontal") return "height";
+  return "none";
+}
+
+export function physicalDimensions(board: Board, defaultThickness: number, defaultDepth: number): { width: number; height: number; thickness: number } {
+  const orientation = board.orientation ?? orientationForAutoThickness(board.autoThickness);
+  const dimensions = board.dimensions as PieceDimensions | undefined;
+  const thickness = dimensions?.thickness ?? board.thicknessOverride ?? defaultThickness;
+
+  if (orientation === "vertical") {
+    return {
+      width: dimensions?.width ?? board.depthOverride ?? defaultDepth,
+      height: dimensions?.height ?? board.h,
+      thickness
+    };
+  }
+
+  if (orientation === "horizontal") {
+    return {
+      width: dimensions?.width ?? board.w,
+      height: dimensions?.height ?? board.depthOverride ?? defaultDepth,
+      thickness
+    };
+  }
+
+  return {
+    width: dimensions?.width ?? board.w,
+    height: dimensions?.height ?? board.h,
+    thickness
+  };
+}
+
+export function boardSketchRect(board: Board, defaultThickness: number, defaultDepth: number): Rect {
+  const dimensions = physicalDimensions(board, defaultThickness, defaultDepth);
+  const orientation = board.orientation ?? orientationForAutoThickness(board.autoThickness);
+
+  if (orientation === "vertical") return { x: board.x, y: board.y, w: dimensions.thickness, h: dimensions.height };
+  if (orientation === "horizontal") return { x: board.x, y: board.y, w: dimensions.width, h: dimensions.thickness };
+  return { x: board.x, y: board.y, w: dimensions.width, h: dimensions.height };
+}
+
+export function syncBoardSketchFromDimensions(board: Board, defaultThickness: number, defaultDepth: number): void {
+  const rect = boardSketchRect(board, defaultThickness, defaultDepth);
+  board.w = Math.round(rect.w);
+  board.h = Math.round(rect.h);
+  board.autoThickness = autoThicknessForOrientation(board.orientation);
+  board.thicknessOverride = board.dimensions.thickness;
+  if (board.orientation === "vertical") board.depthOverride = board.dimensions.width === defaultDepth ? null : board.dimensions.width;
+  else if (board.orientation === "horizontal") board.depthOverride = board.dimensions.height === defaultDepth ? null : board.dimensions.height;
+}
+
+export function updateDimensionsFromSketchRect(board: Board, rect: Rect, defaultThickness: number, defaultDepth: number): void {
+  const current = physicalDimensions(board, defaultThickness, defaultDepth);
+  const orientation = board.orientation ?? orientationForAutoThickness(board.autoThickness);
+
+  if (orientation === "vertical") {
+    board.dimensions = { width: current.width, height: Math.round(rect.h), thickness: board.dimensions.thickness };
+  } else if (orientation === "horizontal") {
+    board.dimensions = { width: Math.round(rect.w), height: current.height, thickness: board.dimensions.thickness };
+  } else {
+    board.dimensions = { width: Math.round(rect.w), height: Math.round(rect.h), thickness: board.dimensions.thickness };
+  }
+
+  board.x = Math.round(rect.x);
+  board.y = Math.round(rect.y);
+  syncBoardSketchFromDimensions(board, defaultThickness, defaultDepth);
 }
 
 export function selectedBoard(state: SketchState): Board | null {
@@ -116,10 +200,13 @@ export function rectFromBoard(board: Board): Rect {
 }
 
 export function effectiveDepth(board: Board, defaultDepth: number): number {
+  if (board.orientation === "vertical" && board.dimensions) return board.dimensions.width;
+  if (board.orientation === "horizontal" && board.dimensions) return board.dimensions.height;
   return board.depthOverride ?? defaultDepth;
 }
 
 export function effectiveThickness(board: Board, defaultThickness: number): number {
+  if (board.dimensions) return board.dimensions.thickness ?? defaultThickness;
   return board.thicknessOverride ?? defaultThickness;
 }
 
