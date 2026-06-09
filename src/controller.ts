@@ -78,6 +78,7 @@ const ui = {
   view3dBtn: query<HTMLButtonElement>("#view3dBtn"),
   copyCsvBtn: query<HTMLButtonElement>("#copyCsvBtn"),
   exportBtn: query<HTMLButtonElement>("#exportBtn"),
+  printOrderBtn: query<HTMLButtonElement>("#printOrderBtn"),
   notificationToast: query<HTMLElement>("#notificationToast"),
   selectionStatus: query<HTMLElement>("#selectionStatus"),
   snapStatus: query<HTMLElement>("#snapStatus"),
@@ -1726,7 +1727,69 @@ async function copyCutListCsv(): Promise<void> {
   updateInspector();
 }
 
+function printCutListTable(): void {
+  const rows = cutListRows();
+  const title = `${state.projectName || t("app.name")} - ${t("panels.woodOrder")}`;
+  const printUrl = URL.createObjectURL(new Blob([cutListPrintHtml(rows, title)], { type: "text/html" }));
+  const printWindow = window.open(printUrl, "_blank");
+  if (!printWindow) {
+    URL.revokeObjectURL(printUrl);
+    state.lastSnap = t("status.couldNotPrintOrder");
+    notify(t("status.couldNotPrintOrder"));
+    updateInspector();
+    return;
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(printUrl), 60_000);
+  state.lastSnap = t("status.pieceListTablePrinted");
+  notify(t("status.pieceListTablePrinted"));
+  updateInspector();
+}
+
+function cutListPrintHtml(rows: string[][], title: string): string {
+  const header = rows[0];
+  const bodyRows = rows.slice(1);
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(title)}</title>
+        <style>
+          body { color: #202522; font-family: Arial, sans-serif; margin: 24px; }
+          h1 { font-size: 20px; margin: 0 0 16px; }
+          table { border-collapse: collapse; font-size: 12px; width: 100%; }
+          th, td { border: 1px solid #9aa59d; padding: 6px 8px; text-align: left; vertical-align: top; }
+          th { background: #eef4f1; font-weight: 700; }
+          td:first-child, th:first-child,
+          td:nth-child(2), th:nth-child(2),
+          td:nth-child(3), th:nth-child(3),
+          td:nth-child(4), th:nth-child(4) { text-align: right; white-space: nowrap; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(title)}</h1>
+        <table>
+          <thead>
+            <tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+        <script>
+          window.addEventListener("load", () => window.setTimeout(() => window.print(), 0));
+        </script>
+      </body>
+    </html>
+  `;
+}
+
 function cutListCsv(): string {
+  return cutListRows().map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+function cutListRows(): string[][] {
   const rows = [
     [
       t("order.csvQuantity"),
@@ -1758,7 +1821,7 @@ function cutListCsv(): string {
     ]);
   });
 
-  return rows.map((row) => row.map(csvCell).join(",")).join("\n");
+  return rows;
 }
 
 function boardCutoutDimensions(board: Board): { thickness: number; width: number; height: number } {
@@ -2681,6 +2744,7 @@ ui.ignoredCutList.addEventListener("click", (event) => {
 }, listenerOptions);
 ui.copyCsvBtn.addEventListener("click", () => void copyCutListCsv(), listenerOptions);
 ui.exportBtn.addEventListener("click", exportCutListCsv, listenerOptions);
+ui.printOrderBtn.addEventListener("click", printCutListTable, listenerOptions);
 ui.projectNameInput.addEventListener("change", () => {
   const nextName = normalizeProjectName(ui.projectNameInput.value);
   ui.projectNameInput.value = nextName;

@@ -21,6 +21,7 @@ const en = {
     inside: "Inside",
     mixed: "Mixed",
     outside: "Outside",
+    print: "Print",
     ready: "Ready",
     rename: "Rename",
     saveCsv: "Save CSV"
@@ -258,7 +259,9 @@ const en = {
     savedPieceListCsv: "Saved piece list CSV",
     pieceListCsvCopied: "Piece list CSV copied",
     copiedPieceListCsv: "Copied piece list CSV",
-    couldNotCopyCsv: "Could not copy CSV"
+    couldNotCopyCsv: "Could not copy CSV",
+    pieceListTablePrinted: "Piece list table opened for printing",
+    couldNotPrintOrder: "Could not open print view"
   },
   dialogs: {
     newProjectConfirm: "Start a new project? This removes the current project name, pieces, measurements, and anchors.",
@@ -267,8 +270,9 @@ const en = {
   },
   order: {
     copyCsvTitle: "Copy piece list as CSV",
+    printTableTitle: "Print piece list as a table",
     saveCsvTitle: "Save piece list as CSV",
-    csvQuantity: "Quantity",
+    csvQuantity: "Quantity (pcs)",
     csvThickness: "Thickness (mm)",
     csvWidth: "Width (mm)",
     csvHeight: "Height (mm)",
@@ -300,6 +304,7 @@ const pl: typeof en = {
     inside: "Wewnątrz",
     mixed: "Różne",
     outside: "Na zewnątrz",
+    print: "Drukuj",
     ready: "Gotowe",
     rename: "Zmień nazwę",
     saveCsv: "Zapisz CSV"
@@ -537,7 +542,9 @@ const pl: typeof en = {
     savedPieceListCsv: "Zapisano listę elementów CSV",
     pieceListCsvCopied: "Skopiowano listę elementów CSV",
     copiedPieceListCsv: "Skopiowano listę elementów CSV",
-    couldNotCopyCsv: "Nie udało się skopiować CSV"
+    couldNotCopyCsv: "Nie udało się skopiować CSV",
+    pieceListTablePrinted: "Otworzono tabelę elementów do druku",
+    couldNotPrintOrder: "Nie udało się otworzyć widoku druku"
   },
   dialogs: {
     newProjectConfirm: "Rozpocząć nowy projekt? Usunie to obecną nazwę projektu, elementy, pomiary i kotwy.",
@@ -546,8 +553,9 @@ const pl: typeof en = {
   },
   order: {
     copyCsvTitle: "Kopiuj listę elementów jako CSV",
+    printTableTitle: "Drukuj listę elementów jako tabelę",
     saveCsvTitle: "Zapisz listę elementów jako CSV",
-    csvQuantity: "Liczba",
+    csvQuantity: "Liczba (szt.)",
     csvThickness: "Grubość (mm)",
     csvWidth: "Szerokość (mm)",
     csvHeight: "Wysokość (mm)",

@@ -161,6 +161,15 @@
         </svg>
         {$_("common.saveCsv")}
       </button>
+      <button id="printOrderBtn" class="tool-button" type="button" title={$_("order.printTableTitle")}>
+        <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 8 V4 H17 V8"></path>
+          <path d="M7 17 H5 V9 H19 V17 H17"></path>
+          <path d="M7 13 H17 V20 H7 Z"></path>
+          <path d="M16 11 H17"></path>
+        </svg>
+        {$_("common.print")}
+      </button>
     </section>
     <section class="tool-section">
       <h2>{$_("panels.included")}</h2>
