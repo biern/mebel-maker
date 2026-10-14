@@ -1431,11 +1431,11 @@ function selectBoardFromOrder(boardId: number): void {
 }
 
 function areaNumber(area: number): string {
-  return new Intl.NumberFormat(document.documentElement.lang || "en", { maximumFractionDigits: 6 }).format(area);
+  return new Intl.NumberFormat(document.documentElement.lang || "en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(area);
 }
 
 function areaCsv(area: number): string {
-  return String(Math.round(area * 1_000_000) / 1_000_000);
+  return area.toFixed(2);
 }
 
 function renderMaterials(): void {
