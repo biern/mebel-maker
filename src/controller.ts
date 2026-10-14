@@ -2,7 +2,7 @@ import { SketchRenderer } from "./renderer";
 import { Visualization3DRenderer } from "./visualization3d";
 import { translate } from "./i18n";
 import complexTemplateSource from "../templates/complex.mebel?raw";
-import { bandingEdgeDirection, bandingEdgeLength, bandingOrderIssue, bandingProfileKey, edgeBandingEdges, frontBandingEdge, groupOrderBoards, legacyLaminateEdges, nominalCoreDimensions, normalizeBandingProfile, normalizeBoardBanding, setBoardEdgeBanding } from "./edgeBanding";
+import { bandingEdgeDirection, bandingEdgeLength, bandingOrderIssue, bandingProfileKey, bandingView, edgeBandingEdges, frontBandingEdge, groupOrderBoards, legacyLaminateEdges, nominalCoreDimensions, normalizeBandingProfile, normalizeBoardBanding, setBoardEdgeBanding } from "./edgeBanding";
 import {
   boardLabel,
   boundsFor,
@@ -116,6 +116,7 @@ const ui = {
   addMaterialBtn: query<HTMLButtonElement>("#addMaterialBtn"),
   bandingProfileInput: query<HTMLSelectElement>("#bandingProfileInput"),
   bandingDiagram: query<HTMLElement>("#bandingDiagram"),
+  bandingViewLabel: query<HTMLElement>("#bandingViewLabel"),
   bandingBoardFace: query<HTMLElement>("#bandingBoardFace"),
   bandingEdgeFields: query<HTMLElement>("#bandingEdgeFields"),
   bandingPresets: query<HTMLElement>("#bandingPresets"),
@@ -523,6 +524,8 @@ function grainLabel(board: Board): string {
 
 function updateBandingInspector(boards: Board[]): void {
   const first = boards[0];
+  const view = bandingView(boards.every((board) => board.orientation === first.orientation) ? first.orientation : null);
+  ui.bandingViewLabel.textContent = t("banding.flatViewAxes", { horizontal: view.horizontalAxis, vertical: view.verticalAxis, arrow: view.verticalArrow });
   if (bandingBrush !== "matching-08" && bandingBrush !== "matching-2" && !state.edgeBandingProfiles.some((profile) => profile.id === bandingBrush)) bandingBrush = "matching-2";
   const options = bandingProfileOptions();
   ui.bandingProfileInput.innerHTML = options;
@@ -542,7 +545,6 @@ function updateBandingInspector(boards: Board[]): void {
     button.setAttribute("aria-label", `${name}, ${lengthLabel}, ${label}`);
     button.title = `${name}: ${label}`;
     button.innerHTML = `<span>${escapeHtml(name)}</span><span>${escapeHtml(lengthLabel)}</span><span>${escapeHtml(commonProfile === null ? t("common.mixed") : profile ? `${bandingNumber(profile.thickness)} mm` : t("metrics.none"))}</span>`;
-    ui.bandingBoardFace.classList.toggle(`banded-${edge}`, boards.some((board) => board.edgeBanding[edge]));
     const edgeLabelElement = query<HTMLElement>(`#bandingLabel-${edge}`);
     edgeLabelElement.textContent = `${name} · ${lengthLabel}`;
     const select = ui.bandingEdgeFields.querySelector<HTMLSelectElement>(`[data-banding-input='${edge}']`)!;
@@ -551,9 +553,19 @@ function updateBandingInspector(boards: Board[]): void {
     select.value = selected;
     select.title = label;
   });
+  Object.entries(view.edges).forEach(([position, edge]) => {
+    const button = ui.bandingDiagram.querySelector<HTMLButtonElement>(`[data-banding-edge='${edge}']`)!;
+    button.style.gridColumn = position === "left" ? "1" : position === "right" ? "3" : "2";
+    button.style.gridRow = position === "top" ? "1" : position === "bottom" ? "3" : "2";
+    ui.bandingBoardFace.classList.toggle(`banded-${position}`, boards.some((board) => board.edgeBanding[edge]));
+  });
   const a = commonValue(boards, (board) => String(board.dimensions.width));
   const b = commonValue(boards, (board) => String(board.dimensions.height));
-  ui.bandingBoardFace.innerHTML = `<span>${a === null ? "—" : bandingNumber(Number(a))} × ${b === null ? "—" : bandingNumber(Number(b))}</span><span>A →<br>B ↓</span>`;
+  const [width, height] = view.horizontalAxis === "A" ? [a, b] : [b, a];
+  ui.bandingBoardFace.innerHTML = `<span>${width === null ? "—" : bandingNumber(Number(width))} × ${height === null ? "—" : bandingNumber(Number(height))}</span><span>${view.horizontalAxis} →<br>${view.verticalAxis} ${view.verticalArrow}</span>`;
+  (["a", "b"] as const).forEach((axis) => {
+    ui.grainInput.querySelector<HTMLOptionElement>(`option[value='${axis}']`)!.textContent = t("banding.grainAlongAxis", { axis: axis.toUpperCase(), arrow: view.horizontalAxis.toLowerCase() === axis ? "→" : view.verticalArrow });
+  });
   ui.grainInput.value = commonValue(boards, (board) => board.grainDirection) ?? "";
   const finished = commonValue(boards, (board) => physicalSizeLabel(board.dimensions));
   const core = commonValue(boards, (board) => physicalSizeLabel(nominalCoreDimensions(board)));

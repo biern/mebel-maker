@@ -65,6 +65,7 @@ Boards carry ordering details, not just drawing geometry:
 - Override depth per board when one piece needs different ordering depth.
 - Configure the four edges of a flat board: A1/A2 run along its physical width A, B1/B2 along its physical height B. A1 is top, A2 bottom, B1 left and B2 right in the reference flat view; these identifiers stay with the physical board when its sketch orientation changes.
 - The inspector shows familiar directions for each orientation (front/back on shelves and sides), full physical edge lengths, a clickable diagram, individual profile selectors, and Front only / All four / None shortcuts. Editing one edge on multiple pieces preserves their other edges.
+- Shelf and side inspector diagrams place the front edge at the bottom and rotate their dimension and grain arrows accordingly. The saved physical edge IDs and the order's reference view stay fixed.
 - Apply matching ABS in 0.8 or 2 mm thickness, or save custom ABS, PVC and veneer profiles with an explicit decor/supplier code and thickness. Applied profiles are snapshots: changing a board's material does not silently change its existing banding decor.
 - Drawing dimensions are finished dimensions after banding. The inspector also shows the nominal core without banding, retaining fractional values; this is not a supplier-specific cutting size and does not account for machining allowances.
 - Set grain direction along A, along B, or unrestricted.

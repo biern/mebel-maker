@@ -1,4 +1,4 @@
-import type { Board, EdgeBandingEdge, EdgeBandingEdges, EdgeBandingProfile, GrainDirection, LaminateEdges } from "./types";
+import type { Board, EdgeBandingEdge, EdgeBandingEdges, EdgeBandingProfile, GrainDirection, LaminateEdges, PieceOrientation } from "./types";
 
 export const edgeBandingEdges: EdgeBandingEdge[] = ["a1", "a2", "b1", "b2"];
 export const legacyLaminateEdges: Array<keyof LaminateEdges> = ["left", "right", "top", "bottom", "front", "back"];
@@ -78,6 +78,27 @@ export function bandingEdgeDirection(board: Board, edge: EdgeBandingEdge): "left
   if (board.orientation === "horizontal") return { a1: "front", a2: "back", b1: "left", b2: "right" }[edge] as "front" | "back" | "left" | "right";
   if (board.orientation === "vertical") return { a1: "top", a2: "bottom", b1: "front", b2: "back" }[edge] as "top" | "bottom" | "front" | "back";
   return { a1: "top", a2: "bottom", b1: "left", b2: "right" }[edge] as "top" | "bottom" | "left" | "right";
+}
+
+export function bandingView(orientation: PieceOrientation | null): {
+  edges: Record<"top" | "bottom" | "left" | "right", EdgeBandingEdge>;
+  horizontalAxis: "A" | "B";
+  verticalAxis: "A" | "B";
+  verticalArrow: "↑" | "↓";
+} {
+  // Only rotate the inspector's view. Physical edge IDs and order data stay fixed.
+  if (orientation === "horizontal") return {
+    edges: { top: "a2", bottom: "a1", left: "b1", right: "b2" },
+    horizontalAxis: "A", verticalAxis: "B", verticalArrow: "↑"
+  };
+  if (orientation === "vertical") return {
+    edges: { top: "b2", bottom: "b1", left: "a1", right: "a2" },
+    horizontalAxis: "B", verticalAxis: "A", verticalArrow: "↑"
+  };
+  return {
+    edges: { top: "a1", bottom: "a2", left: "b1", right: "b2" },
+    horizontalAxis: "A", verticalAxis: "B", verticalArrow: "↓"
+  };
 }
 
 export function nominalCoreDimensions(board: Board): Board["dimensions"] {

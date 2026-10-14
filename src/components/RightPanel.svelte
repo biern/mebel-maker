@@ -60,7 +60,7 @@
             <button type="button" class="inline-action" data-banding-preset="all" title={$_("banding.allTitle")}>{$_("banding.all")}</button>
             <button type="button" class="inline-action" data-banding-preset="none" title={$_("banding.noneTitle")}>{$_("metrics.none")}</button>
           </div>
-          <div class="banding-caption">{$_("banding.flatView")}</div>
+          <div id="bandingViewLabel" class="banding-caption">{$_("banding.flatView")}</div>
           <div id="bandingDiagram" class="banding-diagram" role="group" aria-label={$_("banding.fourEdges")}>
             {#each edgeBandingEdges as edge}
               <button type="button" class="banding-edge banding-edge-{edge}" data-banding-edge={edge} aria-pressed="false">{edge.toUpperCase()}</button>

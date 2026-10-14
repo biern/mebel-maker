@@ -19,7 +19,7 @@ import {
   updateDimensionsFromSketchRect
 } from "../src/geometry";
 import type { Board, BoardKind, LaminateEdges, MeasurementAnchor, PieceOrientation, SketchState } from "../src/types";
-import { bandingEdgeLength, bandingOrderIssue, boardOrderKey, frontBandingEdge, groupOrderBoards, nominalCoreDimensions, normalizeBoardBanding, setBoardEdgeBanding } from "../src/edgeBanding";
+import { bandingEdgeLength, bandingOrderIssue, bandingView, boardOrderKey, frontBandingEdge, groupOrderBoards, nominalCoreDimensions, normalizeBoardBanding, setBoardEdgeBanding } from "../src/edgeBanding";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -277,6 +277,7 @@ const abs2 = { id: "oak-2", type: "ABS" as const, decor: "Oak", thickness: 2 };
 const abs08 = { ...abs2, id: "oak-08", thickness: 0.8 };
 setBoardEdgeBanding(bandingShelf, "a1", abs2);
 assert(frontBandingEdge(bandingShelf) === "a1" && bandingEdgeLength(bandingShelf, "a1") === 760, "front shelf banding should use its full physical width");
+assert(bandingView(bandingShelf.orientation).edges.bottom === frontBandingEdge(bandingShelf), "shelf inspector must show the physical front edge at the bottom");
 assert(nominalCoreDimensions(bandingShelf).height === 398 && nominalCoreDimensions(bandingShelf).width === 760, "front shelf banding should reduce only nominal depth");
 assert(bandingShelf.dimensions.height === 400 && rectFromBoard(bandingShelf).h === 18, "banding must preserve finished geometry and drawing dimensions");
 setBoardEdgeBanding(bandingShelf, "b1", abs08);
@@ -290,6 +291,7 @@ assert(bandingShelf.edgeBanding.a2 !== abs08 && bandingShelf.edgeBanding.a2 !== 
 const bandingSide: Board = { ...state.boards[0], dimensions: { width: 400, height: 720, thickness: 18 }, ...normalizeBoardBanding({}) };
 setBoardEdgeBanding(bandingSide, "b1", abs2);
 assert(frontBandingEdge(bandingSide) === "b1" && bandingEdgeLength(bandingSide, "b1") === 720, "upright front band must use height rather than projected 18 mm thickness");
+assert(bandingView(bandingSide.orientation).edges.bottom === frontBandingEdge(bandingSide) && bandingView(bandingSide.orientation).horizontalAxis === "B", "upright inspector must rotate its flat view to show front at the bottom");
 assert(nominalCoreDimensions(bandingSide).width === 398 && nominalCoreDimensions(bandingSide).height === 720, "front upright band should reduce only nominal depth");
 const signature = boardOrderKey(bandingSide);
 bandingSide.orientation = "horizontal";
