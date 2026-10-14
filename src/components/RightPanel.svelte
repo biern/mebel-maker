@@ -189,7 +189,7 @@
         {$_("common.print")}
       </button>
     </section>
-    <p class="banding-order-note">{$_("banding.orderNote")}</p>
+    <div id="orderLegend" class="order-legend"></div>
     <section class="tool-section">
       <h2>{$_("panels.included")}</h2>
       <div class="cut-list" id="cutList"></div>

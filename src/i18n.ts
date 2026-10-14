@@ -130,7 +130,7 @@ const en = {
     projectSize: "Project size (review)",
     core: "Nominal core",
     coreNote: "Core excludes banding. Cutting allowances depend on the supplier.",
-    orderNote: "Dimensions are finished sizes after banding. A1/A2 run along A; B1/B2 along B. Flat view: A1 top, A2 bottom, B1 left, B2 right.",
+    orderNote: "All dimensions are finished sizes after banding. Edges A1/A2 have length A; edges B1/B2 have length B. Use the shared diagram to identify the edges.",
     mixedNames: "Different directions",
     multiNote: "Only the edited edge changes on selected boards.",
     confirm: "Confirm edges and finished dimensions",
@@ -145,14 +145,8 @@ const en = {
     exportBlocked: "Resolve banding before exporting: {pieces}",
     csvA: "A (mm)",
     csvB: "B (mm)",
-    csvBasis: "Dimension basis",
-    csvFinished: "Finished after banding",
     csvGrain: "Grain",
-    csvSketch: "Edge sketch",
-    csvA1: "A1 (along A, top in flat view)",
-    csvA2: "A2 (along A, bottom in flat view)",
-    csvB1: "B1 (along B, left in flat view)",
-    csvB2: "B2 (along B, right in flat view)"
+    csvSketch: "Shared edge diagram"
   },
   materials: {
     birchPlywood: "Birch plywood",
@@ -469,7 +463,7 @@ const pl: typeof en = {
     projectSize: "Wymiar z projektu (sprawdź)",
     core: "Nominalny rdzeń",
     coreNote: "Rdzeń bez obrzeży. Naddatki do cięcia zależą od wykonawcy.",
-    orderNote: "Wymiary gotowe po oklejeniu. A1/A2 biegną wzdłuż A, B1/B2 wzdłuż B. Na płasko: A1 góra, A2 dół, B1 lewo, B2 prawo.",
+    orderNote: "Wszystkie wymiary są wymiarami gotowymi po oklejeniu. Krawędzie A1/A2 mają długość A, a B1/B2 długość B. Oznaczenia krawędzi odczytuj według wspólnego schematu.",
     mixedNames: "Różne kierunki",
     multiNote: "Zmiana dotyczy tylko edytowanej krawędzi zaznaczonych płyt.",
     confirm: "Zatwierdź krawędzie i wymiary gotowe",
@@ -484,14 +478,8 @@ const pl: typeof en = {
     exportBlocked: "Przed eksportem sprawdź obrzeża: {pieces}",
     csvA: "A (mm)",
     csvB: "B (mm)",
-    csvBasis: "Znaczenie wymiarów",
-    csvFinished: "Gotowe po oklejeniu",
     csvGrain: "Usłojenie",
-    csvSketch: "Schemat krawędzi",
-    csvA1: "A1 (wzdłuż A, góra na płasko)",
-    csvA2: "A2 (wzdłuż A, dół na płasko)",
-    csvB1: "B1 (wzdłuż B, lewo na płasko)",
-    csvB2: "B2 (wzdłuż B, prawo na płasko)"
+    csvSketch: "Wspólny schemat krawędzi"
   },
   materials: {
     birchPlywood: "Sklejka brzozowa",

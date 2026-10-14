@@ -133,6 +133,7 @@ const ui = {
   measureList: query<HTMLElement>("#measureList"),
   warningList: query<HTMLElement>("#warningList"),
   cutList: query<HTMLElement>("#cutList"),
+  orderLegend: query<HTMLElement>("#orderLegend"),
   ignoredCutList: query<HTMLElement>("#ignoredCutList"),
   rightPanelTools: query<HTMLElement>("#rightPanelTools"),
   woodOrderPanel: query<HTMLElement>("#woodOrderPanel"),
@@ -1490,6 +1491,7 @@ function renderWarnings(): void {
 }
 
 function renderCutList(): void {
+  ui.orderLegend.innerHTML = orderLegendHtml();
   ui.cutList.innerHTML = cutListHtml(state.boards.filter((board) => !board.ignoreInOrder), t("pieces.noBoardsInOrder"));
   ui.ignoredCutList.innerHTML = cutListHtml(state.boards.filter((board) => board.ignoreInOrder), t("pieces.noIgnoredBoards"));
 }
@@ -1503,7 +1505,6 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
         <strong><span class="count">${boards.length}×</span> ${physicalSizeLabel(board.dimensions)}</strong>
         <span>${t("metrics.material")}: ${escapeHtml(materialName(board.materialId))}</span>
         <span>${t("banding.grain")}: ${escapeHtml(grainLabel(board))}</span>
-        ${orderEdgeDiagram(board)}
         <div class="cut-banding">${edgeBandingEdges.map((edge) => `<span>${edge.toUpperCase()} · ${bandingNumber(bandingEdgeLength(board, edge))} mm: ${escapeHtml(bandingProfileLabel(board.edgeBanding[edge]))}</span>`).join("")}</div>
         ${issue ? `<div class="banding-review">${escapeHtml(t(issue === "review" ? "banding.reviewRequired" : "banding.invalidCore"))}${board.legacyLaminate ? `<div>${escapeHtml(legacyBandingLabel(board))}</div>` : ""}</div>` : ""}
         <div class="cut-card-pieces">${boards.map((board) => `
@@ -1516,8 +1517,8 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
   }).join("") || `<div class="empty-state">${emptyMessage}</div>`;
 }
 
-function orderEdgeDiagram(board: Board): string {
-  return `<div class="order-edge-diagram" role="img" aria-label="${escapeHtml(edgeBandingEdges.map((edge) => `${edge.toUpperCase()}: ${bandingProfileLabel(board.edgeBanding[edge])}`).join("; "))}">${edgeBandingEdges.map((edge) => `<div class="${edge}${board.edgeBanding[edge] ? " edge-active" : ""}">${edge.toUpperCase()}</div>`).join("")}</div>`;
+function orderLegendHtml(): string {
+  return `<div class="order-edge-diagram" role="img" aria-label="${escapeHtml(t("banding.csvSketch"))}">${edgeBandingEdges.map((edge) => `<div class="${edge}">${edge.toUpperCase()}</div>`).join("")}<div class="order-diagram-dimensions">A × B</div></div><p class="banding-order-note">${escapeHtml(t("banding.orderNote"))}</p>`;
 }
 
 function checkOrderReady(): boolean {
@@ -1889,7 +1890,6 @@ function restoreAfterSketchPrint(): void {
 function cutListPrintHtml(rows: string[][], title: string): string {
   const header = rows[0];
   const bodyRows = rows.slice(1);
-  const groups = groupOrderBoards(state.boards.filter((board) => !board.ignoreInOrder));
   return `
     <!doctype html>
     <html>
@@ -1907,22 +1907,23 @@ function cutListPrintHtml(rows: string[][], title: string): string {
           td:nth-child(2), th:nth-child(2),
           td:nth-child(3), th:nth-child(3),
           td:nth-child(4), th:nth-child(4) { text-align: right; white-space: nowrap; }
-          .order-edge-diagram { background: #eee5d4; border: 1px solid #9aa59d; display: grid; font-size: 9px; grid-template-columns: 20px 35px 20px; grid-template-rows: 16px 30px 16px; text-align: center; width: 75px; }
+          .order-legend { align-items: center; display: flex; gap: 16px; margin-bottom: 16px; }
+          .order-edge-diagram { align-items: center; background: #eee5d4; border: 1px solid #9aa59d; display: grid; flex: 0 0 auto; font-size: 11px; grid-template-columns: 24px 60px 24px; grid-template-rows: 20px 40px 20px; text-align: center; width: 108px; }
           .a1 { grid-column: 2; grid-row: 1; } .a2 { grid-column: 2; grid-row: 3; } .b1 { grid-column: 1; grid-row: 2; } .b2 { grid-column: 3; grid-row: 2; }
-          .edge-active { background: #f5d6a4; font-weight: bold; }
+          .order-diagram-dimensions { grid-column: 2; grid-row: 2; }
           tr { break-inside: avoid; }
           @page { size: landscape; margin: 12mm; }
         </style>
       </head>
       <body>
         <h1>${escapeHtml(title)}</h1>
-        <p>${escapeHtml(t("banding.orderNote"))}</p>
+        <div class="order-legend">${orderLegendHtml()}</div>
         <table>
           <thead>
-            <tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}<th>${escapeHtml(t("banding.csvSketch"))}</th></tr>
+            <tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}</tr>
           </thead>
           <tbody>
-            ${bodyRows.map((row, index) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}<td>${orderEdgeDiagram(groups[index][0])}</td></tr>`).join("")}
+            ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}
           </tbody>
         </table>
         <script>
@@ -1934,7 +1935,16 @@ function cutListPrintHtml(rows: string[][], title: string): string {
 }
 
 function cutListCsv(): string {
-  return cutListRows().map((row) => row.map(csvCell).join(",")).join("\n");
+  const rows = cutListRows();
+  const legend = [
+    [t("banding.orderNote")],
+    [t("banding.csvSketch")],
+    ["       A1"],
+    ["B1   A × B   B2"],
+    ["       A2"],
+    []
+  ].map((row) => Array.from({ length: rows[0].length }, (_, index) => row[index] ?? ""));
+  return [...legend, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
 function cutListRows(): string[][] {
@@ -1945,9 +1955,8 @@ function cutListRows(): string[][] {
       t("banding.csvA"),
       t("banding.csvB"),
       t("order.csvMaterial"),
-      t("banding.csvBasis"),
       t("banding.csvGrain"),
-      ...edgeBandingEdges.map((edge) => t(`banding.csv${edge.toUpperCase()}`)),
+      ...edgeBandingEdges.map((edge) => edge.toUpperCase()),
       t("order.csvPieces")
     ]
   ];
@@ -1959,7 +1968,6 @@ function cutListRows(): string[][] {
       String(board.dimensions.width),
       String(board.dimensions.height),
       materialName(board.materialId),
-      t("banding.csvFinished"),
       grainLabel(board),
       ...edgeBandingEdges.map((edge) => bandingProfileLabel(board.edgeBanding[edge])),
       boards.map((board) => board.name).join("; ")

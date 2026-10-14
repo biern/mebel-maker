@@ -77,7 +77,7 @@ Boards carry ordering details, not just drawing geometry:
 The order list is designed to be useful after sketching:
 
 - Groups matching pieces by physical dimensions, material, grain direction and the exact profile on each physical edge; retains individual piece names in each group.
-- CSV has separate A1/A2/B1/B2 columns, a finished-dimension convention and a flat-view edge legend in its headers. The printed order adds edge diagrams and the same legend.
+- CSV and printed orders use short A1/A2/B1/B2 column headers. One shared edge diagram and the finished-dimension convention appear above the table; CSV uses a text diagram in six introductory rows, followed by its column header and data. The order sidebar uses the same shared legend.
 - Shows quantity for repeated pieces.
 - Includes visual material swatches in the sidebar.
 - Copies directly to the clipboard as CSV.
