@@ -1,3 +1,4 @@
+import { boardAreaM2, orderAreaSummary } from "../src/orderArea";
 import {
   computeGroups,
   connectionMarks,
@@ -354,3 +355,17 @@ assert(normalizeFaceLamination(reloadedFaces.faceLamination) === "s2", "selected
 assert(JSON.stringify(bandingShelf.dimensions) === finishedDimensions && JSON.stringify(bandingShelf.edgeBanding) === finishedEdges, "flat-face finish changes must preserve dimensions and edge profiles");
 
 console.log("geometry, edge banding and flat-face lamination smoke checks passed");
+
+// Material ordering uses the physical face once, regardless of projection or finish.
+const areaBoard: Board = { ...bandingSide, dimensions: { width: 400, height: 720, thickness: 18 }, materialId: "oak", ignoreInOrder: false };
+assert(boardAreaM2(areaBoard) === 0.288, "area must convert physical mm² to m²");
+assert(boardAreaM2({ ...areaBoard, orientation: "vertical", faceLamination: "both" }) === 0.288, "upright area must use physical depth and height without doubling for two laminated faces");
+const areaSummary = orderAreaSummary([
+  areaBoard,
+  { ...areaBoard, id: 600 },
+  { ...areaBoard, materialId: "pine", dimensions: { width: 1000, height: 500, thickness: 3 } },
+  { ...areaBoard, ignoreInOrder: true }
+]);
+assert(areaSummary.materials.get("oak") === 0.576 && areaSummary.materials.get("pine") === 0.5 && areaSummary.total === 1.076, "area totals must include quantities, group by material and exclude ignored pieces");
+assert(boardAreaM2({ ...areaBoard, dimensions: { width: 0.5, height: 1000, thickness: 18 } }) === 0.0005, "area must preserve fractional dimensions");
+assert(orderAreaSummary([]).total === 0 && orderAreaSummary([]).materials.size === 0, "empty orders must have zero area");

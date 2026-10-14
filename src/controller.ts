@@ -1,3 +1,4 @@
+import { boardAreaM2, orderAreaSummary } from "./orderArea";
 import { SketchRenderer } from "./renderer";
 import { Visualization3DRenderer } from "./visualization3d";
 import { translate } from "./i18n";
@@ -1429,7 +1430,16 @@ function selectBoardFromOrder(boardId: number): void {
   refresh();
 }
 
+function areaNumber(area: number): string {
+  return new Intl.NumberFormat(document.documentElement.lang || "en", { maximumFractionDigits: 6 }).format(area);
+}
+
+function areaCsv(area: number): string {
+  return String(Math.round(area * 1_000_000) / 1_000_000);
+}
+
 function renderMaterials(): void {
+  const area = orderAreaSummary(state.boards);
   ui.materialInput.innerHTML = `
     <option value="">${escapeHtml(t("inspector.mixedMaterials"))}</option>
   ` + state.materials.map((material) => `
@@ -1457,8 +1467,9 @@ function renderMaterials(): void {
     <div class="material-card">
       <span class="material-swatch" style="background: ${material.color}"></span>
       <strong>${escapeHtml(displayMaterialName(material))}</strong>
+      <span class="material-area">${areaNumber(area.materials.get(material.id) ?? 0)} m²</span>
     </div>
-  `).join("");
+  `).join("") + `<div class="material-area-total" title="${escapeHtml(t("order.areaNote"))}">${t("order.areaTotal")}: ${areaNumber(area.total)} m²</div>`;
   syncMaterialSelect();
 }
 
@@ -1525,8 +1536,18 @@ function renderWarnings(): void {
 
 function renderCutList(): void {
   ui.orderLegend.innerHTML = orderLegendHtml();
-  ui.cutList.innerHTML = cutListHtml(state.boards.filter((board) => !board.ignoreInOrder), t("pieces.noBoardsInOrder"));
+  ui.cutList.innerHTML = cutListHtml(state.boards.filter((board) => !board.ignoreInOrder), t("pieces.noBoardsInOrder")) + orderAreaSummaryHtml();
   ui.ignoredCutList.innerHTML = cutListHtml(state.boards.filter((board) => board.ignoreInOrder), t("pieces.noIgnoredBoards"));
+}
+
+function orderAreaSummaryHtml(): string {
+  const area = orderAreaSummary(state.boards);
+  return `<div class="metric-card order-area-summary">
+    <strong>${escapeHtml(t("order.areaSummary"))}</strong>
+    ${[...area.materials].map(([id, value]) => `<span>${escapeHtml(materialName(id))}: ${areaNumber(value)} m²</span>`).join("")}
+    <strong>${escapeHtml(t("order.areaTotal"))}: ${areaNumber(area.total)} m²</strong>
+    <span>${escapeHtml(t("order.areaNote"))}</span>
+  </div>`;
 }
 
 function cutListHtml(boards: Board[], emptyMessage: string): string {
@@ -1537,6 +1558,7 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${physicalSizeLabel(board.dimensions)}</strong>
         <span>${t("metrics.material")}: ${escapeHtml(materialName(board.materialId))}</span>
+        <span>${t("order.areaEach")}: ${areaNumber(boardAreaM2(board))} m² · ${t("order.areaRow")}: ${areaNumber(boardAreaM2(board) * boards.length)} m²</span>
         <span>${t("faceLamination.title")}: ${escapeHtml(faceLaminationLabel(board))}</span>
         <span>${t("banding.grain")}: ${escapeHtml(grainLabel(board))}</span>
         <div class="cut-banding">${edgeBandingEdges.map((edge) => `<span>${edge.toUpperCase()} · ${bandingNumber(bandingEdgeLength(board, edge))} mm: ${escapeHtml(bandingProfileLabel(board.edgeBanding[edge]))}</span>`).join("")}</div>
@@ -1960,6 +1982,7 @@ function cutListPrintHtml(rows: string[][], title: string): string {
             ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}
           </tbody>
         </table>
+        <p>${escapeHtml(t("order.areaNote"))}</p>
         <script>
           window.addEventListener("load", () => window.setTimeout(() => window.print(), 0));
         </script>
@@ -1971,7 +1994,7 @@ function cutListPrintHtml(rows: string[][], title: string): string {
 function cutListCsv(): string {
   const rows = cutListRows();
   const legend = [
-    [t("banding.orderNote")],
+    [`${t("banding.orderNote")} ${t("order.areaNote")}`],
     [t("banding.csvSketch")],
     ["       A1"],
     ["B1   A × B (S1)   B2"],
@@ -1992,6 +2015,8 @@ function cutListRows(): string[][] {
       t("faceLamination.title"),
       t("banding.csvGrain"),
       ...edgeBandingEdges.map((edge) => edge.toUpperCase()),
+      t("order.csvAreaEach"),
+      t("order.csvAreaRow"),
       t("order.csvPieces")
     ]
   ];
@@ -2006,10 +2031,22 @@ function cutListRows(): string[][] {
       faceLaminationLabel(board),
       grainLabel(board),
       ...edgeBandingEdges.map((edge) => bandingExportLabel(board.edgeBanding[edge])),
+      areaCsv(boardAreaM2(board)),
+      areaCsv(boardAreaM2(board) * boards.length),
       boards.map((board) => board.name).join("; ")
     ]);
   });
 
+  const area = orderAreaSummary(state.boards);
+  const summaryRow = (label: string, value: number, material = "") => {
+    const row = Array<string>(rows[0].length).fill("");
+    row[rows[0].indexOf(t("order.csvMaterial"))] = material;
+    row[rows[0].indexOf(t("order.csvAreaRow"))] = areaCsv(value);
+    row[rows[0].indexOf(t("order.csvPieces"))] = label;
+    rows.push(row);
+  };
+  area.materials.forEach((value, id) => summaryRow(t("order.areaMaterialTotal"), value, materialName(id)));
+  summaryRow(t("order.areaTotal"), area.total);
   return rows;
 }
 

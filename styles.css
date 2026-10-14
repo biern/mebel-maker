@@ -1222,3 +1222,20 @@ select:disabled {
     min-height: 540px;
   }
 }
+
+.material-area {
+  grid-column: 2;
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.material-area-total {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  font-weight: 700;
+}
+
+.order-area-summary {
+  border-top: 2px solid var(--line);
+}
