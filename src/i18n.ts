@@ -107,7 +107,7 @@ const en = {
   banding: {
     title: "Edge banding",
     brush: "Banding to apply",
-    matching: "ABS · match board · {thickness} mm",
+    matching: "Edge banding thickness: {thickness} mm",
     onlyFront: "Front only",
     frontTitle: "Replace banding on the selection with front-edge banding only",
     all: "All four",
@@ -444,7 +444,7 @@ const pl: typeof en = {
   banding: {
     title: "Obrzeża",
     brush: "Obrzeże do zaznaczania",
-    matching: "ABS · jak płyta · {thickness} mm",
+    matching: "Grubość obrzeża: {thickness} mm",
     onlyFront: "Tylko przód",
     frontTitle: "Zastąp obrzeża zaznaczonych płyt oklejaniem tylko przedniej krawędzi",
     all: "Wszystkie",

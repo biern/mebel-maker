@@ -489,8 +489,9 @@ function physicalSizeLabel(dimensions: PieceDimensions): string {
   return `${bandingNumber(dimensions.width)} × ${bandingNumber(dimensions.height)} × ${bandingNumber(dimensions.thickness)} mm`;
 }
 
-function bandingProfileLabel(profile: EdgeBandingProfile | null): string {
+function bandingProfileLabel(profile: EdgeBandingProfile | null, compact = false): string {
   if (!profile) return t("metrics.none");
+  if (compact && profile.id.startsWith("match-")) return `${bandingNumber(profile.thickness)} mm`;
   return `${profile.type === "veneer" ? t("banding.veneer") : profile.type} · ${profile.decor} · ${bandingNumber(profile.thickness)} mm`;
 }
 
@@ -534,7 +535,7 @@ function updateBandingInspector(boards: Board[]): void {
     const lengthLabel = length === null ? t("common.mixed") : `${bandingNumber(Number(length))} mm`;
     const commonProfile = commonValue(boards, (board) => bandingProfileKey(board.edgeBanding[edge]));
     const profile = first.edgeBanding[edge];
-    const label = commonProfile === null ? t("common.mixed") : bandingProfileLabel(profile);
+    const label = commonProfile === null ? t("common.mixed") : bandingProfileLabel(profile, true);
     const button = ui.bandingDiagram.querySelector<HTMLButtonElement>(`[data-banding-edge='${edge}']`)!;
     const pressed = commonProfile === null ? "mixed" : profile ? "true" : "false";
     button.setAttribute("aria-pressed", pressed);
