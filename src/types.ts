@@ -52,7 +52,8 @@ export interface EdgeBandingProfile {
   id: string;
   type: "ABS" | "PVC" | "veneer";
   decor: string;
-  thickness: number;
+  // null marks banding without a specified thickness.
+  thickness: number | null;
 }
 
 export type EdgeBandingEdges = Record<EdgeBandingEdge, EdgeBandingProfile | null>;

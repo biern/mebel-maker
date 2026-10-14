@@ -209,7 +209,7 @@ let notificationTimer: number | undefined;
 let renamingMeasurementId: number | null = null;
 let activeView: "sketch" | "3d" = "sketch";
 let woodOrderOpen = false;
-let bandingBrush = "matching-2";
+let bandingBrush = "matching-yes";
 let sketchPrintRestore: { showConnectionMarks: boolean; showFrontPanels: boolean; view: "sketch" | "3d" } | null = null;
 let sketchPrintRestoreTimer: number | undefined;
 
@@ -495,14 +495,20 @@ function physicalSizeLabel(dimensions: PieceDimensions): string {
   return `${bandingNumber(dimensions.width)} × ${bandingNumber(dimensions.height)} × ${bandingNumber(dimensions.thickness)} mm`;
 }
 
+function bandingExportLabel(profile: EdgeBandingProfile | null): string {
+  if (!profile) return t("metrics.none");
+  return profile.thickness === null ? t("banding.yes") : `${bandingNumber(profile.thickness)} mm`;
+}
+
 function bandingProfileLabel(profile: EdgeBandingProfile | null, compact = false): string {
   if (!profile) return t("metrics.none");
-  if (compact && profile.id.startsWith("match-")) return `${bandingNumber(profile.thickness)} mm`;
-  return `${profile.type === "veneer" ? t("banding.veneer") : profile.type} · ${profile.decor} · ${bandingNumber(profile.thickness)} mm`;
+  if (compact && profile.id.startsWith("match-")) return bandingExportLabel(profile);
+  return `${profile.type === "veneer" ? t("banding.veneer") : profile.type} · ${profile.decor} · ${bandingExportLabel(profile)}`;
 }
 
 function bandingProfileOptions(): string {
   return [
+    `<option value="matching-yes">${escapeHtml(t("banding.yes"))}</option>`,
     `<option value="matching-08">${escapeHtml(t("banding.matching", { thickness: bandingNumber(0.8) }))}</option>`,
     `<option value="matching-2">${escapeHtml(t("banding.matching", { thickness: 2 }))}</option>`,
     ...state.edgeBandingProfiles.map((profile) => `<option value="${escapeHtml(profile.id)}">${escapeHtml(bandingProfileLabel(profile))}</option>`)
@@ -510,8 +516,8 @@ function bandingProfileOptions(): string {
 }
 
 function profileForChoice(choice: string, board: Board): EdgeBandingProfile | null {
-  if (choice === "matching-08" || choice === "matching-2") {
-    const thickness = choice === "matching-08" ? 0.8 : 2;
+  if (choice === "matching-yes" || choice === "matching-08" || choice === "matching-2") {
+    const thickness = choice === "matching-yes" ? null : choice === "matching-08" ? 0.8 : 2;
     return { id: `match-${board.materialId}-${thickness}`, type: "ABS", decor: materialName(board.materialId), thickness };
   }
   return state.edgeBandingProfiles.find((profile) => profile.id === choice) ?? null;
@@ -550,7 +556,7 @@ function updateBandingInspector(boards: Board[]): void {
   const first = boards[0];
   const view = bandingView(boards.every((board) => board.orientation === first.orientation) ? first.orientation : null);
   ui.bandingViewLabel.textContent = t("banding.flatViewAxes", { horizontal: view.horizontalAxis, vertical: view.verticalAxis, arrow: view.verticalArrow });
-  if (bandingBrush !== "matching-08" && bandingBrush !== "matching-2" && !state.edgeBandingProfiles.some((profile) => profile.id === bandingBrush)) bandingBrush = "matching-2";
+  if (bandingBrush !== "matching-yes" && bandingBrush !== "matching-08" && bandingBrush !== "matching-2" && !state.edgeBandingProfiles.some((profile) => profile.id === bandingBrush)) bandingBrush = "matching-yes";
   const options = bandingProfileOptions();
   ui.bandingProfileInput.innerHTML = options;
   ui.bandingProfileInput.value = bandingBrush;
@@ -568,7 +574,7 @@ function updateBandingInspector(boards: Board[]): void {
     button.setAttribute("aria-pressed", pressed);
     button.setAttribute("aria-label", `${name}, ${lengthLabel}, ${label}`);
     button.title = `${name}: ${label}`;
-    button.innerHTML = `<span>${escapeHtml(name)}</span><span>${escapeHtml(lengthLabel)}</span><span>${escapeHtml(commonProfile === null ? t("common.mixed") : profile ? `${bandingNumber(profile.thickness)} mm` : t("metrics.none"))}</span>`;
+    button.innerHTML = `<span>${escapeHtml(name)}</span><span>${escapeHtml(lengthLabel)}</span><span>${escapeHtml(commonProfile === null ? t("common.mixed") : bandingExportLabel(profile))}</span>`;
     const edgeLabelElement = query<HTMLElement>(`#bandingLabel-${edge}`);
     edgeLabelElement.textContent = `${name} · ${lengthLabel}`;
     const select = ui.bandingEdgeFields.querySelector<HTMLSelectElement>(`[data-banding-input='${edge}']`)!;
@@ -1999,7 +2005,7 @@ function cutListRows(): string[][] {
       materialName(board.materialId),
       faceLaminationLabel(board),
       grainLabel(board),
-      ...edgeBandingEdges.map((edge) => bandingProfileLabel(board.edgeBanding[edge])),
+      ...edgeBandingEdges.map((edge) => bandingExportLabel(board.edgeBanding[edge])),
       boards.map((board) => board.name).join("; ")
     ]);
   });
@@ -2157,7 +2163,7 @@ function applyBandingChanges(changes: Array<{ board: Board; edge: EdgeBandingEdg
 }
 
 function addCustomBandingProfile(): void {
-  const profile = normalizeBandingProfile({ id: `band-${crypto.randomUUID()}`, type: ui.bandingTypeInput.value, decor: ui.bandingDecorInput.value, thickness: Number(ui.bandingThicknessInput.value) });
+  const profile = normalizeBandingProfile({ id: `band-${crypto.randomUUID()}`, type: ui.bandingTypeInput.value, decor: ui.bandingDecorInput.value, thickness: ui.bandingThicknessInput.value === "" ? null : Number(ui.bandingThicknessInput.value) });
   if (!profile) {
     notify(t("banding.profileInvalid"));
     return;

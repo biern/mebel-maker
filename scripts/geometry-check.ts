@@ -277,6 +277,13 @@ assert(computeOverlaps(state.boards).length > 0, "real overlapping shelves shoul
 const bandingShelf: Board = { ...state.boards[2], dimensions: { width: 760, height: 400, thickness: 18 }, ...normalizeBoardBanding({}) };
 const abs2 = { id: "oak-2", type: "ABS" as const, decor: "Oak", thickness: 2 };
 const abs08 = { ...abs2, id: "oak-08", thickness: 0.8 };
+const unspecifiedBand = { ...abs2, id: "oak-yes", thickness: null };
+setBoardEdgeBanding(bandingShelf, "a1", unspecifiedBand);
+assert(nominalCoreDimensions(bandingShelf).height === 400, "unspecified banding must preserve dimensions without assuming a thickness");
+const reloadedUnspecified = normalizeBoardBanding(JSON.parse(JSON.stringify(bandingShelf)));
+assert(reloadedUnspecified.edgeBanding.a1?.thickness === null && !reloadedUnspecified.bandingNeedsReview, "banding without thickness must survive project reload");
+assert(boardOrderKey(bandingShelf) !== boardOrderKey({ ...bandingShelf, edgeBanding: { ...bandingShelf.edgeBanding, a1: null } }), "unspecified banding must stay distinct from no banding in orders");
+
 setBoardEdgeBanding(bandingShelf, "a1", abs2);
 assert(frontBandingEdge(bandingShelf) === "a1" && bandingEdgeLength(bandingShelf, "a1") === 760, "front shelf banding should use its full physical width");
 assert(bandingView(bandingShelf.orientation).edges.bottom === frontBandingEdge(bandingShelf), "shelf inspector must show the physical front edge at the bottom");

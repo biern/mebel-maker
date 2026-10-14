@@ -90,7 +90,7 @@
             <summary>{$_("banding.addProfile")}</summary>
             <label class="field compact-field"><span>{$_("banding.type")}</span><select id="bandingTypeInput"><option>ABS</option><option>PVC</option><option value="veneer">{$_("banding.veneer")}</option></select></label>
             <label class="field compact-field"><span>{$_("banding.decor")}</span><input id="bandingDecorInput" type="text" maxlength="100"></label>
-            <label class="field compact-field"><span>{$_("banding.thickness")}</span><input id="bandingThicknessInput" type="number" min="0.1" max="10" step="0.1" value="2"></label>
+            <label class="field compact-field"><span>{$_("banding.thickness")}</span><input id="bandingThicknessInput" type="number" min="0.1" max="10" step="0.1" placeholder={$_("banding.yes")}></label>
             <button id="addBandingProfileBtn" type="button" class="inline-action">{$_("common.add")}</button>
           </details>
           <label class="field compact-field">

@@ -12,8 +12,8 @@ export function normalizeBandingProfile(value: unknown): EdgeBandingProfile | nu
   const profile = value as Partial<EdgeBandingProfile>;
   if (!["ABS", "PVC", "veneer"].includes(profile.type ?? "") ||
       typeof profile.decor !== "string" || !profile.decor.trim() ||
-      typeof profile.thickness !== "number" || !Number.isFinite(profile.thickness) ||
-      profile.thickness <= 0 || profile.thickness > 10) return null;
+      (profile.thickness !== null && (typeof profile.thickness !== "number" || !Number.isFinite(profile.thickness) ||
+      profile.thickness <= 0 || profile.thickness > 10))) return null;
   return {
     id: typeof profile.id === "string" && profile.id ? profile.id : `${profile.type}-${profile.decor}-${profile.thickness}`,
     type: profile.type!,
