@@ -1558,7 +1558,7 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${physicalSizeLabel(board.dimensions)}</strong>
         <span>${t("metrics.material")}: ${escapeHtml(materialName(board.materialId))}</span>
-        <span>${t("order.areaEach")}: ${areaNumber(boardAreaM2(board))} m² · ${t("order.areaRow")}: ${areaNumber(boardAreaM2(board) * boards.length)} m²</span>
+        <span>${t("order.areaRow")}: ${areaNumber(boardAreaM2(board) * boards.length)} m²</span>
         <span>${t("faceLamination.title")}: ${escapeHtml(faceLaminationLabel(board))}</span>
         <span>${t("banding.grain")}: ${escapeHtml(grainLabel(board))}</span>
         <div class="cut-banding">${edgeBandingEdges.map((edge) => `<span>${edge.toUpperCase()} · ${bandingNumber(bandingEdgeLength(board, edge))} mm: ${escapeHtml(bandingProfileLabel(board.edgeBanding[edge]))}</span>`).join("")}</div>
@@ -2015,7 +2015,6 @@ function cutListRows(): string[][] {
       t("faceLamination.title"),
       t("banding.csvGrain"),
       ...edgeBandingEdges.map((edge) => edge.toUpperCase()),
-      t("order.csvAreaEach"),
       t("order.csvAreaRow"),
       t("order.csvPieces")
     ]
@@ -2031,7 +2030,6 @@ function cutListRows(): string[][] {
       faceLaminationLabel(board),
       grainLabel(board),
       ...edgeBandingEdges.map((edge) => bandingExportLabel(board.edgeBanding[edge])),
-      areaCsv(boardAreaM2(board)),
       areaCsv(boardAreaM2(board) * boards.length),
       boards.map((board) => board.name).join("; ")
     ]);
