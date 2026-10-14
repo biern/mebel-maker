@@ -16,6 +16,7 @@ import {
   worldToScreen
 } from "./geometry";
 import { translate } from "./i18n";
+import { isFaceLaminated, unlaminatedFaceColor } from "./faceLamination";
 import type { Board, ConnectionMark, Material, MeasurementAxis, Point, SketchState } from "./types";
 
 const colors = ["#5c8d89", "#d19041", "#725d9f", "#538052", "#bb5d50", "#3f75a3"];
@@ -141,7 +142,8 @@ export class SketchRenderer {
 
     this.ctx.save();
     this.ctx.globalAlpha = opacity;
-    this.ctx.fillStyle = board.kind === "back" ? this.withAlpha(material.color, 0.36) : material.color;
+    const faceColor = board.orientation === "front" && !isFaceLaminated(board.faceLamination, "s1") ? unlaminatedFaceColor : material.color;
+    this.ctx.fillStyle = board.kind === "back" ? this.withAlpha(faceColor, 0.36) : faceColor;
     this.ctx.strokeStyle = primary ? "#1f6659" : selected ? "#2f78b7" : groupColor;
     this.ctx.lineWidth = board.kind === "back" ? 1.5 : primary ? 3 : selected ? 2.5 : 2;
     this.ctx.fillRect(point.x, point.y, w, h);

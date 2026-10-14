@@ -49,6 +49,17 @@
             <input id="depthOverrideInput" type="number" min="1" step="1" placeholder={$_("common.global")}>
           </label>
         </div>
+        <label class="field face-lamination-field">
+          <span>{$_("faceLamination.title")}</span>
+          <select id="faceLaminationInput">
+            <option value="both">{$_("faceLamination.both")}</option>
+            <option value="s1">{$_("faceLamination.onlyS1")}</option>
+            <option value="s2">{$_("faceLamination.onlyS2")}</option>
+            <option value="none">{$_("faceLamination.none")}</option>
+            <option value="" disabled>{$_("common.mixed")}</option>
+          </select>
+          <small id="faceLaminationHint" class="banding-caption">{$_("faceLamination.referenceHint")}</small>
+        </label>
         <fieldset class="banding-fieldset">
           <legend>{$_("banding.title")}</legend>
           <label class="field compact-field">

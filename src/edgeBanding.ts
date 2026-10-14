@@ -85,19 +85,20 @@ export function bandingView(orientation: PieceOrientation | null): {
   horizontalAxis: "A" | "B";
   verticalAxis: "A" | "B";
   verticalArrow: "↑" | "↓";
+  visibleFace: "s1" | "s2";
 } {
   // Only rotate the inspector's view. Physical edge IDs and order data stay fixed.
   if (orientation === "horizontal") return {
     edges: { top: "a2", bottom: "a1", left: "b1", right: "b2" },
-    horizontalAxis: "A", verticalAxis: "B", verticalArrow: "↑"
+    horizontalAxis: "A", verticalAxis: "B", verticalArrow: "↑", visibleFace: "s2"
   };
   if (orientation === "vertical") return {
     edges: { top: "b2", bottom: "b1", left: "a1", right: "a2" },
-    horizontalAxis: "B", verticalAxis: "A", verticalArrow: "↑"
+    horizontalAxis: "B", verticalAxis: "A", verticalArrow: "↑", visibleFace: "s1"
   };
   return {
     edges: { top: "a1", bottom: "a2", left: "b1", right: "b2" },
-    horizontalAxis: "A", verticalAxis: "B", verticalArrow: "↓"
+    horizontalAxis: "A", verticalAxis: "B", verticalArrow: "↓", visibleFace: "s1"
   };
 }
 
@@ -119,7 +120,7 @@ export function bandingOrderIssue(board: Board): "review" | "invalidCore" | null
 
 export function boardOrderKey(board: Board): string {
   return JSON.stringify([
-    board.dimensions.width, board.dimensions.height, board.dimensions.thickness, board.materialId,
+    board.dimensions.width, board.dimensions.height, board.dimensions.thickness, board.materialId, board.faceLamination,
     board.grainDirection, edgeBandingEdges.map((edge) => bandingProfileKey(board.edgeBanding[edge])),
     board.bandingNeedsReview, board.legacyLaminate ?? null
   ]);

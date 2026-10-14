@@ -104,6 +104,19 @@ const en = {
     pieceThickness: "Piece thickness (mm)",
     noLayoutAnchors: "No layout anchors"
   },
+  faceLamination: {
+    title: "Surface lamination",
+    both: "Both sides",
+    onlyS1: "S1 only",
+    onlyS2: "S2 only",
+    none: "No surface lamination",
+    onlyDirection: "{direction} only ({side})",
+    directionHint: "S1 — {first}; S2 — {second}. Edge banding is configured separately.",
+    referenceHint: "S1 is the face shown in the order's shared diagram; S2 is the opposite face. Edge banding is configured separately.",
+    laminated: "Laminated",
+    unlaminated: "Unlaminated",
+    updated: "Surface lamination updated"
+  },
   banding: {
     title: "Edge banding",
     brush: "Banding to apply",
@@ -130,7 +143,7 @@ const en = {
     projectSize: "Project size (review)",
     core: "Nominal core",
     coreNote: "Core excludes banding. Cutting allowances depend on the supplier.",
-    orderNote: "All dimensions are finished sizes after banding. Edges A1/A2 have length A; edges B1/B2 have length B. Use the shared diagram to identify the edges.",
+    orderNote: "All dimensions are finished sizes after banding. Edges A1/A2 have length A; edges B1/B2 have length B. S1 is the flat face shown in the diagram; S2 is the opposite face.",
     mixedNames: "Different directions",
     multiNote: "Only the edited edge changes on selected boards.",
     confirm: "Confirm edges and finished dimensions",
@@ -437,6 +450,19 @@ const pl: typeof en = {
     pieceThickness: "Grubość elementu (mm)",
     noLayoutAnchors: "Brak kotew układu"
   },
+  faceLamination: {
+    title: "Okleina powierzchni",
+    both: "Obustronnie",
+    onlyS1: "Tylko S1",
+    onlyS2: "Tylko S2",
+    none: "Bez okleiny powierzchni",
+    onlyDirection: "Tylko {direction} ({side})",
+    directionHint: "S1 — {first}; S2 — {second}. Obrzeża krawędzi ustawiasz osobno.",
+    referenceHint: "S1 to powierzchnia widoczna na wspólnym schemacie zamówienia, S2 to druga płaska strona płyty. Obrzeża krawędzi ustawiasz osobno.",
+    laminated: "Okleina",
+    unlaminated: "Bez okleiny",
+    updated: "Zaktualizowano okleinę powierzchni"
+  },
   banding: {
     title: "Obrzeża",
     brush: "Obrzeże do zaznaczania",
@@ -463,7 +489,7 @@ const pl: typeof en = {
     projectSize: "Wymiar z projektu (sprawdź)",
     core: "Nominalny rdzeń",
     coreNote: "Rdzeń bez obrzeży. Naddatki do cięcia zależą od wykonawcy.",
-    orderNote: "Wszystkie wymiary są wymiarami gotowymi po oklejeniu. Krawędzie A1/A2 mają długość A, a B1/B2 długość B. Oznaczenia krawędzi odczytuj według wspólnego schematu.",
+    orderNote: "Wszystkie wymiary są wymiarami gotowymi po oklejeniu. Krawędzie A1/A2 mają długość A, a B1/B2 długość B. S1 to płaska powierzchnia widoczna na schemacie, S2 to druga strona płyty.",
     mixedNames: "Różne kierunki",
     multiNote: "Zmiana dotyczy tylko edytowanej krawędzi zaznaczonych płyt.",
     confirm: "Zatwierdź krawędzie i wymiary gotowe",

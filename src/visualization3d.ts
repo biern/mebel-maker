@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { boundsFor, displayOrderedBoards, effectiveDepth, rectFromBoard } from "./geometry";
+import { flatFaceMeshIndices, isFaceLaminated, unlaminatedFaceColor } from "./faceLamination";
 import type { Board, Material, SketchState } from "./types";
 
 interface DepthRange {
@@ -198,8 +199,15 @@ export class Visualization3DRenderer {
       : box.board.orientation === "horizontal"
         ? [banding.b2, banding.b1, null, null, banding.a1, banding.a2]
         : [banding.b2, banding.b1, banding.a1, banding.a2, null, null];
-    const faces = bandedFaces.some(Boolean) ? bandedFaces.map((_, index) => index === 0 ? meshMaterial : meshMaterial.clone()) : null;
-    faces?.forEach((face, index) => { if (bandedFaces[index]) face.color.set("#d58b28"); });
+    const [s1, s2] = flatFaceMeshIndices(box.board.orientation);
+    const unlaminated = new Set<number>();
+    if (!isFaceLaminated(box.board.faceLamination, "s1")) unlaminated.add(s1);
+    if (!isFaceLaminated(box.board.faceLamination, "s2")) unlaminated.add(s2);
+    const faces = bandedFaces.some(Boolean) || unlaminated.size > 0 ? bandedFaces.map((_, index) => index === 0 ? meshMaterial : meshMaterial.clone()) : null;
+    faces?.forEach((face, index) => {
+      if (bandedFaces[index]) face.color.set("#d58b28");
+      else if (unlaminated.has(index)) face.color.set(unlaminatedFaceColor);
+    });
     const mesh = new THREE.Mesh(geometry, faces ?? meshMaterial);
     mesh.position.set(box.x, box.y, box.z);
     this.root.add(mesh);

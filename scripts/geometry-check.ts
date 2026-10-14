@@ -20,6 +20,7 @@ import {
 } from "../src/geometry";
 import type { Board, BoardKind, LaminateEdges, MeasurementAnchor, PieceOrientation, SketchState } from "../src/types";
 import { bandingEdgeLength, bandingOrderIssue, bandingView, boardOrderKey, frontBandingEdge, groupOrderBoards, nominalCoreDimensions, normalizeBoardBanding, setBoardEdgeBanding } from "../src/edgeBanding";
+import { faceDirections, flatFaceMeshIndices, isFaceLaminated, normalizeFaceLamination } from "../src/faceLamination";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -69,6 +70,7 @@ function boardFromV1(board: SavedBoardV1, defaultThickness: number, defaultDepth
     orientation,
     kind: board.kind,
     materialId: board.materialId,
+    faceLamination: normalizeFaceLamination(undefined),
     ...normalizeBoardBanding(board),
     ignoreInOrder: board.ignoreInOrder,
     group: board.group
@@ -298,6 +300,11 @@ bandingSide.orientation = "horizontal";
 assert(boardOrderKey(bandingSide) === signature && bandingSide.edgeBanding.b1?.thickness === 2, "changing projection must preserve physical edge identity and order grouping");
 const sameSide: Board = { ...bandingSide, id: 501, ...normalizeBoardBanding(bandingSide) };
 assert(groupOrderBoards([bandingSide, sameSide]).length === 1, "manufacturing-identical pieces should group despite IDs");
+sameSide.faceLamination = "s1";
+assert(groupOrderBoards([bandingSide, sameSide]).length === 2, "different flat-face lamination must separate order rows");
+sameSide.faceLamination = "s2";
+assert(boardOrderKey(sameSide) !== signature, "opposite laminated faces must stay distinct in orders");
+sameSide.faceLamination = "both";
 sameSide.grainDirection = "a";
 assert(groupOrderBoards([bandingSide, sameSide]).length === 2, "grain directions must separate order rows");
 sameSide.grainDirection = "none";
@@ -324,4 +331,19 @@ assert(reloadedBanding.edgeBanding.a2?.thickness === 0.8 && !reloadedBanding.ban
 assert(normalizeBoardBanding({ edgeBanding: { a1: { ...abs2, thickness: -2 } } }).bandingNeedsReview, "invalid imported banding profiles must require review");
 assert(!normalizeBoardBanding({ laminate: laminate() }).bandingNeedsReview, "older boards without banding should load without unnecessary review");
 
-console.log("geometry and edge banding smoke checks passed");
+assert(normalizeFaceLamination(undefined) === "both", "older projects must default to double-sided flat-face lamination");
+assert(normalizeFaceLamination("unknown") === "both", "unknown flat-face modes should use the requested default");
+assert(isFaceLaminated("both", "s1") && isFaceLaminated("both", "s2"), "both flat faces must be finished by default");
+assert(isFaceLaminated("s1", "s1") && !isFaceLaminated("s1", "s2"), "single-sided finish must affect only its selected face");
+assert(!isFaceLaminated("none", "s1") && !isFaceLaminated("none", "s2"), "no finish must leave both broad faces bare");
+assert(faceDirections("horizontal").join(",") === "bottom,top" && faceDirections("vertical").join(",") === "right,left" && faceDirections("front").join(",") === "front,back", "face names must identify the selected physical sides in each orientation");
+assert(flatFaceMeshIndices("horizontal").join(",") === "3,2" && flatFaceMeshIndices("vertical").join(",") === "0,1" && flatFaceMeshIndices("front").join(",") === "4,5", "3D finish must affect the broad faces, independently of edge banding");
+assert(bandingView("horizontal").visibleFace === "s2" && bandingView("vertical").visibleFace === "s1", "rotating the flat inspector view must preserve the reference face identity, including shelf flips");
+const finishedDimensions = JSON.stringify(bandingShelf.dimensions);
+const finishedEdges = JSON.stringify(bandingShelf.edgeBanding);
+bandingShelf.faceLamination = "s2";
+const reloadedFaces = JSON.parse(JSON.stringify(bandingShelf));
+assert(normalizeFaceLamination(reloadedFaces.faceLamination) === "s2", "selected flat-face finish must survive project serialization");
+assert(JSON.stringify(bandingShelf.dimensions) === finishedDimensions && JSON.stringify(bandingShelf.edgeBanding) === finishedEdges, "flat-face finish changes must preserve dimensions and edge profiles");
+
+console.log("geometry, edge banding and flat-face lamination smoke checks passed");

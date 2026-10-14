@@ -885,7 +885,8 @@ select:disabled {
   padding: 0 4px;
 }
 
-.banding-fieldset select {
+.banding-fieldset select,
+.face-lamination-field select {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -940,7 +941,7 @@ select:disabled {
 .order-edge-diagram .b1 { grid-column: 1; grid-row: 2; }
 .order-edge-diagram .b2 { grid-column: 3; grid-row: 2; }
 .order-diagram-dimensions { grid-column: 2; grid-row: 2; }
-@media (pointer: coarse) { .banding-fieldset select, .banding-fieldset button { min-height: 44px; } }
+@media (pointer: coarse) { .banding-fieldset select, .banding-fieldset button, .face-lamination-field select { min-height: 44px; } }
 
 .check-chip {
   align-items: center;

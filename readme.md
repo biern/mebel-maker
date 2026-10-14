@@ -61,6 +61,8 @@ Boards carry ordering details, not just drawing geometry:
 
 - Choose from built-in materials like birch plywood, oak, walnut, pine, melamine, black, white, gray, red, blue, and green.
 - Add custom materials with a name and color.
+- Configure flat-face lamination separately from edge banding: both faces (the default for new and older projects), only S1, only S2, or neither. The inspector identifies these faces as top/bottom for shelves, left/right for uprights and front/back for panels. Unlaminated broad faces appear as bare board in 3D; dimensions and edge profiles stay unchanged.
+- S1/S2 follow the shared order reference, independent of the inspector's rotation: S1 is bottom on shelves, right on uprights and front on panels. A shelf's front-at-bottom inspector shows its upper face S2. This keeps single-sided lamination and asymmetric edge banding consistent in the order.
 - Use global thickness and depth defaults for fast setup.
 - Override depth per board when one piece needs different ordering depth.
 - Configure the four edges of a flat board: A1/A2 run along its physical width A, B1/B2 along its physical height B. A1 is top, A2 bottom, B1 left and B2 right in the reference flat view; these identifiers stay with the physical board when its sketch orientation changes.
@@ -76,7 +78,8 @@ Boards carry ordering details, not just drawing geometry:
 
 The order list is designed to be useful after sketching:
 
-- Groups matching pieces by physical dimensions, material, grain direction and the exact profile on each physical edge; retains individual piece names in each group.
+- Groups matching pieces by physical dimensions, material, flat-face lamination, grain direction and the exact profile on each physical edge; retains individual piece names in each group.
+- Orders include each piece's flat-face lamination choice. The shared legend identifies S1 as the face shown in the diagram and S2 as the opposite face.
 - CSV and printed orders use short A1/A2/B1/B2 column headers. One shared edge diagram and the finished-dimension convention appear above the table; CSV uses a text diagram in six introductory rows, followed by its column header and data. The order sidebar uses the same shared legend.
 - Shows quantity for repeated pieces.
 - Includes visual material swatches in the sidebar.

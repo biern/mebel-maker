@@ -20,6 +20,7 @@ export interface Board {
   orientation: PieceOrientation;
   kind: BoardKind;
   materialId: string;
+  faceLamination: FaceLamination;
   edgeBanding: EdgeBandingEdges;
   grainDirection: GrainDirection;
   bandingNeedsReview: boolean;
@@ -45,6 +46,7 @@ export interface LaminateEdges {
 
 export type EdgeBandingEdge = "a1" | "a2" | "b1" | "b2";
 export type GrainDirection = "none" | "a" | "b";
+export type FaceLamination = "both" | "s1" | "s2" | "none";
 
 export interface EdgeBandingProfile {
   id: string;

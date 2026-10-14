@@ -3,6 +3,7 @@ import { Visualization3DRenderer } from "./visualization3d";
 import { translate } from "./i18n";
 import complexTemplateSource from "../templates/complex.mebel?raw";
 import { bandingEdgeDirection, bandingEdgeLength, bandingOrderIssue, bandingProfileKey, bandingView, edgeBandingEdges, frontBandingEdge, groupOrderBoards, legacyLaminateEdges, nominalCoreDimensions, normalizeBandingProfile, normalizeBoardBanding, setBoardEdgeBanding } from "./edgeBanding";
+import { faceDirections, isFaceLaminated, normalizeFaceLamination } from "./faceLamination";
 import {
   boardLabel,
   boundsFor,
@@ -110,6 +111,8 @@ const ui = {
   materialSelectText: query<HTMLElement>("#materialSelectText"),
   materialInput: query<HTMLSelectElement>("#materialInput"),
   materialLabelSwatch: query<HTMLElement>("#materialLabelSwatch"),
+  faceLaminationInput: query<HTMLSelectElement>("#faceLaminationInput"),
+  faceLaminationHint: query<HTMLElement>("#faceLaminationHint"),
   materialForm: query<HTMLFormElement>("#materialForm"),
   materialNameInput: query<HTMLInputElement>("#materialNameInput"),
   materialColorInput: query<HTMLInputElement>("#materialColorInput"),
@@ -211,7 +214,7 @@ let sketchPrintRestore: { showConnectionMarks: boolean; showFrontPanels: boolean
 let sketchPrintRestoreTimer: number | undefined;
 
 interface SavedProject {
-  schemaVersion?: 1 | 2 | 3;
+  schemaVersion?: 1 | 2 | 3 | 4;
   version: 1 | string;
   appVersion?: string;
   projectName?: string;
@@ -448,6 +451,7 @@ function withDefaults(board: SavedBoard): Board {
     orientation,
     kind,
     materialId,
+    faceLamination: normalizeFaceLamination(board.faceLamination),
     ...normalizeBoardBanding(board),
     ignoreInOrder: board.ignoreInOrder ?? false,
     group: board.group ?? 0
@@ -523,6 +527,25 @@ function grainLabel(board: Board): string {
   return t(board.grainDirection === "a" ? "banding.grainA" : board.grainDirection === "b" ? "banding.grainB" : "banding.grainNone");
 }
 
+function faceLaminationLabel(board: Board): string {
+  const labels = { both: "both", s1: "onlyS1", s2: "onlyS2", none: "none" };
+  return t(`faceLamination.${labels[normalizeFaceLamination(board.faceLamination)]}`);
+}
+
+function updateFaceLaminationInspector(boards: Board[]): void {
+  ui.faceLaminationInput.value = commonValue(boards, (board) => board.faceLamination) ?? "";
+  const orientation = boards.every((board) => board.orientation === boards[0].orientation) ? boards[0].orientation : null;
+  const directions = orientation ? faceDirections(orientation).map(edgeLabel) : null;
+  (["s1", "s2"] as const).forEach((side, index) => {
+    ui.faceLaminationInput.querySelector<HTMLOptionElement>(`option[value='${side}']`)!.textContent = directions
+      ? t("faceLamination.onlyDirection", { side: side.toUpperCase(), direction: directions[index] })
+      : t(side === "s1" ? "faceLamination.onlyS1" : "faceLamination.onlyS2");
+  });
+  ui.faceLaminationHint.textContent = directions
+    ? t("faceLamination.directionHint", { first: directions[0], second: directions[1] })
+    : t("faceLamination.referenceHint");
+}
+
 function updateBandingInspector(boards: Board[]): void {
   const first = boards[0];
   const view = bandingView(boards.every((board) => board.orientation === first.orientation) ? first.orientation : null);
@@ -563,7 +586,9 @@ function updateBandingInspector(boards: Board[]): void {
   const a = commonValue(boards, (board) => String(board.dimensions.width));
   const b = commonValue(boards, (board) => String(board.dimensions.height));
   const [width, height] = view.horizontalAxis === "A" ? [a, b] : [b, a];
-  ui.bandingBoardFace.innerHTML = `<span>${width === null ? "—" : bandingNumber(Number(width))} × ${height === null ? "—" : bandingNumber(Number(height))}</span><span>${view.horizontalAxis} →<br>${view.verticalAxis} ${view.verticalArrow}</span>`;
+  const visibleFace = commonValue(boards, (board) => String(isFaceLaminated(board.faceLamination, view.visibleFace)));
+  const visibleFaceLabel = visibleFace === null ? t("common.mixed") : t(visibleFace === "true" ? "faceLamination.laminated" : "faceLamination.unlaminated");
+  ui.bandingBoardFace.innerHTML = `<span>${width === null ? "—" : bandingNumber(Number(width))} × ${height === null ? "—" : bandingNumber(Number(height))}</span><span>${view.horizontalAxis} →<br>${view.verticalAxis} ${view.verticalArrow}</span><span>${view.visibleFace.toUpperCase()} · ${escapeHtml(visibleFaceLabel)}</span>`;
   (["a", "b"] as const).forEach((axis) => {
     ui.grainInput.querySelector<HTMLOptionElement>(`option[value='${axis}']`)!.textContent = t("banding.grainAlongAxis", { axis: axis.toUpperCase(), arrow: view.horizontalAxis.toLowerCase() === axis ? "→" : view.verticalArrow });
   });
@@ -706,6 +731,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; orientation: Piec
     orientation: partial.orientation,
     kind: partial.kind,
     materialId: partial.materialId ?? defaultMaterialId,
+    faceLamination: normalizeFaceLamination(partial.faceLamination),
     ...normalizeBoardBanding(partial),
     ignoreInOrder: partial.ignoreInOrder ?? false,
     group: 0
@@ -989,7 +1015,7 @@ function redo(): void {
 
 function serializeProject(): SavedProject {
   return cloneProject({
-    schemaVersion: 3,
+    schemaVersion: 4,
     version: appVersion,
     appVersion,
     projectName: state.projectName,
@@ -1069,7 +1095,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
 }
 
 function isSupportedProject(project: SavedProject): boolean {
-  return [1, 2, 3].includes(project.schemaVersion ?? (project.version === 1 ? 1 : 2)) && Array.isArray(project.boards);
+  return [1, 2, 3, 4].includes(project.schemaVersion ?? (project.version === 1 ? 1 : 2)) && Array.isArray(project.boards);
 }
 
 function autosaveProject(): void {
@@ -1334,6 +1360,7 @@ function updateInspector(): void {
   syncMaterialSelect();
   setInputValue(ui.depthOverrideInput, depthOverride, t("common.mixed"));
   ui.materialLabelSwatch.style.background = materialId ? materialColor(materialId) : "transparent";
+  updateFaceLaminationInspector(boards);
   updateBandingInspector(boards);
   setCheckboxValue(ui.ignoreOrderInput, commonValue(boards, (item) => String(item.ignoreInOrder)) === null ? null : boards[0].ignoreInOrder);
   updateLayoutBalanceControls();
@@ -1504,6 +1531,7 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
       <div class="cut-card">
         <strong><span class="count">${boards.length}×</span> ${physicalSizeLabel(board.dimensions)}</strong>
         <span>${t("metrics.material")}: ${escapeHtml(materialName(board.materialId))}</span>
+        <span>${t("faceLamination.title")}: ${escapeHtml(faceLaminationLabel(board))}</span>
         <span>${t("banding.grain")}: ${escapeHtml(grainLabel(board))}</span>
         <div class="cut-banding">${edgeBandingEdges.map((edge) => `<span>${edge.toUpperCase()} · ${bandingNumber(bandingEdgeLength(board, edge))} mm: ${escapeHtml(bandingProfileLabel(board.edgeBanding[edge]))}</span>`).join("")}</div>
         ${issue ? `<div class="banding-review">${escapeHtml(t(issue === "review" ? "banding.reviewRequired" : "banding.invalidCore"))}${board.legacyLaminate ? `<div>${escapeHtml(legacyBandingLabel(board))}</div>` : ""}</div>` : ""}
@@ -1518,7 +1546,7 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
 }
 
 function orderLegendHtml(): string {
-  return `<div class="order-edge-diagram" role="img" aria-label="${escapeHtml(t("banding.csvSketch"))}">${edgeBandingEdges.map((edge) => `<div class="${edge}">${edge.toUpperCase()}</div>`).join("")}<div class="order-diagram-dimensions">A × B</div></div><p class="banding-order-note">${escapeHtml(t("banding.orderNote"))}</p>`;
+  return `<div class="order-edge-diagram" role="img" aria-label="${escapeHtml(t("banding.csvSketch"))}">${edgeBandingEdges.map((edge) => `<div class="${edge}">${edge.toUpperCase()}</div>`).join("")}<div class="order-diagram-dimensions">A × B<br>S1</div></div><p class="banding-order-note">${escapeHtml(t("banding.orderNote"))}</p>`;
 }
 
 function checkOrderReady(): boolean {
@@ -1940,7 +1968,7 @@ function cutListCsv(): string {
     [t("banding.orderNote")],
     [t("banding.csvSketch")],
     ["       A1"],
-    ["B1   A × B   B2"],
+    ["B1   A × B (S1)   B2"],
     ["       A2"],
     []
   ].map((row) => Array.from({ length: rows[0].length }, (_, index) => row[index] ?? ""));
@@ -1955,6 +1983,7 @@ function cutListRows(): string[][] {
       t("banding.csvA"),
       t("banding.csvB"),
       t("order.csvMaterial"),
+      t("faceLamination.title"),
       t("banding.csvGrain"),
       ...edgeBandingEdges.map((edge) => edge.toUpperCase()),
       t("order.csvPieces")
@@ -1968,6 +1997,7 @@ function cutListRows(): string[][] {
       String(board.dimensions.width),
       String(board.dimensions.height),
       materialName(board.materialId),
+      faceLaminationLabel(board),
       grainLabel(board),
       ...edgeBandingEdges.map((edge) => bandingProfileLabel(board.edgeBanding[edge])),
       boards.map((board) => board.name).join("; ")
@@ -2999,6 +3029,17 @@ ui.bandingPresets.addEventListener("click", (event) => {
 }, listenerOptions);
 ui.addBandingProfileBtn.addEventListener("click", addCustomBandingProfile, listenerOptions);
 ui.confirmBandingBtn.addEventListener("click", confirmSelectedBanding, listenerOptions);
+ui.faceLaminationInput.addEventListener("change", () => {
+  const value = ui.faceLaminationInput.value;
+  if (!["both", "s1", "s2", "none"].includes(value)) return;
+  const lamination = normalizeFaceLamination(value);
+  const boards = selectedBoards(state);
+  if (!boards.length || boards.every((board) => board.faceLamination === lamination)) return;
+  remember();
+  boards.forEach((board) => { board.faceLamination = lamination; });
+  state.lastSnap = t("faceLamination.updated");
+  refresh();
+}, listenerOptions);
 ui.grainInput.addEventListener("change", () => {
   const direction = ui.grainInput.value;
   if (direction !== "none" && direction !== "a" && direction !== "b") return;
