@@ -16,8 +16,8 @@ Mebel Maker is a browser-based furniture sketching tool for practical cabinet, s
 - 🧲 Snap boards to grid steps, edges, centers, alignments, and layout anchors.
 - 🔗 Keep connected structural boards anchored while resizing related pieces.
 - 🎨 Assign materials with names and color swatches, including custom materials.
-- 📐 Set global wood thickness, default depth, per-board depth overrides, and laminate edges.
-- 📦 Generate a wood order list with material, dimensions, quantity, depth, thickness, and laminate details.
+- 📐 Set global wood thickness, default depth, per-board depth overrides, and four physical banding edges.
+- 📦 Generate a wood order list with material, finished dimensions, quantity, thickness, grain and per-edge banding profiles.
 - ⚠️ See overlap warnings when structural pieces conflict.
 - 🧊 Toggle a 3D view to inspect board depth and overall structure.
 - 💾 Autosave in the browser, export `.mebel` project files, and import them later.
@@ -55,7 +55,7 @@ Snapping is built around furniture layout work:
 - Structural anchors preserve connected board relationships during resizing.
 - Back and front panels are treated as overlays so they do not create false structural conflicts.
 
-## 🎨 Materials, Depth, and Laminate
+## 🎨 Materials, Depth, and Edge Banding
 
 Boards carry ordering details, not just drawing geometry:
 
@@ -63,14 +63,20 @@ Boards carry ordering details, not just drawing geometry:
 - Add custom materials with a name and color.
 - Use global thickness and depth defaults for fast setup.
 - Override depth per board when one piece needs different ordering depth.
-- Mark laminate edges individually: left, right, top, bottom, front, and back.
+- Configure the four edges of a flat board: A1/A2 run along its physical width A, B1/B2 along its physical height B. A1 is top, A2 bottom, B1 left and B2 right in the reference flat view; these identifiers stay with the physical board when its sketch orientation changes.
+- The inspector shows familiar directions for each orientation (front/back on shelves and sides), full physical edge lengths, a clickable diagram, individual profile selectors, and Front only / All four / None shortcuts. Editing one edge on multiple pieces preserves their other edges.
+- Apply matching ABS in 0.8 or 2 mm thickness, or save custom ABS, PVC and veneer profiles with an explicit decor/supplier code and thickness. Applied profiles are snapshots: changing a board's material does not silently change its existing banding decor.
+- Drawing dimensions are finished dimensions after banding. The inspector also shows the nominal core without banding, retaining fractional values; this is not a supplier-specific cutting size and does not account for machining allowances.
+- Set grain direction along A, along B, or unrestricted.
+- Existing projects retain their dimensions. Old six-direction banding labels are preserved for explicit review: assign four physical edges and profiles, then confirm the finished dimensions before exporting. Invalid imported profiles or nonpositive core dimensions also block order export.
 - Exclude specific boards from the wood order when needed.
 
 ## 📦 Wood Order Output
 
 The order list is designed to be useful after sketching:
 
-- Groups matching pieces by name, material, dimensions, depth, thickness, and laminate edges.
+- Groups matching pieces by physical dimensions, material, grain direction and the exact profile on each physical edge; retains individual piece names in each group.
+- CSV has separate A1/A2/B1/B2 columns, a finished-dimension convention and a flat-view edge legend in its headers. The printed order adds edge diagrams and the same legend.
 - Shows quantity for repeated pieces.
 - Includes visual material swatches in the sidebar.
 - Copies directly to the clipboard as CSV.

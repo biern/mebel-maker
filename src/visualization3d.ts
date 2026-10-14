@@ -191,7 +191,16 @@ export class Visualization3DRenderer {
       transparent: box.opacity < 1,
       depthWrite: box.opacity >= 1
     });
-    const mesh = new THREE.Mesh(geometry, meshMaterial);
+    // BoxGeometry faces: +X, -X, +Y, -Y, +Z (front), -Z (back).
+    const banding = box.board.edgeBanding;
+    const bandedFaces = box.board.orientation === "vertical"
+      ? [null, null, banding.a1, banding.a2, banding.b1, banding.b2]
+      : box.board.orientation === "horizontal"
+        ? [banding.b2, banding.b1, null, null, banding.a1, banding.a2]
+        : [banding.b2, banding.b1, banding.a1, banding.a2, null, null];
+    const faces = bandedFaces.some(Boolean) ? bandedFaces.map((_, index) => index === 0 ? meshMaterial : meshMaterial.clone()) : null;
+    faces?.forEach((face, index) => { if (bandedFaces[index]) face.color.set("#d58b28"); });
+    const mesh = new THREE.Mesh(geometry, faces ?? meshMaterial);
     mesh.position.set(box.x, box.y, box.z);
     this.root.add(mesh);
 

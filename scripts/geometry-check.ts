@@ -19,6 +19,7 @@ import {
   updateDimensionsFromSketchRect
 } from "../src/geometry";
 import type { Board, BoardKind, LaminateEdges, MeasurementAnchor, PieceOrientation, SketchState } from "../src/types";
+import { bandingEdgeLength, bandingOrderIssue, boardOrderKey, frontBandingEdge, groupOrderBoards, nominalCoreDimensions, normalizeBoardBanding, setBoardEdgeBanding } from "../src/edgeBanding";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -68,7 +69,7 @@ function boardFromV1(board: SavedBoardV1, defaultThickness: number, defaultDepth
     orientation,
     kind: board.kind,
     materialId: board.materialId,
-    laminate: board.laminate,
+    ...normalizeBoardBanding(board),
     ignoreInOrder: board.ignoreInOrder,
     group: board.group
   };
@@ -91,6 +92,7 @@ function starterState(): SketchState {
     layoutAnchors: [],
     measurements: [],
     materials: [{ id: materialId, name: "Birch plywood", color: "#d9b77e" }],
+    edgeBandingProfiles: [],
     selectedId: 1,
     selectedIds: [1],
     selectedMeasurementId: null,
@@ -270,4 +272,54 @@ state.showFrontPanels = true;
 state.boards.push(boardFromV1({ id: 8, name: "Loose shelf", x: 178, y: 400, w: 784, h: state.thickness, kind: "shelf", autoThickness: "height", materialId: "birch-plywood", thicknessOverride: null, depthOverride: null, laminate: laminate(), ignoreInOrder: false, group: 0 }, state.thickness, state.depth));
 assert(computeOverlaps(state.boards).length > 0, "real overlapping shelves should create overlap feedback");
 
-console.log("geometry smoke checks passed");
+const bandingShelf: Board = { ...state.boards[2], dimensions: { width: 760, height: 400, thickness: 18 }, ...normalizeBoardBanding({}) };
+const abs2 = { id: "oak-2", type: "ABS" as const, decor: "Oak", thickness: 2 };
+const abs08 = { ...abs2, id: "oak-08", thickness: 0.8 };
+setBoardEdgeBanding(bandingShelf, "a1", abs2);
+assert(frontBandingEdge(bandingShelf) === "a1" && bandingEdgeLength(bandingShelf, "a1") === 760, "front shelf banding should use its full physical width");
+assert(nominalCoreDimensions(bandingShelf).height === 398 && nominalCoreDimensions(bandingShelf).width === 760, "front shelf banding should reduce only nominal depth");
+assert(bandingShelf.dimensions.height === 400 && rectFromBoard(bandingShelf).h === 18, "banding must preserve finished geometry and drawing dimensions");
+setBoardEdgeBanding(bandingShelf, "b1", abs08);
+setBoardEdgeBanding(bandingShelf, "b2", abs08);
+assert(nominalCoreDimensions(bandingShelf).width === 758.4, "two 0.8 mm bands must preserve fractional core dimensions");
+setBoardEdgeBanding(bandingShelf, "a2", abs08);
+setBoardEdgeBanding(bandingShelf, "a1", null);
+assert(bandingShelf.edgeBanding.a2?.thickness === 0.8 && bandingShelf.edgeBanding.b1?.thickness === 0.8, "editing one edge must preserve other profiles");
+assert(bandingShelf.edgeBanding.a2 !== abs08 && bandingShelf.edgeBanding.a2 !== bandingShelf.edgeBanding.b1, "profiles must be independent snapshots on each edge");
+
+const bandingSide: Board = { ...state.boards[0], dimensions: { width: 400, height: 720, thickness: 18 }, ...normalizeBoardBanding({}) };
+setBoardEdgeBanding(bandingSide, "b1", abs2);
+assert(frontBandingEdge(bandingSide) === "b1" && bandingEdgeLength(bandingSide, "b1") === 720, "upright front band must use height rather than projected 18 mm thickness");
+assert(nominalCoreDimensions(bandingSide).width === 398 && nominalCoreDimensions(bandingSide).height === 720, "front upright band should reduce only nominal depth");
+const signature = boardOrderKey(bandingSide);
+bandingSide.orientation = "horizontal";
+assert(boardOrderKey(bandingSide) === signature && bandingSide.edgeBanding.b1?.thickness === 2, "changing projection must preserve physical edge identity and order grouping");
+const sameSide: Board = { ...bandingSide, id: 501, ...normalizeBoardBanding(bandingSide) };
+assert(groupOrderBoards([bandingSide, sameSide]).length === 1, "manufacturing-identical pieces should group despite IDs");
+sameSide.grainDirection = "a";
+assert(groupOrderBoards([bandingSide, sameSide]).length === 2, "grain directions must separate order rows");
+sameSide.grainDirection = "none";
+setBoardEdgeBanding(sameSide, "b1", { ...abs2, decor: "Graphite" });
+assert(boardOrderKey(sameSide) !== signature, "different banding decors must not group");
+setBoardEdgeBanding(sameSide, "b1", abs08);
+assert(boardOrderKey(sameSide) !== signature, "different band thicknesses must not group");
+setBoardEdgeBanding(sameSide, "b1", null);
+setBoardEdgeBanding(sameSide, "b2", abs2);
+assert(boardOrderKey(sameSide) !== signature, "opposite banded edges must remain distinct");
+sameSide.dimensions = { width: 1, height: 720, thickness: 18 };
+assert(bandingOrderIssue(sameSide) === "invalidCore", "nonpositive core must block order output");
+sameSide.ignoreInOrder = true;
+assert(groupOrderBoards([bandingSide, sameSide].filter((board) => !board.ignoreInOrder)).length === 1, "ignored pieces must be excluded from order grouping");
+
+const legacyFlags = { ...laminate(), front: true, left: true };
+const legacyBoard: Board = { ...bandingSide, ...normalizeBoardBanding({ laminate: legacyFlags }) };
+assert(bandingOrderIssue(legacyBoard) === "review" && legacyBoard.legacyLaminate?.front && legacyBoard.legacyLaminate.left, "legacy banding flags must survive with explicit order review");
+assert(Object.values(legacyBoard.edgeBanding).every((profile) => profile === null), "legacy migration must not invent physical edges, decor or thickness");
+const reloadedLegacy = normalizeBoardBanding(JSON.parse(JSON.stringify(legacyBoard)));
+assert(reloadedLegacy.bandingNeedsReview && reloadedLegacy.legacyLaminate?.left, "saved migration review must survive reload");
+const reloadedBanding = normalizeBoardBanding(JSON.parse(JSON.stringify(bandingShelf)));
+assert(reloadedBanding.edgeBanding.a2?.thickness === 0.8 && !reloadedBanding.bandingNeedsReview, "new per-edge profiles must survive reload without legacy review");
+assert(normalizeBoardBanding({ edgeBanding: { a1: { ...abs2, thickness: -2 } } }).bandingNeedsReview, "invalid imported banding profiles must require review");
+assert(!normalizeBoardBanding({ laminate: laminate() }).bandingNeedsReview, "older boards without banding should load without unnecessary review");
+
+console.log("geometry and edge banding smoke checks passed");

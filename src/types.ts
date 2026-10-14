@@ -20,7 +20,10 @@ export interface Board {
   orientation: PieceOrientation;
   kind: BoardKind;
   materialId: string;
-  laminate: LaminateEdges;
+  edgeBanding: EdgeBandingEdges;
+  grainDirection: GrainDirection;
+  bandingNeedsReview: boolean;
+  legacyLaminate?: LaminateEdges;
   ignoreInOrder: boolean;
   group: number;
 }
@@ -39,6 +42,18 @@ export interface LaminateEdges {
   front: boolean;
   back: boolean;
 }
+
+export type EdgeBandingEdge = "a1" | "a2" | "b1" | "b2";
+export type GrainDirection = "none" | "a" | "b";
+
+export interface EdgeBandingProfile {
+  id: string;
+  type: "ABS" | "PVC" | "veneer";
+  decor: string;
+  thickness: number;
+}
+
+export type EdgeBandingEdges = Record<EdgeBandingEdge, EdgeBandingProfile | null>;
 
 export interface Bounds {
   left: number;
@@ -62,6 +77,7 @@ export interface SketchState {
   layoutAnchors: BoardLayoutAnchor[];
   measurements: Measurement[];
   materials: Material[];
+  edgeBandingProfiles: EdgeBandingProfile[];
   selectedId: number | null;
   selectedIds: number[];
   selectedMeasurementId: number | null;

@@ -146,7 +146,7 @@ export class SketchRenderer {
     this.ctx.lineWidth = board.kind === "back" ? 1.5 : primary ? 3 : selected ? 2.5 : 2;
     this.ctx.fillRect(point.x, point.y, w, h);
     this.ctx.strokeRect(point.x, point.y, w, h);
-    this.drawLaminateEdges(board, point.x, point.y, w, h);
+    this.drawBandingEdges(board, point.x, point.y, w, h);
 
     this.ctx.strokeStyle = "rgba(99, 72, 37, 0.28)";
     this.ctx.lineWidth = 1;
@@ -184,13 +184,25 @@ export class SketchRenderer {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  private drawLaminateEdges(board: Board, x: number, y: number, w: number, h: number): void {
-    const edges: Array<[boolean, number, number, number, number]> = [
-      [board.laminate.left, x, y, x, y + h],
-      [board.laminate.right, x + w, y, x + w, y + h],
-      [board.laminate.top || board.laminate.back, x, y, x + w, y],
-      [board.laminate.bottom || board.laminate.front, x, y + h, x + w, y + h]
-    ];
+  private drawBandingEdges(board: Board, x: number, y: number, w: number, h: number): void {
+    const banding = board.edgeBanding;
+    const legacy = board.legacyLaminate;
+    let edges: Array<[boolean, number, number, number, number]>;
+    if (legacy && !Object.values(banding).some(Boolean)) {
+      edges = [
+        [legacy.left, x, y, x, y + h],
+        [legacy.right, x + w, y, x + w, y + h],
+        [legacy.top || legacy.back, x, y, x + w, y],
+        [legacy.bottom || legacy.front, x, y + h, x + w, y + h]
+      ];
+    } else if (board.orientation === "vertical") {
+      // The front band is the visible narrow face; the back is behind the board.
+      edges = [[!!banding.a1, x, y, x + w, y], [!!banding.a2, x, y + h, x + w, y + h], [!!banding.b1, x + w / 2, y, x + w / 2, y + h]];
+    } else if (board.orientation === "horizontal") {
+      edges = [[!!banding.b1, x, y, x, y + h], [!!banding.b2, x + w, y, x + w, y + h], [!!banding.a1, x, y + h / 2, x + w, y + h / 2]];
+    } else {
+      edges = [[!!banding.b1, x, y, x, y + h], [!!banding.b2, x + w, y, x + w, y + h], [!!banding.a1, x, y, x + w, y], [!!banding.a2, x, y + h, x + w, y + h]];
+    }
     if (!edges.some(([enabled]) => enabled)) return;
 
     this.ctx.save();

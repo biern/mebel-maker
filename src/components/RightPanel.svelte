@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
+  import { edgeBandingEdges } from "../edgeBanding";
 </script>
 
 <aside class="sidebar right-panel" aria-label={$_("panels.measurementsAndProperties")}>
@@ -48,32 +49,49 @@
             <input id="depthOverrideInput" type="number" min="1" step="1" placeholder={$_("common.global")}>
           </label>
         </div>
-        <fieldset class="edge-fieldset">
-          <legend>{$_("inspector.laminateEdges")}</legend>
-          <label class="check-chip">
-            <input id="laminateLeftInput" type="checkbox">
-            <span>{$_("inspector.left")}</span>
+        <fieldset class="banding-fieldset">
+          <legend>{$_("banding.title")}</legend>
+          <label class="field compact-field">
+            <span>{$_("banding.brush")}</span>
+            <select id="bandingProfileInput"></select>
           </label>
-          <label class="check-chip">
-            <input id="laminateRightInput" type="checkbox">
-            <span>{$_("inspector.right")}</span>
+          <div id="bandingPresets" class="banding-presets">
+            <button type="button" class="inline-action" data-banding-preset="front" title={$_("banding.frontTitle")}>{$_("banding.onlyFront")}</button>
+            <button type="button" class="inline-action" data-banding-preset="all" title={$_("banding.allTitle")}>{$_("banding.all")}</button>
+            <button type="button" class="inline-action" data-banding-preset="none" title={$_("banding.noneTitle")}>{$_("metrics.none")}</button>
+          </div>
+          <div class="banding-caption">{$_("banding.flatView")}</div>
+          <div id="bandingDiagram" class="banding-diagram" role="group" aria-label={$_("banding.fourEdges")}>
+            {#each edgeBandingEdges as edge}
+              <button type="button" class="banding-edge banding-edge-{edge}" data-banding-edge={edge} aria-pressed="false">{edge.toUpperCase()}</button>
+            {/each}
+            <div id="bandingBoardFace" class="banding-board-face"></div>
+          </div>
+          <div id="bandingEdgeFields" class="banding-edge-fields">
+            {#each edgeBandingEdges as edge}
+              <label class="banding-edge-field">
+                <span id="bandingLabel-{edge}">{edge.toUpperCase()}</span>
+                <select data-banding-input={edge}></select>
+              </label>
+            {/each}
+          </div>
+          <details class="banding-custom">
+            <summary>{$_("banding.addProfile")}</summary>
+            <label class="field compact-field"><span>{$_("banding.type")}</span><select id="bandingTypeInput"><option>ABS</option><option>PVC</option><option value="veneer">{$_("banding.veneer")}</option></select></label>
+            <label class="field compact-field"><span>{$_("banding.decor")}</span><input id="bandingDecorInput" type="text" maxlength="100"></label>
+            <label class="field compact-field"><span>{$_("banding.thickness")}</span><input id="bandingThicknessInput" type="number" min="0.1" max="10" step="0.1" value="2"></label>
+            <button id="addBandingProfileBtn" type="button" class="inline-action">{$_("common.add")}</button>
+          </details>
+          <label class="field compact-field">
+            <span>{$_("banding.grain")}</span>
+            <select id="grainInput"><option value="none">{$_("banding.grainNone")}</option><option value="a">{$_("banding.grainA")}</option><option value="b">{$_("banding.grainB")}</option><option value="" disabled>{$_("common.mixed")}</option></select>
           </label>
-          <label class="check-chip">
-            <input id="laminateTopInput" type="checkbox">
-            <span>{$_("inspector.top")}</span>
-          </label>
-          <label class="check-chip">
-            <input id="laminateBottomInput" type="checkbox">
-            <span>{$_("inspector.bottom")}</span>
-          </label>
-          <label class="check-chip">
-            <input id="laminateFrontInput" type="checkbox">
-            <span>{$_("inspector.front")}</span>
-          </label>
-          <label class="check-chip">
-            <input id="laminateBackInput" type="checkbox">
-            <span>{$_("inspector.back")}</span>
-          </label>
+          <div id="bandingDimensions" class="banding-dimensions" aria-live="polite"></div>
+          <div class="banding-caption">{$_("banding.coreNote")}</div>
+          <div id="bandingReview" class="banding-review" hidden>
+            <div id="bandingReviewText"></div>
+            <button id="confirmBandingBtn" type="button" class="inline-action" title={$_("banding.confirmTitle")}>{$_("banding.confirm")}</button>
+          </div>
         </fieldset>
         <label class="check-chip full-row">
           <input id="ignoreOrderInput" type="checkbox">
@@ -171,6 +189,7 @@
         {$_("common.print")}
       </button>
     </section>
+    <p class="banding-order-note">{$_("banding.orderNote")}</p>
     <section class="tool-section">
       <h2>{$_("panels.included")}</h2>
       <div class="cut-list" id="cutList"></div>

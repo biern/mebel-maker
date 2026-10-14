@@ -2,6 +2,7 @@ import { SketchRenderer } from "./renderer";
 import { Visualization3DRenderer } from "./visualization3d";
 import { translate } from "./i18n";
 import complexTemplateSource from "../templates/complex.mebel?raw";
+import { bandingEdgeDirection, bandingEdgeLength, bandingOrderIssue, bandingProfileKey, edgeBandingEdges, frontBandingEdge, groupOrderBoards, legacyLaminateEdges, nominalCoreDimensions, normalizeBandingProfile, normalizeBoardBanding, setBoardEdgeBanding } from "./edgeBanding";
 import {
   boardLabel,
   boundsFor,
@@ -21,7 +22,6 @@ import {
   mm,
   nearestMeasurementAnchor,
   orientationForKind,
-  physicalDimensions,
   rectFromBoard,
   resizeBoard,
   resolveMeasurementAnchor,
@@ -34,7 +34,7 @@ import {
   updateDimensionsFromSketchRect,
   worldToScreen
 } from "./geometry";
-import type { Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, PieceDimensions, PieceOrientation, Point, Rect, ResizeHandle, SketchState } from "./types";
+import type { Board, BoardAnchor, BoardEdge, BoardKind, BoardLayoutAnchor, EdgeBandingEdge, EdgeBandingProfile, LaminateEdges, LayoutAnchorAxis, Material, MeasurementAnchor, MeasurementAxis, PieceDimensions, PieceOrientation, Point, Rect, ResizeHandle, SketchState } from "./types";
 
 declare global {
   interface Window {
@@ -114,12 +114,20 @@ const ui = {
   materialNameInput: query<HTMLInputElement>("#materialNameInput"),
   materialColorInput: query<HTMLInputElement>("#materialColorInput"),
   addMaterialBtn: query<HTMLButtonElement>("#addMaterialBtn"),
-  laminateLeftInput: query<HTMLInputElement>("#laminateLeftInput"),
-  laminateRightInput: query<HTMLInputElement>("#laminateRightInput"),
-  laminateTopInput: query<HTMLInputElement>("#laminateTopInput"),
-  laminateBottomInput: query<HTMLInputElement>("#laminateBottomInput"),
-  laminateFrontInput: query<HTMLInputElement>("#laminateFrontInput"),
-  laminateBackInput: query<HTMLInputElement>("#laminateBackInput"),
+  bandingProfileInput: query<HTMLSelectElement>("#bandingProfileInput"),
+  bandingDiagram: query<HTMLElement>("#bandingDiagram"),
+  bandingBoardFace: query<HTMLElement>("#bandingBoardFace"),
+  bandingEdgeFields: query<HTMLElement>("#bandingEdgeFields"),
+  bandingPresets: query<HTMLElement>("#bandingPresets"),
+  bandingTypeInput: query<HTMLSelectElement>("#bandingTypeInput"),
+  bandingDecorInput: query<HTMLInputElement>("#bandingDecorInput"),
+  bandingThicknessInput: query<HTMLInputElement>("#bandingThicknessInput"),
+  addBandingProfileBtn: query<HTMLButtonElement>("#addBandingProfileBtn"),
+  grainInput: query<HTMLSelectElement>("#grainInput"),
+  bandingDimensions: query<HTMLElement>("#bandingDimensions"),
+  bandingReview: query<HTMLElement>("#bandingReview"),
+  bandingReviewText: query<HTMLElement>("#bandingReviewText"),
+  confirmBandingBtn: query<HTMLButtonElement>("#confirmBandingBtn"),
   ignoreOrderInput: query<HTMLInputElement>("#ignoreOrderInput"),
   measureList: query<HTMLElement>("#measureList"),
   warningList: query<HTMLElement>("#warningList"),
@@ -146,6 +154,7 @@ const state: SketchState = {
   layoutAnchors: [],
   measurements: [],
   materials: defaultMaterials(),
+  edgeBandingProfiles: [],
   selectedId: null,
   selectedIds: [],
   selectedMeasurementId: null,
@@ -177,8 +186,6 @@ const state: SketchState = {
   lastSnap: t("common.ready")
 };
 
-const laminateEdgeOrder: Array<keyof LaminateEdges> = ["left", "right", "top", "bottom", "front", "back"];
-
 const renderer = new SketchRenderer(canvas, state);
 const visualization3d = new Visualization3DRenderer(view3dCanvas, state);
 const storageKey = "mebel-maker-project";
@@ -197,11 +204,12 @@ let notificationTimer: number | undefined;
 let renamingMeasurementId: number | null = null;
 let activeView: "sketch" | "3d" = "sketch";
 let woodOrderOpen = false;
+let bandingBrush = "matching-2";
 let sketchPrintRestore: { showConnectionMarks: boolean; showFrontPanels: boolean; view: "sketch" | "3d" } | null = null;
 let sketchPrintRestoreTimer: number | undefined;
 
 interface SavedProject {
-  schemaVersion?: 1 | 2;
+  schemaVersion?: 1 | 2 | 3;
   version: 1 | string;
   appVersion?: string;
   projectName?: string;
@@ -210,6 +218,7 @@ interface SavedProject {
   layoutAnchors?: BoardLayoutAnchor[];
   measurements: SketchState["measurements"];
   materials?: Material[];
+  edgeBandingProfiles?: EdgeBandingProfile[];
   selectedId: number | null;
   selectedIds?: number[];
   selectedMeasurementId?: number | null;
@@ -244,6 +253,7 @@ type SavedBoard = Partial<Board> & {
   autoThickness?: LegacyAutoThicknessAxis;
   thicknessOverride?: number | null;
   depthOverride?: number | null;
+  laminate?: Partial<LaminateEdges>;
 };
 
 interface PiecePreset {
@@ -365,17 +375,6 @@ function normalizedLayoutAnchors(layoutAnchors?: BoardLayoutAnchor[]): BoardLayo
   }).map((anchor) => ({ ...anchor, offset: Math.round(anchor.offset) }));
 }
 
-function defaultLaminate(): LaminateEdges {
-  return { left: false, right: false, top: false, bottom: false, front: false, back: false };
-}
-
-function normalizeLaminate(laminate: Partial<LaminateEdges> | undefined): LaminateEdges {
-  return {
-    ...defaultLaminate(),
-    ...laminate
-  };
-}
-
 function defaultPieceName(id: number): string {
   return `P${id}`;
 }
@@ -447,7 +446,7 @@ function withDefaults(board: SavedBoard): Board {
     orientation,
     kind,
     materialId,
-    laminate: normalizeLaminate(board.laminate),
+    ...normalizeBoardBanding(board),
     ignoreInOrder: board.ignoreInOrder ?? false,
     group: board.group ?? 0
   };
@@ -470,33 +469,6 @@ function nextLayoutAnchorId(layoutAnchors = state.layoutAnchors): number {
   return Math.max(0, ...layoutAnchors.map((anchor) => anchor.id)) + 1;
 }
 
-function laminateKey(laminate: LaminateEdges): string {
-  return laminateEdgeOrder
-    .filter((edge) => laminate[edge])
-    .join(",") || "none";
-}
-
-function laminateLabel(laminate: LaminateEdges): string {
-  const edges = laminateEdgeOrder.filter((edge) => laminate[edge]);
-  return edges.length ? edges.map((edge) => edgeLabel(edge)).join(", ") : t("metrics.none");
-}
-
-function laminateOrderLabel(board: Board): string {
-  const rect = rectFromBoard(board);
-  const edgeLengths: Array<[keyof LaminateEdges, number]> = [
-    ["left", rect.h],
-    ["right", rect.h],
-    ["top", rect.w],
-    ["bottom", rect.w],
-    ["front", rect.w],
-    ["back", rect.w]
-  ];
-  const labels = edgeLengths
-    .filter(([edge]) => board.laminate[edge])
-    .map(([edge, length]) => `${edgeLabel(edge)} ${mm(length)}`);
-  return labels.length ? labels.join(", ") : t("metrics.none");
-}
-
 function edgeLabel(edge: keyof LaminateEdges | BoardEdge): string {
   const labels: Record<keyof LaminateEdges | BoardEdge, string> = {
     left: t("inspector.left"),
@@ -507,6 +479,90 @@ function edgeLabel(edge: keyof LaminateEdges | BoardEdge): string {
     back: t("inspector.back")
   };
   return labels[edge];
+}
+
+function bandingNumber(value: number): string {
+  return new Intl.NumberFormat(document.documentElement.lang || "en", { maximumFractionDigits: 3 }).format(value);
+}
+
+function physicalSizeLabel(dimensions: PieceDimensions): string {
+  return `${bandingNumber(dimensions.width)} × ${bandingNumber(dimensions.height)} × ${bandingNumber(dimensions.thickness)} mm`;
+}
+
+function bandingProfileLabel(profile: EdgeBandingProfile | null): string {
+  if (!profile) return t("metrics.none");
+  return `${profile.type === "veneer" ? t("banding.veneer") : profile.type} · ${profile.decor} · ${bandingNumber(profile.thickness)} mm`;
+}
+
+function bandingProfileOptions(): string {
+  return [
+    `<option value="matching-08">${escapeHtml(t("banding.matching", { thickness: bandingNumber(0.8) }))}</option>`,
+    `<option value="matching-2">${escapeHtml(t("banding.matching", { thickness: 2 }))}</option>`,
+    ...state.edgeBandingProfiles.map((profile) => `<option value="${escapeHtml(profile.id)}">${escapeHtml(bandingProfileLabel(profile))}</option>`)
+  ].join("");
+}
+
+function profileForChoice(choice: string, board: Board): EdgeBandingProfile | null {
+  if (choice === "matching-08" || choice === "matching-2") {
+    const thickness = choice === "matching-08" ? 0.8 : 2;
+    return { id: `match-${board.materialId}-${thickness}`, type: "ABS", decor: materialName(board.materialId), thickness };
+  }
+  return state.edgeBandingProfiles.find((profile) => profile.id === choice) ?? null;
+}
+
+function legacyBandingLabel(board: Board): string {
+  return board.legacyLaminate
+    ? legacyLaminateEdges.filter((edge) => board.legacyLaminate![edge]).map(edgeLabel).join(", ")
+    : "";
+}
+
+function grainLabel(board: Board): string {
+  return t(board.grainDirection === "a" ? "banding.grainA" : board.grainDirection === "b" ? "banding.grainB" : "banding.grainNone");
+}
+
+function updateBandingInspector(boards: Board[]): void {
+  const first = boards[0];
+  if (bandingBrush !== "matching-08" && bandingBrush !== "matching-2" && !state.edgeBandingProfiles.some((profile) => profile.id === bandingBrush)) bandingBrush = "matching-2";
+  const options = bandingProfileOptions();
+  ui.bandingProfileInput.innerHTML = options;
+  ui.bandingProfileInput.value = bandingBrush;
+  ui.bandingPresets.querySelector<HTMLButtonElement>("[data-banding-preset='front']")!.hidden = !boards.every((board) => frontBandingEdge(board));
+  edgeBandingEdges.forEach((edge) => {
+    const direction = commonValue(boards, (board) => bandingEdgeDirection(board, edge));
+    const name = direction ? `${edgeLabel(direction as keyof LaminateEdges)} · ${edge.toUpperCase()}` : `${edge.toUpperCase()} · ${t("banding.mixedNames")}`;
+    const length = commonValue(boards, (board) => String(bandingEdgeLength(board, edge)));
+    const lengthLabel = length === null ? t("common.mixed") : `${bandingNumber(Number(length))} mm`;
+    const commonProfile = commonValue(boards, (board) => bandingProfileKey(board.edgeBanding[edge]));
+    const profile = first.edgeBanding[edge];
+    const label = commonProfile === null ? t("common.mixed") : bandingProfileLabel(profile);
+    const button = ui.bandingDiagram.querySelector<HTMLButtonElement>(`[data-banding-edge='${edge}']`)!;
+    const pressed = commonProfile === null ? "mixed" : profile ? "true" : "false";
+    button.setAttribute("aria-pressed", pressed);
+    button.setAttribute("aria-label", `${name}, ${lengthLabel}, ${label}`);
+    button.title = `${name}: ${label}`;
+    button.innerHTML = `<span>${escapeHtml(name)}</span><span>${escapeHtml(lengthLabel)}</span><span>${escapeHtml(commonProfile === null ? t("common.mixed") : profile ? `${bandingNumber(profile.thickness)} mm` : t("metrics.none"))}</span>`;
+    ui.bandingBoardFace.classList.toggle(`banded-${edge}`, boards.some((board) => board.edgeBanding[edge]));
+    const edgeLabelElement = query<HTMLElement>(`#bandingLabel-${edge}`);
+    edgeLabelElement.textContent = `${name} · ${lengthLabel}`;
+    const select = ui.bandingEdgeFields.querySelector<HTMLSelectElement>(`[data-banding-input='${edge}']`)!;
+    const selected = commonProfile === null ? "" : profile ? "current" : "none";
+    select.innerHTML = `${selected !== "none" ? `<option value="${selected}" disabled>${escapeHtml(label)}</option>` : ""}<option value="none">${escapeHtml(t("metrics.none"))}</option>${options}`;
+    select.value = selected;
+    select.title = label;
+  });
+  const a = commonValue(boards, (board) => String(board.dimensions.width));
+  const b = commonValue(boards, (board) => String(board.dimensions.height));
+  ui.bandingBoardFace.innerHTML = `<span>${a === null ? "—" : bandingNumber(Number(a))} × ${b === null ? "—" : bandingNumber(Number(b))}</span><span>A →<br>B ↓</span>`;
+  ui.grainInput.value = commonValue(boards, (board) => board.grainDirection) ?? "";
+  const finished = commonValue(boards, (board) => physicalSizeLabel(board.dimensions));
+  const core = commonValue(boards, (board) => physicalSizeLabel(nominalCoreDimensions(board)));
+  const needsReview = boards.some((board) => board.bandingNeedsReview);
+  const invalidCore = boards.some((board) => bandingOrderIssue(board) === "invalidCore" || nominalCoreDimensions(board).width <= 0 || nominalCoreDimensions(board).height <= 0);
+  ui.bandingDimensions.innerHTML = `<div><span>${escapeHtml(t(needsReview ? "banding.projectSize" : "banding.finished"))}</span><strong>${escapeHtml(finished ?? t("common.mixed"))}</strong></div><div${invalidCore ? ' class="banding-invalid"' : ""}><span>${escapeHtml(t("banding.core"))}</span><strong>${escapeHtml(core ?? t("common.mixed"))}</strong></div>${boards.length > 1 ? `<small>${escapeHtml(t("banding.multiNote"))}</small>` : ""}`;
+  ui.bandingReview.hidden = !needsReview && !invalidCore;
+  ui.bandingReviewText.innerHTML = `${invalidCore ? escapeHtml(t("banding.invalidCore")) : ""}${needsReview ? `<div>${escapeHtml(t(boards.some((board) => board.legacyLaminate) ? "banding.review" : "banding.reviewRequired"))}</div>${boards.filter((board) => board.legacyLaminate).map((board) => `<div><strong>${escapeHtml(board.name)}</strong>: ${escapeHtml(legacyBandingLabel(board))}</div>`).join("")}` : ""}`;
+  ui.confirmBandingBtn.hidden = !needsReview;
+  ui.confirmBandingBtn.disabled = invalidCore;
 }
 
 function escapeHtml(value: string): string {
@@ -636,7 +692,7 @@ function addBoard(partial: Partial<Board> & { kind: BoardKind; orientation: Piec
     orientation: partial.orientation,
     kind: partial.kind,
     materialId: partial.materialId ?? defaultMaterialId,
-    laminate: normalizeLaminate(partial.laminate),
+    ...normalizeBoardBanding(partial),
     ignoreInOrder: partial.ignoreInOrder ?? false,
     group: 0
   };
@@ -919,7 +975,7 @@ function redo(): void {
 
 function serializeProject(): SavedProject {
   return cloneProject({
-    schemaVersion: 2,
+    schemaVersion: 3,
     version: appVersion,
     appVersion,
     projectName: state.projectName,
@@ -928,6 +984,7 @@ function serializeProject(): SavedProject {
     layoutAnchors: state.layoutAnchors,
     measurements: state.measurements,
     materials: state.materials,
+    edgeBandingProfiles: state.edgeBandingProfiles,
     selectedId: state.selectedId,
     selectedIds: state.selectedIds,
     selectedMeasurementId: state.selectedMeasurementId,
@@ -954,6 +1011,8 @@ function applyProject(project: SavedProject, recordHistory = true): void {
   if (recordHistory) remember();
   state.projectName = normalizeProjectName(project.projectName);
   state.materials = normalizedMaterials(project.materials);
+  const profiles = (project.edgeBandingProfiles ?? []).map(normalizeBandingProfile).filter((profile): profile is EdgeBandingProfile => profile !== null);
+  state.edgeBandingProfiles = profiles.filter((profile, index) => profiles.findIndex((item) => item.id === profile.id) === index);
   state.thickness = normalizePositiveNumber(project.thickness, state.thickness);
   state.depth = normalizePositiveNumber(project.depth, state.depth);
   state.boards = (project.boards ?? []).map(withDefaults);
@@ -996,7 +1055,7 @@ function applyProject(project: SavedProject, recordHistory = true): void {
 }
 
 function isSupportedProject(project: SavedProject): boolean {
-  return [1, 2].includes(project.schemaVersion ?? (project.version === 1 ? 1 : 2)) && Array.isArray(project.boards);
+  return [1, 2, 3].includes(project.schemaVersion ?? (project.version === 1 ? 1 : 2)) && Array.isArray(project.boards);
 }
 
 function autosaveProject(): void {
@@ -1261,12 +1320,7 @@ function updateInspector(): void {
   syncMaterialSelect();
   setInputValue(ui.depthOverrideInput, depthOverride, t("common.mixed"));
   ui.materialLabelSwatch.style.background = materialId ? materialColor(materialId) : "transparent";
-  setCheckboxValue(ui.laminateLeftInput, commonValue(boards, (item) => String(item.laminate.left)) === null ? null : boards[0].laminate.left);
-  setCheckboxValue(ui.laminateRightInput, commonValue(boards, (item) => String(item.laminate.right)) === null ? null : boards[0].laminate.right);
-  setCheckboxValue(ui.laminateTopInput, commonValue(boards, (item) => String(item.laminate.top)) === null ? null : boards[0].laminate.top);
-  setCheckboxValue(ui.laminateBottomInput, commonValue(boards, (item) => String(item.laminate.bottom)) === null ? null : boards[0].laminate.bottom);
-  setCheckboxValue(ui.laminateFrontInput, commonValue(boards, (item) => String(item.laminate.front)) === null ? null : boards[0].laminate.front);
-  setCheckboxValue(ui.laminateBackInput, commonValue(boards, (item) => String(item.laminate.back)) === null ? null : boards[0].laminate.back);
+  updateBandingInspector(boards);
   setCheckboxValue(ui.ignoreOrderInput, commonValue(boards, (item) => String(item.ignoreInOrder)) === null ? null : boards[0].ignoreInOrder);
   updateLayoutBalanceControls();
 }
@@ -1405,12 +1459,7 @@ function renderMeasurements(): void {
 
 function renderWarnings(): void {
   const overlaps = computeOverlaps(state.boards);
-  if (!overlaps.length) {
-    ui.warningList.innerHTML = `<div class="empty-state">${escapeHtml(t("metrics.noOverlaps"))}</div>`;
-    return;
-  }
-
-  ui.warningList.innerHTML = overlaps.map((overlap) => {
+  const warnings = overlaps.map((overlap) => {
     const [a, b] = overlap.boardIds.map((id) => state.boards.find((board) => board.id === id)?.name ?? defaultPieceName(id));
     return `
       <div class="warning-card">
@@ -1419,7 +1468,12 @@ function renderWarnings(): void {
         <span>${mm(overlap.w)} × ${mm(overlap.h)}</span>
       </div>
     `;
-  }).join("");
+  });
+  state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
+    const issue = bandingOrderIssue(board);
+    if (issue) warnings.push(`<div class="warning-card"><strong>${escapeHtml(board.name)} · ${escapeHtml(t("banding.title"))}</strong><span>${escapeHtml(t(issue === "review" ? "banding.reviewRequired" : "banding.invalidCore"))}</span></div>`);
+  });
+  ui.warningList.innerHTML = warnings.join("") || `<div class="empty-state">${escapeHtml(t("metrics.noOverlaps"))}</div>`;
 }
 
 function renderCutList(): void {
@@ -1428,21 +1482,17 @@ function renderCutList(): void {
 }
 
 function cutListHtml(boards: Board[], emptyMessage: string): string {
-  const grouped = new Map<string, Board[]>();
-  boards.forEach((board) => {
-    const cutout = boardCutoutDimensions(board);
-    const key = `${cutout.thickness}×${cutout.width}×${cutout.height}×${board.materialId}×${laminateKey(board.laminate)}`;
-    grouped.set(key, [...(grouped.get(key) ?? []), board]);
-  });
-
-  return [...grouped.entries()].map(([key, boards]) => {
-    const [thickness, width, height, materialId] = key.split("×");
-    const laminate = laminateOrderLabel(boards[0]);
+  return groupOrderBoards(boards).map((boards) => {
+    const board = boards[0];
+    const issue = bandingOrderIssue(board);
     return `
       <div class="cut-card">
-        <strong><span class="count">${boards.length}×</span> ${width} × ${height} × ${thickness} mm</strong>
-        <span>${t("metrics.material")}: ${escapeHtml(materialName(materialId))}</span>
-        <span>${t("metrics.laminate")}: ${laminate}</span>
+        <strong><span class="count">${boards.length}×</span> ${physicalSizeLabel(board.dimensions)}</strong>
+        <span>${t("metrics.material")}: ${escapeHtml(materialName(board.materialId))}</span>
+        <span>${t("banding.grain")}: ${escapeHtml(grainLabel(board))}</span>
+        ${orderEdgeDiagram(board)}
+        <div class="cut-banding">${edgeBandingEdges.map((edge) => `<span>${edge.toUpperCase()} · ${bandingNumber(bandingEdgeLength(board, edge))} mm: ${escapeHtml(bandingProfileLabel(board.edgeBanding[edge]))}</span>`).join("")}</div>
+        ${issue ? `<div class="banding-review">${escapeHtml(t(issue === "review" ? "banding.reviewRequired" : "banding.invalidCore"))}${board.legacyLaminate ? `<div>${escapeHtml(legacyBandingLabel(board))}</div>` : ""}</div>` : ""}
         <div class="cut-card-pieces">${boards.map((board) => `
           <button class="cut-piece-button" type="button" data-board-id="${board.id}" title="${escapeHtml(t("order.selectPiece", { name: board.name }))}">
             ${escapeHtml(board.name)}
@@ -1451,6 +1501,21 @@ function cutListHtml(boards: Board[], emptyMessage: string): string {
       </div>
     `;
   }).join("") || `<div class="empty-state">${emptyMessage}</div>`;
+}
+
+function orderEdgeDiagram(board: Board): string {
+  return `<div class="order-edge-diagram" role="img" aria-label="${escapeHtml(edgeBandingEdges.map((edge) => `${edge.toUpperCase()}: ${bandingProfileLabel(board.edgeBanding[edge])}`).join("; "))}">${edgeBandingEdges.map((edge) => `<div class="${edge}${board.edgeBanding[edge] ? " edge-active" : ""}">${edge.toUpperCase()}</div>`).join("")}</div>`;
+}
+
+function checkOrderReady(): boolean {
+  const unresolved = state.boards.filter((board) => !board.ignoreInOrder && bandingOrderIssue(board));
+  if (!unresolved.length) return true;
+  setSelection([unresolved[0].id]);
+  woodOrderOpen = false;
+  state.lastSnap = t("banding.exportBlocked", { pieces: unresolved.map((board) => board.name).join(", ") });
+  refresh();
+  notify(state.lastSnap);
+  return false;
 }
 
 function renderAnchorOverlay(): void {
@@ -1713,6 +1778,7 @@ function effectiveThicknessWithDefault(board: Board, defaultThickness: number): 
 }
 
 function exportCutListCsv(): void {
+  if (!checkOrderReady()) return;
   const csv = cutListCsv();
   downloadTextFile(
     csv,
@@ -1725,6 +1791,7 @@ function exportCutListCsv(): void {
 }
 
 async function copyCutListCsv(): Promise<void> {
+  if (!checkOrderReady()) return;
   try {
     await copyText(cutListCsv());
     state.lastSnap = t("status.pieceListCsvCopied");
@@ -1737,6 +1804,7 @@ async function copyCutListCsv(): Promise<void> {
 }
 
 function printCutListTable(): void {
+  if (!checkOrderReady()) return;
   const rows = cutListRows();
   const title = `${state.projectName || t("app.name")} - ${t("panels.woodOrder")}`;
   const printUrl = URL.createObjectURL(new Blob([cutListPrintHtml(rows, title)], { type: "text/html" }));
@@ -1808,6 +1876,7 @@ function restoreAfterSketchPrint(): void {
 function cutListPrintHtml(rows: string[][], title: string): string {
   const header = rows[0];
   const bodyRows = rows.slice(1);
+  const groups = groupOrderBoards(state.boards.filter((board) => !board.ignoreInOrder));
   return `
     <!doctype html>
     <html>
@@ -1817,23 +1886,30 @@ function cutListPrintHtml(rows: string[][], title: string): string {
         <style>
           body { color: #202522; font-family: Arial, sans-serif; margin: 24px; }
           h1 { font-size: 20px; margin: 0 0 16px; }
-          table { border-collapse: collapse; font-size: 12px; width: 100%; }
+          p { font-size: 12px; }
+          table { border-collapse: collapse; font-size: 10px; width: 100%; }
           th, td { border: 1px solid #9aa59d; padding: 6px 8px; text-align: left; vertical-align: top; }
           th { background: #eef4f1; font-weight: 700; }
           td:first-child, th:first-child,
           td:nth-child(2), th:nth-child(2),
           td:nth-child(3), th:nth-child(3),
           td:nth-child(4), th:nth-child(4) { text-align: right; white-space: nowrap; }
+          .order-edge-diagram { background: #eee5d4; border: 1px solid #9aa59d; display: grid; font-size: 9px; grid-template-columns: 20px 35px 20px; grid-template-rows: 16px 30px 16px; text-align: center; width: 75px; }
+          .a1 { grid-column: 2; grid-row: 1; } .a2 { grid-column: 2; grid-row: 3; } .b1 { grid-column: 1; grid-row: 2; } .b2 { grid-column: 3; grid-row: 2; }
+          .edge-active { background: #f5d6a4; font-weight: bold; }
+          tr { break-inside: avoid; }
+          @page { size: landscape; margin: 12mm; }
         </style>
       </head>
       <body>
         <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(t("banding.orderNote"))}</p>
         <table>
           <thead>
-            <tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}</tr>
+            <tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}<th>${escapeHtml(t("banding.csvSketch"))}</th></tr>
           </thead>
           <tbody>
-            ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}
+            ${bodyRows.map((row, index) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}<td>${orderEdgeDiagram(groups[index][0])}</td></tr>`).join("")}
           </tbody>
         </table>
         <script>
@@ -1853,44 +1929,31 @@ function cutListRows(): string[][] {
     [
       t("order.csvQuantity"),
       t("order.csvThickness"),
-      t("order.csvWidth"),
-      t("order.csvHeight"),
+      t("banding.csvA"),
+      t("banding.csvB"),
       t("order.csvMaterial"),
-      t("order.csvLaminateEdges"),
+      t("banding.csvBasis"),
+      t("banding.csvGrain"),
+      ...edgeBandingEdges.map((edge) => t(`banding.csv${edge.toUpperCase()}`)),
       t("order.csvPieces")
     ]
   ];
-  const grouped = new Map<string, Board[]>();
-  state.boards.filter((board) => !board.ignoreInOrder).forEach((board) => {
-    const cutout = boardCutoutDimensions(board);
-    const key = `${cutout.thickness}×${cutout.width}×${cutout.height}×${board.materialId}×${laminateKey(board.laminate)}`;
-    grouped.set(key, [...(grouped.get(key) ?? []), board]);
-  });
-
-  grouped.forEach((boards, key) => {
-    const [thickness, width, height, materialId] = key.split("×");
+  groupOrderBoards(state.boards.filter((board) => !board.ignoreInOrder)).forEach((boards) => {
+    const board = boards[0];
     rows.push([
       String(boards.length),
-      thickness,
-      width,
-      height,
-      materialName(materialId),
-      laminateLabel(boards[0].laminate),
+      String(board.dimensions.thickness),
+      String(board.dimensions.width),
+      String(board.dimensions.height),
+      materialName(board.materialId),
+      t("banding.csvFinished"),
+      grainLabel(board),
+      ...edgeBandingEdges.map((edge) => bandingProfileLabel(board.edgeBanding[edge])),
       boards.map((board) => board.name).join("; ")
     ]);
   });
 
   return rows;
-}
-
-function boardCutoutDimensions(board: Board): { thickness: number; width: number; height: number } {
-  const dimensions = physicalDimensions(board);
-
-  return {
-    thickness: Math.round(dimensions.thickness),
-    width: Math.round(dimensions.width),
-    height: Math.round(dimensions.height)
-  };
 }
 
 async function copyText(text: string): Promise<void> {
@@ -2034,21 +2097,40 @@ function addCustomMaterial(): void {
   refresh();
 }
 
-function updateLaminateFromInspector(): void {
-  const boards = selectedBoards(state);
-  if (!boards.length) return;
+function applyBandingChanges(changes: Array<{ board: Board; edge: EdgeBandingEdge; profile: EdgeBandingProfile | null }>): void {
+  if (!changes.some(({ board, edge, profile }) => bandingProfileKey(board.edgeBanding[edge]) !== bandingProfileKey(profile))) return;
+  remember();
+  changes.forEach(({ board, edge, profile }) => setBoardEdgeBanding(board, edge, profile));
+  state.lastSnap = t("banding.updated");
+  refresh();
+}
+
+function addCustomBandingProfile(): void {
+  const profile = normalizeBandingProfile({ id: `band-${crypto.randomUUID()}`, type: ui.bandingTypeInput.value, decor: ui.bandingDecorInput.value, thickness: Number(ui.bandingThicknessInput.value) });
+  if (!profile) {
+    notify(t("banding.profileInvalid"));
+    return;
+  }
+  const existing = state.edgeBandingProfiles.find((item) => bandingProfileKey(item) === bandingProfileKey(profile));
+  if (!existing) {
+    remember();
+    state.edgeBandingProfiles.push(profile);
+  }
+  bandingBrush = (existing ?? profile).id;
+  ui.bandingDecorInput.value = "";
+  state.lastSnap = t("banding.profileAdded");
+  refresh();
+}
+
+function confirmSelectedBanding(): void {
+  const boards = selectedBoards(state).filter((board) => board.bandingNeedsReview);
+  if (!boards.length || boards.some((board) => nominalCoreDimensions(board).width <= 0 || nominalCoreDimensions(board).height <= 0)) return;
   remember();
   boards.forEach((board) => {
-    board.laminate = {
-      left: ui.laminateLeftInput.checked,
-      right: ui.laminateRightInput.checked,
-      top: ui.laminateTopInput.checked,
-      bottom: ui.laminateBottomInput.checked,
-      front: ui.laminateFrontInput.checked,
-      back: ui.laminateBackInput.checked
-    };
+    board.bandingNeedsReview = false;
+    delete board.legacyLaminate;
   });
-  state.lastSnap = boards.length > 1 ? t("status.laminateSetOnBoards", { count: boards.length }) : t("status.laminateUpdated");
+  state.lastSnap = t("banding.confirmed");
   refresh();
 }
 
@@ -2328,7 +2410,7 @@ function duplicateSelectedBoards(): void {
       x: board.x + 35,
       y: board.y + 35,
       dimensions: { ...board.dimensions },
-      laminate: { ...board.laminate },
+      ...normalizeBoardBanding(board),
       group: 0
     };
   });
@@ -2873,8 +2955,38 @@ ui.materialForm.addEventListener("submit", (event) => {
   event.preventDefault();
   addCustomMaterial();
 }, listenerOptions);
-[ui.laminateLeftInput, ui.laminateRightInput, ui.laminateTopInput, ui.laminateBottomInput, ui.laminateFrontInput, ui.laminateBackInput]
-  .forEach((input) => input.addEventListener("change", updateLaminateFromInspector, listenerOptions));
+ui.bandingProfileInput.addEventListener("change", () => { bandingBrush = ui.bandingProfileInput.value; }, listenerOptions);
+ui.bandingDiagram.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-banding-edge]");
+  if (!button) return;
+  const edge = button.dataset.bandingEdge as EdgeBandingEdge;
+  const boards = selectedBoards(state);
+  const remove = commonValue(boards, (board) => bandingProfileKey(board.edgeBanding[edge])) !== null && Boolean(boards[0]?.edgeBanding[edge]);
+  applyBandingChanges(boards.map((board) => ({ board, edge, profile: remove ? null : profileForChoice(bandingBrush, board) })));
+}, listenerOptions);
+ui.bandingEdgeFields.addEventListener("change", (event) => {
+  const select = event.target as HTMLSelectElement;
+  if (!select.dataset.bandingInput || !select.value || select.value === "current") return;
+  const edge = select.dataset.bandingInput as EdgeBandingEdge;
+  applyBandingChanges(selectedBoards(state).map((board) => ({ board, edge, profile: profileForChoice(select.value, board) })));
+}, listenerOptions);
+ui.bandingPresets.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-banding-preset]");
+  if (!button) return;
+  const preset = button.dataset.bandingPreset;
+  applyBandingChanges(selectedBoards(state).flatMap((board) => edgeBandingEdges.map((edge) => ({ board, edge, profile: preset === "all" || (preset === "front" && edge === frontBandingEdge(board)) ? profileForChoice(bandingBrush, board) : null }))));
+}, listenerOptions);
+ui.addBandingProfileBtn.addEventListener("click", addCustomBandingProfile, listenerOptions);
+ui.confirmBandingBtn.addEventListener("click", confirmSelectedBanding, listenerOptions);
+ui.grainInput.addEventListener("change", () => {
+  const direction = ui.grainInput.value;
+  if (direction !== "none" && direction !== "a" && direction !== "b") return;
+  const boards = selectedBoards(state);
+  if (!boards.length || boards.every((board) => board.grainDirection === direction)) return;
+  remember();
+  boards.forEach((board) => { board.grainDirection = direction; });
+  refresh();
+}, listenerOptions);
 ui.ignoreOrderInput.addEventListener("change", updateOrderInclusionFromInspector, listenerOptions);
 ui.measureRenameForm.addEventListener("submit", (event) => {
   event.preventDefault();
